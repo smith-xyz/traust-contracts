@@ -61,3 +61,8 @@ def enum_path(name: str, version: str = "v1") -> Path:
     if not p.is_file():
         raise FileNotFoundError(f"no such enum: {p}")
     return p
+
+
+def storage_dir(version: str = "v1") -> Path:
+    """Directory containing the authored storage SQL and write semantics."""
+    return package_root() / "storage" / version

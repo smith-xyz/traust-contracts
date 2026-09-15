@@ -1,0 +1,45 @@
+INSERT INTO finding (
+    layer_id,
+    target,
+    scanned_at,
+    finding_id,
+    title,
+    severity,
+    description,
+    category,
+    file,
+    line,
+    cwe,
+    recommendation,
+    confidence,
+    artifact_digest
+)
+VALUES (
+    :layer_id,
+    :target,
+    :scanned_at,
+    :finding_id,
+    :title,
+    :severity,
+    :description,
+    :category,
+    :file,
+    :line,
+    :cwe,
+    :recommendation,
+    :confidence,
+    :artifact_digest
+)
+ON CONFLICT (layer_id, finding_id) DO UPDATE SET
+    target = EXCLUDED.target,
+    scanned_at = EXCLUDED.scanned_at,
+    title = EXCLUDED.title,
+    severity = EXCLUDED.severity,
+    description = EXCLUDED.description,
+    category = EXCLUDED.category,
+    file = EXCLUDED.file,
+    line = EXCLUDED.line,
+    cwe = EXCLUDED.cwe,
+    recommendation = EXCLUDED.recommendation,
+    confidence = EXCLUDED.confidence,
+    artifact_digest = EXCLUDED.artifact_digest;

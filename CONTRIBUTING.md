@@ -47,13 +47,21 @@ Run `uv lock` when changing dependencies. CI validates on MR. On merge to main, 
 
 ## Compatibility tests
 
-`tests/test_compat.py` gates breaking schema/vector changes. For intentional major bumps:
+`tests/test_compat.py` gates breaking JSON Schema changes. For intentional major bumps:
 
 ```bash
 CONTRACTS_ALLOW_BREAKING=1 uv run pytest tests/ -q
 ```
 
+SQL changes require compatibility review, not byte-level equality. Database-shape
+changes need a storage revision bump and explicit migration instructions; `init()`
+rejects mismatches and never upgrades an existing database automatically.
+
 ## CI pipeline
+
+PostgreSQL storage tests use `traust:traust-test-only@127.0.0.1:5432/traust_test`.
+Start with `podman pull docker.io/library/postgres:16`, then run the image with those values.
+Tests warn and skip when the database or `psycopg` is unavailable.
 
 **PR:** lint → conventional commits → release-ready → tests
 

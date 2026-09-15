@@ -2,7 +2,7 @@ PYTHON ?= python3
 RELEASE := ./release.py
 BUMP_PARTS := patch minor major
 
-.PHONY: help setup sync hooks lint lint-fix test check-release status bump $(BUMP_PARTS)
+.PHONY: help setup sync hooks lint lint-fix test storage-check check-release status bump $(BUMP_PARTS)
 
 help:
 	@echo "Targets ($(notdir $(CURDIR))):"
@@ -11,7 +11,7 @@ help:
 	@echo "  make hooks          — git config core.hooksPath .githooks"
 	@echo "  make lint           — ruff check + format --check"
 	@echo "  make lint-fix       — ruff check --fix + format"
-	@echo "  make test           — pytest unit tests"
+	@echo "  make test           — pytest tests (PostgreSQL optional)"
 	@echo "  make check-release  — VERSION + CHANGELOG gate for current branch vs main"
 	@echo "  make status         — current version, tag, git state"
 	@echo "  make bump patch|minor|major — bump VERSION + pyproject.toml"
@@ -33,6 +33,9 @@ lint:
 lint-fix:
 	uv run ruff check --fix .
 	uv run ruff format .
+
+storage-check:
+	uv run pytest tests/test_storage_sql.py tests/test_compat.py -q
 
 test:
 	uv run pytest tests/ -q

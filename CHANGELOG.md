@@ -2,6 +2,26 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.2.0]
+
+- Add SQL-first `storage/v1`: authored SQLite/PostgreSQL schema, upserts and
+  dashboard views, with relational projections for all 27 artifact schemas.
+- Export `traust_contracts.storage.Store`, `IngestResult` and `IngestError`:
+  exact-byte evidence, atomic projections, race-safe digest idempotency and
+  revision preflight. SQLite uses stdlib; PostgreSQL uses the optional existing
+  `postgres` extra.
+- Ship authored SQL in wheels/sdists. Tests use focused inputs, not packaged
+  conformance snapshots or generated fixtures. An explicit PostgreSQL test target
+  loads `storage.yaml` from an explicitly selected test config home; CI integration remains pending.
+- Add optional `storage.yaml` to the canonical config manifest, schema and typed
+  context. Runtime callers and tests share the loader; no per-setting environment overrides.
+- Use a live, scoped PostgreSQL dashboard instead of a materialized view.
+  Storage revision 2 rejects mismatched databases rather than implying migrations.
+- Keep evidence out of normal exception messages and tracebacks; explicit
+  `IngestError.payload` access remains available for reject handling.
+- Remove blanket SQL byte-pinning; SQL compatibility requires review, while the
+  existing JSON Schema compatibility gate remains unchanged.
+
 ## [0.1.1]
 
 ## Changes

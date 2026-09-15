@@ -27,7 +27,7 @@ from typing import Any
 
 import jsonschema
 import yaml
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from traust_contracts.paths import config_schema_path
 
@@ -324,6 +324,12 @@ class RpmDistgitWatch(_Section):
     active: list[Any]
 
 
+class StorageConfig(_Section):
+    """Caller-owned database connection URI from storage.yaml; no environment overrides."""
+
+    dsn: str = Field(repr=False)
+
+
 class Locations(_Section):
     """Where the harness reads/writes runtime data. Estate config, not engine
     knowledge — every field is a local path or a location URI. Owned wholly by
@@ -415,6 +421,7 @@ MANIFEST: tuple[ConfigFile, ...] = (
         RpmDistgitWatch,
     ),
     ConfigFile("locations.yaml", "locations", False, "yaml", "locations", Locations),
+    ConfigFile("storage.yaml", "storage", False, "yaml", "storage", StorageConfig),
 )
 
 
@@ -447,6 +454,7 @@ class HarnessContext(BaseModel):
     #: providing a key or via keyless/OIDC + LAAS_SIGNING_REQUIRED=1.
     signing_pubkey: Path | None = None
     locations: Locations | None = None
+    storage: StorageConfig | None = None
     budget_policy: BudgetPolicy | None = None
     product_map: ProductDefinitionsMap | None = None
     rule_pack_allowlist: RulePackAllowlist | None = None

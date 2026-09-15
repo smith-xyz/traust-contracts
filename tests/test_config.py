@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 import shutil
 from pathlib import Path
 
+import jsonschema
 import pytest
 import yaml
 
@@ -12,6 +14,7 @@ from traust_contracts.config import (
     MANIFEST,
     TRAUST_CONFIG_HOME_ENV,
     DeploymentConfigMissing,
+    StorageConfig,
     config_completeness_audit,
     config_path,
     deployment_config_dir,
@@ -43,6 +46,7 @@ def test_manifest_covers_harness_context_sections():
         "internal_vocabulary",
         "hardening_risk_weights",
         "rpm_distgit_watch",
+        "storage",
     }
     assert manifest_sections == required
 
@@ -130,3 +134,55 @@ def test_config_path_fails_when_home_unset(monkeypatch):
     monkeypatch.setattr("traust_contracts.config.deployment_config_dir", lambda: None)
     with pytest.raises(DeploymentConfigMissing, match=r"feeds.yaml"):
         config_path("feeds.yaml")
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "postgresql://localhost/test",
+        "postgres://user:private-password@localhost/test",
+        "sqlite:///:memory:",
+        "sqlite:////absolute/path/audit.db",
+    ],
+)
+def test_storage_section_uses_canonical_loader(tmp_path: Path, dsn: str) -> None:
+    path = tmp_path / "storage.yaml"
+    path.write_text(yaml.safe_dump({"dsn": dsn}), encoding="utf-8")
+    section = load_section("storage", config_home=tmp_path, required=True)
+    assert isinstance(section, StorageConfig)
+    assert section.dsn == dsn
+    assert section.source_sha == hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    assert load_section("storage.yaml", config_home=tmp_path) == section
+    assert dsn not in repr(section)
+
+
+def test_context_storage_is_optional(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    assert load_context(config_home=tmp_path).storage is None
+    (tmp_path / "storage.yaml").write_text(
+        yaml.safe_dump({"dsn": "sqlite:///:memory:"}), encoding="utf-8"
+    )
+    assert load_context(config_home=tmp_path).storage.dsn == "sqlite:///:memory:"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {"dsn": None},
+        {"dsn": 4},
+        {"dsn": ""},
+        {"dsn": "mysql://localhost/test"},
+        {"dsn": "postgresql://localhost/test", "test_dsn": "postgresql://localhost/other"},
+    ],
+)
+def test_storage_config_rejects_invalid_values(tmp_path: Path, data: dict) -> None:
+    (tmp_path / "storage.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(jsonschema.ValidationError):
+        load_section("storage", config_home=tmp_path)
+
+
+def test_storage_section_missing_required_vs_optional(tmp_path: Path) -> None:
+    assert load_section("storage", config_home=tmp_path) is None
+    with pytest.raises(DeploymentConfigMissing, match=r"storage.yaml"):
+        load_section("storage", config_home=tmp_path, required=True)
