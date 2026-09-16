@@ -45,6 +45,13 @@
         "$ref": "#/$defs/check"
       }
     },
+    "evidence": {
+      "description": "Typed base-versus-patch evidence. Each item states what kind of claim it makes and what was observed on the unpatched and patched revisions; an item may only claim 'proves' or 'fails_to_prove' if it recorded both observations, so a check that never ran cannot count as evidence. Distinct from 'checks' (local pass/fail with no before/after) and from 'revalidation' (which stays the live-validation channel). What each kind may legitimately conclude is bounded by the per-path evidence ceilings in the harness's docs/disposition-ledger.md \u00a78a.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/patch_evidence"
+      }
+    },
     "revalidation": {
       "$ref": "#/$defs/revalidation"
     },
@@ -420,6 +427,81 @@
           "type": "string"
         }
       }
+    },
+    "patch_evidence_kind": {
+      "type": "string",
+      "enum": [
+        "regression",
+        "mutation",
+        "property",
+        "scanner_differential",
+        "exploit"
+      ]
+    },
+    "patch_evidence": {
+      "type": "object",
+      "required": [
+        "kind",
+        "outcome"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/patch_evidence_kind"
+        },
+        "outcome": {
+          "type": "string",
+          "pattern": "^(proves|fails_to_prove|not_attempted: .+)$",
+          "description": "'proves' / 'fails_to_prove' require both observations (enforced below). 'not_attempted: <reason>' carries its reason inline, the same shape as deterministic_steps."
+        },
+        "base_observation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What was observed on the UNPATCHED revision, e.g. 'test_auth_bypass fails', 'mutant 7 survives at oauth.go:212'."
+        },
+        "patched_observation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What was observed on the PATCHED revision, at the same revision-pair and by the same command as base_observation."
+        },
+        "tool": {
+          "type": "string",
+          "description": "Tool and version that produced the observations, e.g. 'mewt 4.0.0', 'go test'."
+        },
+        "command": {
+          "type": "string",
+          "description": "Command actually executed, so a reader can re-run it."
+        },
+        "log_path": {
+          "type": "string"
+        },
+        "deterministic_steps": {
+          "type": "string",
+          "pattern": "^(ran|skipped: .+)$",
+          "description": "'ran' or 'skipped: <reason>' \u2014 the harness's existing answer to 'prove it ran'."
+        }
+      },
+      "allOf": [
+        {
+          "$comment": "A claim of proves/fails_to_prove requires both sides of the comparison. This is the rule that keeps an unexecuted check from being recorded as evidence.",
+          "if": {
+            "required": [
+              "outcome"
+            ],
+            "properties": {
+              "outcome": {
+                "pattern": "^(proves|fails_to_prove)$"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "base_observation",
+              "patched_observation"
+            ]
+          }
+        }
+      ]
     },
     "revalidation": {
       "type": "object",

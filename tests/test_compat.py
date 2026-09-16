@@ -14,7 +14,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -103,6 +103,76 @@ class TestBreakingChangeDetection:
 
         walk(schema, [], False)
         return found
+
+    @staticmethod
+    def _defs_reachable_only_via_new_properties(current: dict, old: dict) -> set:
+        """Names of `$defs` that no artifact of the OLD schema could reach.
+
+        A `$def` qualifies only when EVERY reference chain from the root to it
+        passes through a property absent from the old schema. Given
+        `additionalProperties: false`, an old artifact cannot carry a property
+        that did not exist, so a conditional requirement inside such a def can
+        never invalidate one.
+
+        Deliberately strict: reachable via even one pre-existing property (even
+        an optional one, since an old artifact may well have populated it) and
+        the def does not qualify.
+        """
+
+        def property_pointers(schema: dict) -> set:
+            found = set()
+
+            def walk(node, path):
+                if isinstance(node, dict):
+                    props = node.get("properties")
+                    if isinstance(props, dict):
+                        for name in props:
+                            found.add("/" + "/".join([*path, "properties", name]))
+                    for key, value in node.items():
+                        walk(value, [*path, str(key)])
+                elif isinstance(node, list):
+                    for i, item in enumerate(node):
+                        walk(item, [*path, str(i)])
+
+            walk(schema, [])
+            return found
+
+        old_props = property_pointers(old)
+        # (def_name -> set of bools: did this reference chain cross a new property?)
+        arrivals: dict[str, set] = {}
+
+        def walk(node, path, crossed_new, seen):
+            if isinstance(node, dict):
+                ref = node.get("$ref")
+                if isinstance(ref, str) and ref.startswith("#/$defs/"):
+                    name = ref[len("#/$defs/") :]
+                    arrivals.setdefault(name, set()).add(crossed_new)
+                    if name not in seen:
+                        target = (current.get("$defs") or {}).get(name)
+                        if isinstance(target, dict):
+                            walk(target, ["$defs", name], crossed_new, seen | {name})
+                for key, value in node.items():
+                    if key == "$defs":
+                        continue  # defs are visited through their refs only
+                    if key == "properties" and isinstance(value, dict):
+                        for name, sub in value.items():
+                            sub_path = [*path, "properties", name]
+                            ptr = "/" + "/".join(sub_path)
+                            is_new = crossed_new or ptr not in old_props
+                            walk(sub, sub_path, is_new, seen)
+                        continue
+                    walk(value, [*path, str(key)], crossed_new, seen)
+            elif isinstance(node, list):
+                for i, item in enumerate(node):
+                    walk(item, [*path, str(i)], crossed_new, seen)
+
+        walk(current, [], False, frozenset())
+        old_defs = set((old.get("$defs") or {}).keys())
+        return {
+            name
+            for name, flags in arrivals.items()
+            if name not in old_defs and flags and all(flags)
+        }
 
     @staticmethod
     def _collect_required(node: dict) -> set:
@@ -210,7 +280,13 @@ class TestBreakingChangeDetection:
             # conditional `required` rejects artifacts just as hard as a root one.
             old_conds = self._collect_conditional_required(old_schema)
             new_conds = self._collect_conditional_required(current_schema)
+            # A conditional inside a $def that no OLD artifact could reach cannot
+            # invalidate one. Without this, adding any new optional sub-object
+            # with an internal if/then reads as a MAJOR break.
+            unreachable = self._defs_reachable_only_via_new_properties(current_schema, old_schema)
             for pointer, fields in sorted(new_conds - old_conds):
+                if any(pointer.startswith(f"/$defs/{name}/") for name in unreachable):
+                    continue
                 breaking_changes.append(
                     f"{schema_file.name}{pointer}: new conditional requirement: {fields} "
                     "(artifacts not satisfying it become invalid)"
@@ -221,3 +297,108 @@ class TestBreakingChangeDetection:
             for change in breaking_changes:
                 msg += f"  - {change}\n"
             pytest.fail(msg)
+
+
+class TestConditionalReachability:
+    """The narrowing in `_defs_reachable_only_via_new_properties` must exempt
+    ONLY conditionals no old artifact could reach. These tests exist so the
+    exemption cannot quietly grow into "conditionals are fine".
+    """
+
+    H = TestBreakingChangeDetection
+
+    OLD: ClassVar[dict] = {
+        "type": "object",
+        "properties": {"kept": {"$ref": "#/$defs/kept"}},
+        "$defs": {"kept": {"type": "object", "properties": {"a": {"type": "string"}}}},
+    }
+
+    def test_new_def_behind_a_new_property_is_exempt(self):
+        """The 5a case: new optional property -> new def -> internal if/then."""
+        current = {
+            "type": "object",
+            "properties": {
+                "kept": {"$ref": "#/$defs/kept"},
+                "fresh": {"type": "array", "items": {"$ref": "#/$defs/fresh"}},
+            },
+            "$defs": {
+                "kept": self.OLD["$defs"]["kept"],
+                "fresh": {
+                    "type": "object",
+                    "allOf": [{"if": {}, "then": {"required": ["x"]}}],
+                },
+            },
+        }
+        assert "fresh" in self.H._defs_reachable_only_via_new_properties(current, self.OLD)
+
+    def test_new_def_swapped_in_behind_a_PRE_EXISTING_property_is_not_exempt(self):
+        """The unsound case: an existing property's $ref now points at a new def.
+
+        Old artifacts already carry `kept`, so they are immediately subject to
+        the new def's conditional. No new property stands between them and it.
+        """
+        current = {
+            "type": "object",
+            "properties": {"kept": {"$ref": "#/$defs/newkept"}},
+            "$defs": {
+                "kept": self.OLD["$defs"]["kept"],
+                "newkept": {
+                    "type": "object",
+                    "properties": {"a": {"type": "string"}},
+                    "allOf": [{"if": {}, "then": {"required": ["a"]}}],
+                },
+            },
+        }
+        assert "newkept" not in self.H._defs_reachable_only_via_new_properties(current, self.OLD)
+
+    def test_new_def_behind_a_new_property_of_an_existing_def_is_exempt(self):
+        """Chains may START at an old property: what matters is crossing a new one.
+
+        `kept` is pre-existing, but the only route to `sneaky` is the NEW
+        property `b`, and an old artifact cannot carry `b` under
+        additionalProperties: false.
+        """
+        current = {
+            "type": "object",
+            "properties": {"kept": {"$ref": "#/$defs/kept"}},
+            "$defs": {
+                "kept": {
+                    "type": "object",
+                    "properties": {"a": {"type": "string"}, "b": {"$ref": "#/$defs/sneaky"}},
+                },
+                "sneaky": {"type": "object", "allOf": [{"if": {}, "then": {"required": ["x"]}}]},
+            },
+        }
+        assert "sneaky" in self.H._defs_reachable_only_via_new_properties(current, self.OLD)
+
+    def test_conditional_added_to_an_existing_def_is_never_exempt(self):
+        """The case the gate exists for: tightening a def old artifacts use."""
+        current = {
+            "type": "object",
+            "properties": {"kept": {"$ref": "#/$defs/kept"}},
+            "$defs": {
+                "kept": {
+                    "type": "object",
+                    "properties": {"a": {"type": "string"}},
+                    "allOf": [{"if": {}, "then": {"required": ["a"]}}],
+                }
+            },
+        }
+        assert not self.H._defs_reachable_only_via_new_properties(current, self.OLD)
+        conds = self.H._collect_conditional_required(current)
+        assert conds - self.H._collect_conditional_required(self.OLD)
+
+    def test_def_reachable_by_both_a_new_and_an_old_path_is_not_exempt(self):
+        """All chains must be new; one pre-existing route is enough to disqualify."""
+        current = {
+            "type": "object",
+            "properties": {
+                "kept": {"$ref": "#/$defs/shared"},
+                "fresh": {"$ref": "#/$defs/shared"},
+            },
+            "$defs": {
+                "kept": self.OLD["$defs"]["kept"],
+                "shared": {"type": "object", "allOf": [{"if": {}, "then": {"required": ["x"]}}]},
+            },
+        }
+        assert "shared" not in self.H._defs_reachable_only_via_new_properties(current, self.OLD)

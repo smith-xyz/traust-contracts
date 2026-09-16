@@ -1,0 +1,15 @@
+{
+  "name": "patch_evidence_kind",
+  "source_schema": "remediation.schema.json#/$defs/patch_evidence_kind",
+  "description": "Kind of base-versus-patch evidence carried for a fix. What each kind may legitimately conclude is bounded by the per-path evidence ceilings in the harness's docs/disposition-ledger.md §8a; a kind that claims more than its ceiling is a defect in the kind.",
+  "values": [
+    "regression",
+    "mutation",
+    "property",
+    "scanner_differential",
+    "exploit"
+  ],
+  "used_in_schemas": [
+    "remediation.schema.json"
+  ]
+}

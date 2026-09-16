@@ -80,6 +80,24 @@ class Check(ContractModel):
     summary: str | None = None
 
 
+class PatchEvidence(ContractModel):
+    """One piece of base-versus-patch evidence for a fix.
+
+    `outcome` may claim proves/fails_to_prove only when both observations are
+    present; the schema enforces it. `not_attempted: <reason>` carries its
+    reason inline.
+    """
+
+    kind: str
+    outcome: str
+    base_observation: str | None = None
+    patched_observation: str | None = None
+    tool: str | None = None
+    command: str | None = None
+    log_path: str | None = None
+    deterministic_steps: str | None = None
+
+
 class Revalidation(ContractModel):
     performed: bool
     method: str | None = None
@@ -117,6 +135,7 @@ class Remediation(ContractModel):
     patch: Patch
     checks: list[Check]
     summary: RemediationSummary
+    evidence: list[PatchEvidence] = Field(default_factory=list)
     revalidation: Revalidation | None = None
     pull_request: PullRequest | None = None
     notes: str | None = None

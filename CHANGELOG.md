@@ -2,6 +2,42 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.3.0]
+
+## Changes
+
+- **Typed base-versus-patch patch evidence.** New optional `evidence[]` on
+  remediation reports, with `$defs/patch_evidence` and the
+  `patch_evidence_kind` enum (`regression`, `mutation`, `property`,
+  `scanner_differential`, `exploit`). Each item records what was observed on
+  the unpatched and the patched revision.
+
+  The load-bearing rule is a conditional: an item may claim
+  `outcome: proves` or `fails_to_prove` **only if both observations are
+  present**, so a check that never ran cannot be filed as evidence. Items that
+  were not attempted carry their reason inline (`not_attempted: <reason>`),
+  matching the existing `deterministic_steps` shape.
+
+  Additive and optional — `evidence` is absent from `required`, so every
+  existing remediation report stays valid. `revalidation` is untouched and
+  remains the live-validation channel: its `method` values and the new
+  evidence kinds are disjoint, so a mutation verdict can never be mistaken for
+  a live-validation verdict. What each kind may legitimately conclude is
+  bounded by the per-path evidence ceilings in the harness's
+  `docs/disposition-ledger.md` section 8a.
+
+- **The compatibility gate no longer reads a new optional sub-object as a
+  breaking change.** `test_no_breaking_changes_vs_previous_tag` flagged any
+  newly added conditional `required`, including one inside a brand-new `$def`
+  that no artifact of the previous tag could reach. It now exempts a
+  conditional only when EVERY reference chain from the schema root to its
+  containing `$def` crosses a property absent from the old schema — under
+  `additionalProperties: false`, an old artifact cannot carry such a property,
+  so the rule cannot invalidate it. Four tests pin the limits of the
+  exemption: a conditional tightened on an existing `$def`, a new `$def`
+  swapped in behind a pre-existing property, and a `$def` reachable by both a
+  new and an old path are all still reported.
+
 ## [0.2.0]
 
 - Add SQL-first `storage/v1`: authored SQLite/PostgreSQL schema, upserts and
