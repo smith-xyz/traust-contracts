@@ -235,3 +235,47 @@ def test_fixture_remains_exact(store: Store) -> None:
     result = store.ingest("vuln-findings", payload, run_binding())
     assert store.get_evidence(result.digest) == payload
     assert store.conn.execute("SELECT count(*) FROM finding").fetchone() == (5,)
+
+
+def test_patch_evidence_projects_into_a_queryable_column(store: Store) -> None:
+    """`evidence[]` (contracts 0.3.0/0.4.0) must reach the projection.
+
+    The exact bytes were always retained in artifact_evidence, so nothing was
+    ever lost — but the remediation/verification projections enumerated the
+    pre-0.3.0 field list, so typed base-vs-patch evidence could not be queried
+    alongside `checks` and `revalidation`. Anything reading SQL rather than
+    the payload blob saw fixes as though no evidence existed.
+    """
+    item = {
+        "kind": "mutation",
+        "outcome": "proves",
+        "base_observation": "mutant 7 survives at oauth.go:212",
+        "patched_observation": "19 caught, 0 uncaught",
+        "tool": "mewt 4.0.0",
+        "deterministic_steps": "ran",
+    }
+    for name in ("remediation", "verification"):
+        payload, _ = sample(name)
+        document = json.loads(payload)
+        document["evidence"] = [item]
+        result = store.ingest(name, encode(document), binding_for(name))
+
+        row = store.conn.execute(
+            f"SELECT evidence FROM {PROJECTION_TABLES[name]} WHERE binding_id = ?",
+            (result.binding_id,),
+        ).fetchone()
+        assert row is not None, f"{name} row missing"
+        assert json.loads(row[0]) == [item], f"{name} evidence not projected"
+
+
+def test_absent_patch_evidence_projects_as_null(store: Store) -> None:
+    """Optional means optional: a report without evidence still projects."""
+    for name in ("remediation", "verification"):
+        payload, _ = sample(name)
+        assert "evidence" not in json.loads(payload)
+        result = store.ingest(name, payload, binding_for(name))
+        row = store.conn.execute(
+            f"SELECT evidence FROM {PROJECTION_TABLES[name]} WHERE binding_id = ?",
+            (result.binding_id,),
+        ).fetchone()
+        assert row[0] is None

@@ -7,6 +7,7 @@ INSERT INTO verification (
     verified_findings,
     regressions,
     commit_timeline,
+    evidence,
     recommendations,
     notes,
     footer
@@ -19,6 +20,7 @@ INSERT INTO verification (
     %(verified_findings)s,
     %(regressions)s,
     %(commit_timeline)s,
+    %(evidence)s,
     %(recommendations)s,
     %(notes)s,
     %(footer)s

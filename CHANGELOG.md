@@ -2,6 +2,27 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [Unreleased]
+
+## Changes
+
+- **`evidence[]` now reaches the SQL projection.** The remediation and
+  verification projection tables enumerated the pre-0.3.0 field list, so the
+  typed base-vs-patch evidence added in 0.3.0/0.4.0 was ingested and then
+  invisible to anything querying SQL. Exact bytes were always retained in
+  `artifact_evidence`, so nothing was lost — but a reader of the projection
+  saw every fix as though no evidence existed.
+
+  Adds an optional `evidence` column to `remediation` and `verification` in
+  both dialects, wires it through both upserts, and declares it once in
+  `ONE_ROW_PROJECTIONS`. Nullable, mirroring `revalidation`: a report without
+  evidence still projects.
+
+- **Storage `REVISION` 1 -> 2.** A database created at revision 1 has no
+  `evidence` column, and this layer rejects mismatched databases rather than
+  migrating them, so the bump is what turns a silent write failure into the
+  documented "explicit migration required" error.
+
 ## [0.4.0]
 
 ## Changes
