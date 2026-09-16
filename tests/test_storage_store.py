@@ -238,14 +238,7 @@ def test_fixture_remains_exact(store: Store) -> None:
 
 
 def test_patch_evidence_projects_into_a_queryable_column(store: Store) -> None:
-    """`evidence[]` (contracts 0.3.0/0.4.0) must reach the projection.
-
-    The exact bytes were always retained in artifact_evidence, so nothing was
-    ever lost — but the remediation/verification projections enumerated the
-    pre-0.3.0 field list, so typed base-vs-patch evidence could not be queried
-    alongside `checks` and `revalidation`. Anything reading SQL rather than
-    the payload blob saw fixes as though no evidence existed.
-    """
+    """Exact bytes were always kept in artifact_evidence; the column was not."""
     item = {
         "kind": "mutation",
         "outcome": "proves",

@@ -10,7 +10,7 @@ from traust_contracts.paths import storage_dir
 
 Dialect = Literal["postgres", "sqlite"]
 CONTRACT_VERSION = "v1"
-REVISION = 2
+REVISION = 1
 
 
 @cache

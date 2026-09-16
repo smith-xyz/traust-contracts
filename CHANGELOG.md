@@ -18,10 +18,9 @@ All notable changes to traust-contracts are documented here.
   `ONE_ROW_PROJECTIONS`. Nullable, mirroring `revalidation`: a report without
   evidence still projects.
 
-- **Storage `REVISION` 1 -> 2.** A database created at revision 1 has no
-  `evidence` column, and this layer rejects mismatched databases rather than
-  migrating them, so the bump is what turns a silent write failure into the
-  documented "explicit migration required" error.
+  `REVISION` stays at 1 by review decision: nothing consumes the projection
+  yet, so there is no existing database to protect from the added column.
+  Bump it when a real consumer appears.
 
 ## [0.4.0]
 
