@@ -95,3 +95,88 @@ def test_revalidation_remains_the_live_validation_channel():
     methods = schema["$defs"]["revalidation"]["properties"]["method"]["enum"]
     kinds = schema["$defs"]["patch_evidence_kind"]["enum"]
     assert not set(methods) & set(kinds)
+
+
+# --- the verification family carries the SAME block (5b) --------------------
+
+
+def _verification_validator():
+    resources = {}
+    for sf in sorted(SCHEMA_DIR.glob("*.schema.json")):
+        doc = json.loads(sf.read_text(encoding="utf-8"))
+        resources[doc.get("$id", sf.name)] = Resource.from_contents(doc)
+    schema = json.loads((SCHEMA_DIR / "verification.schema.json").read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, registry=Registry(resources=resources))
+
+
+VERIFICATION = {
+    "title": "Verification report",
+    "metadata": {
+        "date": "2026-09-16",
+        "harness_version": "0.2.1",
+        "repository": "https://example.test/v",
+        "original_report": "x-security-audit.json",
+        "original_commit": "a" * 40,
+        "patched_commit": "b" * 40,
+    },
+    "summary": {
+        "total_findings": 1,
+        "by_verdict": {
+            "resolved": 1,
+            "partially_resolved": 0,
+            "unresolved": 0,
+            "new_approach": 0,
+            "regression": 0,
+            "false_positive": 0,
+            "risk_accepted": 0,
+        },
+        "regressions": 0,
+    },
+    "verified_findings": [
+        {
+            "original_id": "EX-2026-001",
+            "original_title": "Path traversal in the cleaner",
+            "original_severity": "high",
+            "verdict": "resolved",
+            "remediation_commits": [],
+            "unattributed": False,
+            "evidence": {
+                "explanation": "The cleaner now drops every traversal segment,"
+                " not just a leading one.",
+                "framework_reference": "OWASP ASVS V12.3.1",
+            },
+        }
+    ],
+    "regressions": [],
+    "commit_timeline": [],
+}
+
+
+def test_verification_accepts_the_shared_evidence_block():
+    """5b: stage 8 can carry executed evidence, not only analysis."""
+    report = dict(VERIFICATION, evidence=[PROVEN])
+    errors = list(_verification_validator().iter_errors(report))
+    assert not errors, [e.message for e in errors[:3]]
+
+
+def test_verification_evidence_is_optional():
+    """An analysis-only verification report stays valid — the honest default."""
+    assert not list(_verification_validator().iter_errors(VERIFICATION))
+    schema = json.loads((SCHEMA_DIR / "verification.schema.json").read_text(encoding="utf-8"))
+    assert "evidence" not in schema["required"]
+
+
+def test_verification_enforces_the_same_proof_rule():
+    """The point of sharing one definition: a bare claim is refused here too."""
+    bare = {k: v for k, v in PROVEN.items() if k != "base_observation"}
+    report = dict(VERIFICATION, evidence=[bare])
+    assert list(_verification_validator().iter_errors(report))
+
+
+def test_both_families_reference_one_definition():
+    """No second copy to drift: verification $refs remediation's def."""
+    ver = json.loads((SCHEMA_DIR / "verification.schema.json").read_text(encoding="utf-8"))
+    assert ver["properties"]["evidence"]["items"] == {
+        "$ref": "remediation.schema.json#/$defs/patch_evidence"
+    }
+    assert "patch_evidence" not in ver.get("$defs", {})

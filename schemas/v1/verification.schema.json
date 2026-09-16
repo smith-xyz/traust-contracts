@@ -47,6 +47,13 @@
         "$ref": "#/$defs/timeline_entry"
       }
     },
+    "evidence": {
+      "description": "Typed base-versus-patch evidence gathered by this verification run, or carried forward from the remediation report that produced the patch. Shares one definition with the remediation family (remediation.schema.json#/$defs/patch_evidence) so a `proves` claim means the same thing on both sides and neither can drift. A targeted re-audit is analysis: it reads the two revisions but executes neither, so a verification report that carries no evidence item is making an analysis-only claim \u2014 which is the honest default, not a defect. See the per-path evidence ceilings in the harness's docs/disposition-ledger.md \u00a78a.",
+      "type": "array",
+      "items": {
+        "$ref": "remediation.schema.json#/$defs/patch_evidence"
+      }
+    },
     "recommendations": {
       "type": "array",
       "items": {

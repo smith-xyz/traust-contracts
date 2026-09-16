@@ -2,6 +2,31 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.4.0]
+
+## Changes
+
+- **`evidence[]` on the verification family too.** Stage-8 verification
+  reports can now carry the same typed base-versus-patch evidence as stage-7
+  remediation reports, via a `$ref` to
+  `remediation.schema.json#/$defs/patch_evidence` — one definition, so a
+  `proves` claim means the same thing on both sides of a fix and the two
+  cannot drift apart.
+
+  Why it was needed: the block landed in 0.3.0 on the remediation family
+  only, and in the estate that measured this, remediation reports are a
+  15-file family while verification reports are a 2,029-file one. Typed
+  evidence that only the smaller family can carry reaches almost none of the
+  corpus.
+
+  Optional and additive: `evidence` is absent from `required`, so every
+  existing verification report stays valid. A report carrying no evidence
+  item is making an analysis-only claim, which is the honest default for a
+  targeted re-audit — it reads two revisions and executes neither.
+
+  The `patch_evidence_kind` enum registry entry now records both consumer
+  schemas.
+
 ## [0.3.0]
 
 ## Changes

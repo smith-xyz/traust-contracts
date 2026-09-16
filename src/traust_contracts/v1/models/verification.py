@@ -8,6 +8,7 @@ from pydantic import Field
 
 from traust_contracts.v1.models._base import ContractModel
 from traust_contracts.v1.models.finding import Finding
+from traust_contracts.v1.models.remediation import PatchEvidence
 
 
 class VerificationVerdict(StrEnum):
@@ -71,6 +72,9 @@ class Verification(ContractModel):
     verified_findings: list[VerifiedFinding]
     regressions: list[Regression] = Field(default_factory=list)
     commit_timeline: list[TimelineEntry] = Field(default_factory=list)
+    # Shares PatchEvidence with the remediation family so a `proves`
+    # claim means the same thing on both sides of the fix.
+    evidence: list[PatchEvidence] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)
     notes: str | None = None
     footer: str | None = None
