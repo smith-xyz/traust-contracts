@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS remediation (
     fork JSONB NOT NULL,
     patch JSONB NOT NULL,
     checks JSONB NOT NULL,
+    evidence JSONB,
     revalidation JSONB,
     pull_request JSONB,
     summary JSONB NOT NULL,

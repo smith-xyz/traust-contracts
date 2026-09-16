@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS verification (
     verified_findings TEXT NOT NULL CHECK (verified_findings IS NULL OR json_valid(verified_findings)),
     regressions TEXT NOT NULL CHECK (regressions IS NULL OR json_valid(regressions)),
     commit_timeline TEXT NOT NULL CHECK (commit_timeline IS NULL OR json_valid(commit_timeline)),
+    evidence TEXT CHECK (evidence IS NULL OR json_valid(evidence)),
     recommendations TEXT CHECK (recommendations IS NULL OR json_valid(recommendations)),
     notes TEXT,
     footer TEXT,

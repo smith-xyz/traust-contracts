@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS verification (
     verified_findings JSONB NOT NULL,
     regressions JSONB NOT NULL,
     commit_timeline JSONB NOT NULL,
+    evidence JSONB,
     recommendations JSONB,
     notes TEXT,
     footer TEXT,

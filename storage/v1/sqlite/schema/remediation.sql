@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS remediation (
     fork TEXT NOT NULL CHECK (fork IS NULL OR json_valid(fork)),
     patch TEXT NOT NULL CHECK (patch IS NULL OR json_valid(patch)),
     checks TEXT NOT NULL CHECK (checks IS NULL OR json_valid(checks)),
+    evidence TEXT CHECK (evidence IS NULL OR json_valid(evidence)),
     revalidation TEXT CHECK (revalidation IS NULL OR json_valid(revalidation)),
     pull_request TEXT CHECK (pull_request IS NULL OR json_valid(pull_request)),
     summary TEXT NOT NULL CHECK (summary IS NULL OR json_valid(summary)),
