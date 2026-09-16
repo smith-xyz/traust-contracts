@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS report (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
     metadata TEXT NOT NULL CHECK (metadata IS NULL OR json_valid(metadata)),
@@ -15,8 +14,10 @@ CREATE TABLE IF NOT EXISTS report (
     scanner_correlation TEXT CHECK (scanner_correlation IS NULL OR json_valid(scanner_correlation)),
     peach_isolation_review TEXT CHECK (peach_isolation_review IS NULL OR json_valid(peach_isolation_review)),
     disposition_summary TEXT CHECK (disposition_summary IS NULL OR json_valid(disposition_summary)),
-    footer TEXT
+    footer TEXT,
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_report_project ON report (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_report_artifact ON report (artifact_digest);

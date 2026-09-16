@@ -19,9 +19,11 @@ def query(dialect: Dialect, filename: str) -> str:
 
 
 def bootstrap_files(dialect: Dialect) -> list[Path]:
-    """Return one authored file per table, followed by one file per view."""
+    """Return dependency-ordered tables followed by deterministic views."""
     root = storage_dir() / dialect
-    return [*sorted((root / "schema").glob("*.sql")), *sorted((root / "views").glob("*.sql"))]
+    schema = {path.name: path for path in (root / "schema").glob("*.sql")}
+    first = [schema.pop(name) for name in ("artifact_evidence.sql", "artifact_binding.sql")]
+    return [*first, *sorted(schema.values()), *sorted((root / "views").glob("*.sql"))]
 
 
 def bootstrap_statements(dialect: Dialect, path: Path) -> Iterator[str]:

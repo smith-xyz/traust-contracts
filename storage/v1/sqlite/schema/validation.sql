@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS validation (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
     metadata TEXT NOT NULL CHECK (metadata IS NULL OR json_valid(metadata)),
@@ -12,8 +11,10 @@ CREATE TABLE IF NOT EXISTS validation (
     negative_results TEXT CHECK (negative_results IS NULL OR json_valid(negative_results)),
     execution_log_ref TEXT NOT NULL,
     execution_log_sha256 TEXT,
-    footer TEXT
+    footer TEXT,
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_validation_project ON validation (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_validation_artifact ON validation (artifact_digest);

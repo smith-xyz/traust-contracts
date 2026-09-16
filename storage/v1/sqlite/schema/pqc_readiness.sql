@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS pqc_readiness (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
     metadata TEXT NOT NULL CHECK (metadata IS NULL OR json_valid(metadata)),
@@ -13,8 +12,10 @@ CREATE TABLE IF NOT EXISTS pqc_readiness (
     runtime_evidence TEXT CHECK (runtime_evidence IS NULL OR json_valid(runtime_evidence)),
     server_side_caveats TEXT CHECK (server_side_caveats IS NULL OR json_valid(server_side_caveats)),
     notes TEXT,
-    remediations TEXT CHECK (remediations IS NULL OR json_valid(remediations))
+    remediations TEXT CHECK (remediations IS NULL OR json_valid(remediations)),
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pqc_readiness_project ON pqc_readiness (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_pqc_readiness_artifact ON pqc_readiness (artifact_digest);

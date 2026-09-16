@@ -1,6 +1,5 @@
 INSERT INTO pqc_decision_tree (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     tree_version,
     plan,
@@ -13,8 +12,7 @@ INSERT INTO pqc_decision_tree (
     pqc_classification_map,
     server_side_caveat
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(tree_version)s,
     %(plan)s,
@@ -27,16 +25,4 @@ INSERT INTO pqc_decision_tree (
     %(pqc_classification_map)s,
     %(server_side_caveat)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    tree_version = excluded.tree_version,
-    plan = excluded.plan,
-    schema = excluded.schema,
-    provenance_tree = excluded.provenance_tree,
-    remediation_effort = excluded.remediation_effort,
-    readiness_buckets = excluded.readiness_buckets,
-    tls_control_crosswalk = excluded.tls_control_crosswalk,
-    fips_interaction = excluded.fips_interaction,
-    pqc_classification_map = excluded.pqc_classification_map,
-    server_side_caveat = excluded.server_side_caveat;
+ON CONFLICT (binding_id) DO NOTHING;

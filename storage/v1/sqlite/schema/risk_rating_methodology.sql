@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS risk_rating_methodology (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     methodology TEXT NOT NULL,
     methodology_version TEXT NOT NULL,
@@ -13,8 +12,10 @@ CREATE TABLE IF NOT EXISTS risk_rating_methodology (
     impact_factors TEXT NOT NULL CHECK (impact_factors IS NULL OR json_valid(impact_factors)),
     matrix TEXT NOT NULL CHECK (matrix IS NULL OR json_valid(matrix)),
     fallback TEXT NOT NULL CHECK (fallback IS NULL OR json_valid(fallback)),
-    threat_intel_factor TEXT CHECK (threat_intel_factor IS NULL OR json_valid(threat_intel_factor))
+    threat_intel_factor TEXT CHECK (threat_intel_factor IS NULL OR json_valid(threat_intel_factor)),
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_risk_rating_methodology_project ON risk_rating_methodology (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_risk_rating_methodology_artifact ON risk_rating_methodology (artifact_digest);

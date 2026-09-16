@@ -1,6 +1,5 @@
 INSERT INTO cloud_config_findings_current (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -9,8 +8,7 @@ INSERT INTO cloud_config_findings_current (
     gaps,
     disposition_summary
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(title)s,
     %(metadata)s,
@@ -19,12 +17,4 @@ INSERT INTO cloud_config_findings_current (
     %(gaps)s,
     %(disposition_summary)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    summary = excluded.summary,
-    findings = excluded.findings,
-    gaps = excluded.gaps,
-    disposition_summary = excluded.disposition_summary;
+ON CONFLICT (binding_id) DO NOTHING;

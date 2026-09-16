@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from functools import cache
@@ -14,7 +15,7 @@ from typing import Any
 from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 from referencing import Registry, Resource
 
-from traust_contracts.paths import schema_dir
+from traust_contracts.paths import schema_dir, storage_dir
 from traust_contracts.v1.storage.sql import (
     CONTRACT_VERSION,
     REVISION,
@@ -25,8 +26,10 @@ from traust_contracts.v1.storage.sql import (
 )
 
 SQLValue = str | int | float | bytes | None
+DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+BINDING_DOMAIN = b"traust-binding-v1\x00"
 
-# One parent row per layer and schema; nested values remain queryable JSON.
+
 ONE_ROW_PROJECTIONS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
     "adapter-result": (
         "adapter_result",
@@ -284,10 +287,28 @@ ONE_ROW_PROJECTIONS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
 
 
 @dataclass(frozen=True)
+class Binding:
+    scope_id: str = "local"
+    subject_id: str | None = None
+    run_id: str | None = None
+    layer_id: str | None = None
+    supersedes_binding_id: str | None = None
+
+
+@dataclass(frozen=True)
+class BindingRecord:
+    binding_id: str
+    artifact_digest: str
+    artifact_name: str
+    binding: Binding
+    bound_at: str
+
+
+@dataclass(frozen=True)
 class IngestResult:
     digest: str
-    tables: dict[str, int]
-    already_ingested: bool = False
+    binding_id: str
+    already_bound: bool = False
 
 
 class IngestError(ValueError):
@@ -315,8 +336,8 @@ def _error_detail(error: Exception) -> str:
 @cache
 def validators() -> dict[str, Draft202012Validator]:
     schemas = {
-        p.name.removesuffix(".schema.json"): json.loads(p.read_text(encoding="utf-8"))
-        for p in sorted(schema_dir().glob("*.schema.json"))
+        path.name.removesuffix(".schema.json"): json.loads(path.read_text(encoding="utf-8"))
+        for path in sorted(schema_dir().glob("*.schema.json"))
     }
     registry = Registry().with_resources(
         (schema["$id"], Resource.from_contents(schema)) for schema in schemas.values()
@@ -325,6 +346,24 @@ def validators() -> dict[str, Draft202012Validator]:
         name: Draft202012Validator(schema, registry=registry, format_checker=FormatChecker())
         for name, schema in schemas.items()
     }
+
+
+@cache
+def storage_profiles() -> dict[str, dict[str, Any]]:
+    document = json.loads((storage_dir() / "profiles.json").read_text(encoding="utf-8"))
+    profiles = document["artifacts"]
+    if set(profiles) != set(validators()):
+        raise ValueError("storage profiles must cover every artifact schema exactly")
+    tables = {
+        **{name: table for name, (table, _) in ONE_ROW_PROJECTIONS.items()},
+        "layer": "layer_metadata",
+        "triage": "triage_verdict",
+        "vuln-findings": "finding",
+    }
+    for name, profile in profiles.items():
+        if profile.get("projection") != tables[name]:
+            raise ValueError(f"storage profile {name} has the wrong projection table")
+    return profiles
 
 
 def _reject_constant(value: str) -> Any:
@@ -340,6 +379,40 @@ def _integer(value: int | float | None) -> int | None:
     raise ValueError(f"expected int, got {type(value).__name__}")
 
 
+def _identifier_bytes(field: str, value: str) -> bytes:
+    if not isinstance(value, str):
+        raise IngestError(f"{field}: expected string")
+    if "\x00" in value:
+        raise IngestError(f"{field}: NUL is not allowed")
+    try:
+        return value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise IngestError(f"{field}: invalid Unicode") from None
+
+
+def binding_id(artifact_digest: str, artifact_name: str, binding: Binding) -> str:
+    """Return the storage/v1 binding identity over the specified byte tuple."""
+    required = (artifact_digest, artifact_name, binding.scope_id)
+    encoded = bytearray(BINDING_DOMAIN)
+    for field, value in zip(
+        ("artifact_digest", "artifact_name", "scope_id"), required, strict=True
+    ):
+        encoded.extend(_identifier_bytes(field, value))
+        encoded.append(0)
+    for field, value in (
+        ("subject_id", binding.subject_id),
+        ("run_id", binding.run_id),
+        ("layer_id", binding.layer_id),
+    ):
+        if value is None:
+            encoded.append(0)
+        else:
+            encoded.append(1)
+            encoded.extend(_identifier_bytes(field, value))
+            encoded.append(0)
+    return hashlib.sha256(encoded).hexdigest()
+
+
 class Store:
     """Caller-owned idle connection, tuple rows; never closes it or owns caller work."""
 
@@ -348,13 +421,14 @@ class Store:
         self.dialect: Dialect
         if isinstance(conn, sqlite3.Connection):
             self.dialect = "sqlite"
+            conn.execute("PRAGMA foreign_keys = ON")
         else:
             try:
                 import psycopg
-            except ImportError as e:
+            except ImportError as error:
                 raise ValueError(
                     "expected sqlite3.Connection or install traust-contracts[postgres]"
-                ) from e
+                ) from error
             if not isinstance(conn, psycopg.Connection):
                 raise ValueError("expected sqlite3.Connection or psycopg.Connection")
             if conn.info.server_version < 140000:
@@ -372,8 +446,8 @@ class Store:
         try:
             if self._active():
                 self.conn.execute("ROLLBACK")
-        except Exception as e:
-            return f"; rollback failed: {_error_detail(e)}"
+        except Exception as error:
+            return f"; rollback failed: {_error_detail(error)}"
         return ""
 
     def _idle(self, artifact: str = "", payload: bytes = b"") -> None:
@@ -394,9 +468,9 @@ class Store:
                 if self.dialect == "sqlite"
                 else "BEGIN ISOLATION LEVEL READ COMMITTED"
             )
-        except Exception as e:
+        except Exception as error:
             raise IngestError(
-                f"artifact {artifact}: begin transaction: {_error_detail(e)}",
+                f"artifact {artifact}: begin transaction: {_error_detail(error)}",
                 artifact=artifact,
                 payload=payload,
             ) from None
@@ -433,15 +507,82 @@ class Store:
                     },
                 )
             self.conn.execute("COMMIT")
-        except Exception as e:
+        except Exception as error:
             rollback_error = self._rollback()
-            raise IngestError(f"storage init: {_error_detail(e)}{rollback_error}") from None
+            raise IngestError(f"storage init: {_error_detail(error)}{rollback_error}") from None
+
+    def get_evidence(self, digest: str) -> bytes:
+        """Return exact evidence bytes without making a schema claim."""
+        self._idle()
+        if not isinstance(digest, str) or not DIGEST_PATTERN.fullmatch(digest):
+            raise IngestError("artifact not found")
+        self._begin()
+        try:
+            payload = self._evidence(digest)
+            self.conn.execute("COMMIT")
+            return payload
+        except Exception as error:
+            rollback_error = self._rollback()
+            raise IngestError(
+                f"storage evidence read: {_error_detail(error)}{rollback_error}"
+            ) from None
+
+    def get_binding(self, binding_id_value: str) -> BindingRecord:
+        """Return one binding without interpreting its evidence."""
+        self._idle()
+        if not isinstance(binding_id_value, str) or not DIGEST_PATTERN.fullmatch(binding_id_value):
+            raise IngestError("artifact binding not found")
+        self._begin()
+        try:
+            row = self._binding_row(binding_id_value)
+            if row is None:
+                raise IngestError("artifact binding not found")
+            record = self._binding_record(binding_id_value, row)
+            self.conn.execute("COMMIT")
+            return record
+        except Exception as error:
+            rollback_error = self._rollback()
+            raise IngestError(
+                f"storage binding read: {_error_detail(error)}{rollback_error}"
+            ) from None
+
+    def get(self, artifact: str, binding_id_value: str) -> bytes:
+        """Return exact validated evidence through a type-checked binding."""
+        self._idle(artifact)
+        validator = validators().get(artifact) if isinstance(artifact, str) else None
+        if validator is None:
+            raise IngestError("unknown artifact schema", artifact=artifact)
+        if not isinstance(binding_id_value, str) or not DIGEST_PATTERN.fullmatch(binding_id_value):
+            raise IngestError("artifact binding not found", artifact=artifact)
+        self._begin(artifact)
+        try:
+            row = self._binding_row(binding_id_value)
+            if row is None:
+                raise IngestError("artifact binding not found")
+            record = self._binding_record(binding_id_value, row)
+            if record.artifact_name != artifact:
+                raise IngestError("artifact type mismatch")
+            payload = self._evidence(record.artifact_digest)
+            document = json.loads(payload, parse_constant=_reject_constant)
+            validator.validate(document)
+            self.conn.execute("COMMIT")
+            return payload
+        except Exception as error:
+            rollback_error = self._rollback()
+            raise IngestError(
+                f"storage read {artifact}: {_error_detail(error)}{rollback_error}",
+                artifact=artifact,
+            ) from None
 
     def ingest(
-        self, artifact: str, payload: bytes, meta: Mapping[str, str] | None = None
+        self,
+        artifact: str,
+        payload: bytes,
+        binding: Binding | None = None,
     ) -> IngestResult:
-        """Validate exact bytes, retain evidence and projections atomically, or write nothing."""
+        """Validate exact bytes, bind context, and project atomically, or write nothing."""
         self._idle(artifact, payload)
+        binding = binding or Binding()
         validator = None
         try:
             validator = validators().get(artifact) if isinstance(artifact, str) else None
@@ -451,14 +592,17 @@ class Store:
                 raise IngestError("payload must be bytes")
             document = json.loads(payload, parse_constant=_reject_constant)
             validator.validate(document)
-        except Exception as e:
+            self._validate_binding(artifact, binding)
+        except Exception as error:
             label = artifact if validator is not None else "<unknown>"
             raise IngestError(
-                f"artifact {label}: validation: {_error_detail(e)}",
+                f"artifact {label}: validation: {_error_detail(error)}",
                 artifact=artifact,
                 payload=payload,
             ) from None
+
         digest = hashlib.sha256(payload).hexdigest()
+        binding_id_value = binding_id(digest, artifact, binding)
         self._begin(artifact, payload)
         context = f"artifact {artifact}"
         try:
@@ -467,130 +611,238 @@ class Store:
                     query(self.dialect, "artifact.lock.sql"),
                     {"lock_key": int.from_bytes(bytes.fromhex(digest)[:8], signed=True)},
                 )
-            existing = self._execute(
-                query(self.dialect, "artifact.exists.sql"), {"digest": digest}
-            ).fetchone()
-            if existing:
+            existing = self._binding_row(binding_id_value)
+            if existing is not None:
+                self._require_same_binding(binding_id_value, artifact, digest, binding, existing)
                 self.conn.execute("COMMIT")
-                return IngestResult(digest, {}, already_ingested=True)
-            context = f"artifact {artifact}, table artifact, column layer_id, row 0"
-            layer_id = (meta or {}).get("layer_id")
-            if layer_id is None:
-                raise IngestError("required value missing or null")
-            if not isinstance(layer_id, str):
-                raise IngestError("expected string")
-            context = f"artifact {artifact}, table artifact, column project_id, row 0"
-            project_id = (meta or {}).get("project_id", "local")
-            if project_id is None:
-                raise IngestError("required value missing or null")
-            if not isinstance(project_id, str):
-                raise IngestError("expected string")
-            context = f"artifact {artifact}, table artifact, row 0"
+                return IngestResult(digest, binding_id_value, already_bound=True)
+            if binding.supersedes_binding_id is not None:
+                self._require_predecessor(artifact, binding_id_value, binding)
+
+            context = f"artifact {artifact}, table artifact_evidence"
             self._execute(
-                query(self.dialect, "artifact.upsert.sql"),
+                query(self.dialect, "artifact_evidence.upsert.sql"),
                 {
                     "digest": digest,
-                    "name": artifact,
-                    "layer_id": layer_id,
-                    "project_id": project_id,
                     "payload": payload,
-                    "ingested_at": datetime.now(UTC).isoformat(),
+                    "first_ingested_at": datetime.now(UTC).isoformat(),
                 },
             )
-            counts = {"artifact": 1}
-            # Schemas validate fields and enums; projections only normalize integers and JSON.
-            if artifact == "layer":
-                context = f"artifact {artifact}, table layer_metadata, row 0"
-                metadata = document["metadata"]
-                self._execute(
-                    query(self.dialect, "layer_metadata.upsert.sql"),
-                    {
-                        "layer_id": layer_id,
-                        "project_id": project_id,
-                        "repo": metadata.get("repository"),
-                        "created_at": metadata.get("created"),
-                        "merkle_root": metadata.get("merkle_root"),
-                        "merkle_epoch": _integer(metadata.get("merkle_epoch")),
-                        "artifact_digest": digest,
-                    },
-                )
-                counts["layer_metadata"] = 1
-            elif artifact == "vuln-findings":
-                counts["finding"] = 0
-                for index, finding in enumerate(document["findings"]):
-                    context = f"artifact {artifact}, table finding, row {index}"
-                    self._execute(
-                        query(self.dialect, "finding.upsert.sql"),
-                        {
-                            "layer_id": layer_id,
-                            "target": document["target"],
-                            "scanned_at": document["scanned_at"],
-                            "finding_id": finding["id"],
-                            "title": finding["title"],
-                            "severity": finding["severity"],
-                            "description": finding["description"],
-                            "category": finding.get("category"),
-                            "file": finding["file"],
-                            "line": _integer(finding.get("line")),
-                            "cwe": finding.get("cwe"),
-                            "recommendation": finding["recommendation"],
-                            "confidence": finding["confidence"],
-                            "artifact_digest": digest,
-                        },
-                    )
-                    counts["finding"] += 1
-            elif artifact == "triage":
-                counts["triage_verdict"] = 0
-                for index, finding in enumerate(document["findings"]):
-                    context = f"artifact {artifact}, table triage_verdict, row {index}"
-                    votes = finding.get("vote_breakdown")
-                    self._execute(
-                        query(self.dialect, "triage_verdict.upsert.sql"),
-                        {
-                            "layer_id": layer_id,
-                            "triage_completed": document["triage_completed"],
-                            "finding_id": finding["id"],
-                            "source_finding_id": finding.get("orig_id"),
-                            "verdict": finding["verdict"],
-                            "severity": finding.get("severity"),
-                            "vote_breakdown": (
-                                json.dumps(
-                                    votes,
-                                    ensure_ascii=False,
-                                    separators=(",", ":"),
-                                    allow_nan=False,
-                                )
-                                if votes is not None
-                                else None
-                            ),
-                            "rationale": finding.get("rationale"),
-                            "artifact_digest": digest,
-                        },
-                    )
-                    counts["triage_verdict"] += 1
-            else:
-                table, fields = ONE_ROW_PROJECTIONS[artifact]
-                context = f"artifact {artifact}, table {table}, row 0"
-                values: dict[str, SQLValue] = {
-                    "layer_id": layer_id,
-                    "project_id": project_id,
+            if self._evidence(digest) != payload:
+                raise IngestError("artifact evidence digest collision")
+            context = f"artifact {artifact}, table artifact_binding"
+            self._execute(
+                query(self.dialect, "artifact_binding.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
                     "artifact_digest": digest,
-                }
-                for name, kind in fields:
-                    value = document.get(name)
-                    if kind == "json" and value is not None:
-                        value = json.dumps(
-                            value, ensure_ascii=False, separators=(",", ":"), allow_nan=False
-                        )
-                    elif kind == "integer":
-                        value = _integer(value)
-                    values[name] = value
-                self._execute(query(self.dialect, f"{table}.upsert.sql"), values)
-                counts[table] = 1
+                    "artifact_name": artifact,
+                    "scope_id": binding.scope_id,
+                    "subject_id": binding.subject_id,
+                    "run_id": binding.run_id,
+                    "layer_id": binding.layer_id,
+                    "supersedes_binding_id": binding.supersedes_binding_id,
+                    "bound_at": datetime.now(UTC).isoformat(),
+                },
+            )
+            projection = storage_profiles()[artifact].get("projection")
+            if projection is not None:
+                context = f"artifact {artifact}, table {projection}"
+            self._project(artifact, document, digest, binding_id_value)
             self.conn.execute("COMMIT")
-            return IngestResult(digest, counts)
-        except Exception as e:
+            return IngestResult(digest, binding_id_value)
+        except Exception as error:
             rollback_error = self._rollback()
             raise IngestError(
-                f"{context}: {_error_detail(e)}{rollback_error}", artifact=artifact, payload=payload
+                f"{context}: {_error_detail(error)}{rollback_error}",
+                artifact=artifact,
+                payload=payload,
             ) from None
+
+    def query_findings_summary(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Return findings summary rows visible to the explicit scope list."""
+        self._idle()
+        if not scope_ids:
+            raise IngestError("storage scope is required")
+        for scope_id in scope_ids:
+            _identifier_bytes("scope_id", scope_id)
+        encoded = json.dumps(list(scope_ids), ensure_ascii=False, separators=(",", ":"))
+        self._begin()
+        try:
+            if self.dialect == "postgres":
+                self._execute(query(self.dialect, "scope.set.sql"), {"scope_ids": encoded})
+            rows = self._execute(
+                query(self.dialect, "findings_summary.list.sql"), {"scope_ids": encoded}
+            ).fetchall()
+            self.conn.execute("COMMIT")
+            return rows
+        except Exception as error:
+            rollback_error = self._rollback()
+            raise IngestError(
+                f"storage findings summary read: {_error_detail(error)}{rollback_error}"
+            ) from None
+
+    def _validate_binding(self, artifact: str, binding: Binding) -> None:
+        if not isinstance(binding, Binding):
+            raise IngestError("binding: expected Binding")
+        if binding.scope_id == "":
+            raise IngestError("scope_id: required value missing")
+        _identifier_bytes("scope_id", binding.scope_id)
+        for field in ("subject_id", "run_id", "layer_id", "supersedes_binding_id"):
+            value = getattr(binding, field)
+            if value is not None:
+                _identifier_bytes(field, value)
+        for field in storage_profiles()[artifact]["required"]:
+            if getattr(binding, field) is None:
+                raise IngestError(f"{field}: required value missing")
+
+    def _evidence(self, digest: str) -> bytes:
+        row = self._execute(
+            query(self.dialect, "artifact_evidence.get.sql"), {"digest": digest}
+        ).fetchone()
+        if row is None:
+            raise IngestError("artifact not found")
+        payload = row[0]
+        if hashlib.sha256(payload).hexdigest() != digest:
+            raise IngestError("artifact evidence digest mismatch")
+        return payload
+
+    def _binding_row(self, binding_id_value: str) -> tuple[Any, ...] | None:
+        return self._execute(
+            query(self.dialect, "artifact_binding.get.sql"), {"binding_id": binding_id_value}
+        ).fetchone()
+
+    @staticmethod
+    def _binding_record(binding_id_value: str, row: tuple[Any, ...]) -> BindingRecord:
+        digest, name, scope, subject, run, layer, supersedes, bound_at = row
+        return BindingRecord(
+            binding_id_value,
+            digest,
+            name,
+            Binding(scope, subject, run, layer, supersedes),
+            str(bound_at),
+        )
+
+    def _require_same_binding(
+        self,
+        binding_id_value: str,
+        artifact: str,
+        digest: str,
+        binding: Binding,
+        row: tuple[Any, ...],
+    ) -> None:
+        record = self._binding_record(binding_id_value, row)
+        if (
+            record.artifact_digest != digest
+            or record.artifact_name != artifact
+            or record.binding != binding
+        ):
+            raise IngestError("artifact binding identity collision")
+
+    def _require_predecessor(self, artifact: str, binding_id_value: str, binding: Binding) -> None:
+        predecessor_id = binding.supersedes_binding_id
+        if predecessor_id == binding_id_value:
+            raise IngestError("artifact binding cannot supersede itself")
+        row = self._binding_row(predecessor_id or "")
+        if row is None:
+            raise IngestError("superseded artifact binding not found")
+        predecessor = self._binding_record(predecessor_id or "", row)
+        expected = (
+            artifact,
+            binding.scope_id,
+            binding.subject_id,
+            binding.run_id,
+            binding.layer_id,
+        )
+        actual = (
+            predecessor.artifact_name,
+            predecessor.binding.scope_id,
+            predecessor.binding.subject_id,
+            predecessor.binding.run_id,
+            predecessor.binding.layer_id,
+        )
+        if actual != expected:
+            raise IngestError("superseded artifact binding context mismatch")
+
+    def _project(
+        self, artifact: str, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        if artifact == "layer":
+            metadata = document["metadata"]
+            self._execute(
+                query(self.dialect, "layer_metadata.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "repo": metadata.get("repository"),
+                    "created_at": metadata.get("created"),
+                    "merkle_root": metadata.get("merkle_root"),
+                    "merkle_epoch": _integer(metadata.get("merkle_epoch")),
+                },
+            )
+        elif artifact == "vuln-findings":
+            for finding in document["findings"]:
+                self._execute(
+                    query(self.dialect, "finding.upsert.sql"),
+                    {
+                        "binding_id": binding_id_value,
+                        "artifact_digest": digest,
+                        "finding_id": finding["id"],
+                        "target": document["target"],
+                        "scanned_at": document["scanned_at"],
+                        "title": finding["title"],
+                        "severity": finding["severity"],
+                        "description": finding["description"],
+                        "category": finding.get("category"),
+                        "file": finding["file"],
+                        "line": _integer(finding.get("line")),
+                        "cwe": finding.get("cwe"),
+                        "recommendation": finding["recommendation"],
+                        "confidence": finding["confidence"],
+                    },
+                )
+        elif artifact == "triage":
+            for finding in document["findings"]:
+                votes = finding.get("vote_breakdown")
+                self._execute(
+                    query(self.dialect, "triage_verdict.upsert.sql"),
+                    {
+                        "binding_id": binding_id_value,
+                        "artifact_digest": digest,
+                        "finding_id": finding["id"],
+                        "source_finding_id": finding.get("orig_id"),
+                        "triage_completed": document["triage_completed"],
+                        "verdict": finding["verdict"],
+                        "severity": finding.get("severity"),
+                        "vote_breakdown": (
+                            json.dumps(
+                                votes,
+                                ensure_ascii=False,
+                                separators=(",", ":"),
+                                allow_nan=False,
+                            )
+                            if votes is not None
+                            else None
+                        ),
+                        "rationale": finding.get("rationale"),
+                    },
+                )
+        else:
+            table, fields = ONE_ROW_PROJECTIONS[artifact]
+            values: dict[str, SQLValue] = {
+                "binding_id": binding_id_value,
+                "artifact_digest": digest,
+            }
+            for name, kind in fields:
+                value = document.get(name)
+                if kind == "json" and value is not None:
+                    value = json.dumps(
+                        value,
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                        allow_nan=False,
+                    )
+                elif kind == "integer":
+                    value = _integer(value)
+                values[name] = value
+            self._execute(query(self.dialect, f"{table}.upsert.sql"), values)

@@ -1,8 +1,9 @@
 INSERT INTO finding (
-    layer_id,
+    binding_id,
+    artifact_digest,
+    finding_id,
     target,
     scanned_at,
-    finding_id,
     title,
     severity,
     description,
@@ -11,14 +12,14 @@ INSERT INTO finding (
     line,
     cwe,
     recommendation,
-    confidence,
-    artifact_digest
+    confidence
 )
 VALUES (
-    %(layer_id)s,
+    %(binding_id)s,
+    %(artifact_digest)s,
+    %(finding_id)s,
     %(target)s,
     %(scanned_at)s,
-    %(finding_id)s,
     %(title)s,
     %(severity)s,
     %(description)s,
@@ -27,19 +28,6 @@ VALUES (
     %(line)s,
     %(cwe)s,
     %(recommendation)s,
-    %(confidence)s,
-    %(artifact_digest)s
+    %(confidence)s
 )
-ON CONFLICT (layer_id, finding_id) DO UPDATE SET
-    target = EXCLUDED.target,
-    scanned_at = EXCLUDED.scanned_at,
-    title = EXCLUDED.title,
-    severity = EXCLUDED.severity,
-    description = EXCLUDED.description,
-    category = EXCLUDED.category,
-    file = EXCLUDED.file,
-    line = EXCLUDED.line,
-    cwe = EXCLUDED.cwe,
-    recommendation = EXCLUDED.recommendation,
-    confidence = EXCLUDED.confidence,
-    artifact_digest = EXCLUDED.artifact_digest;
+ON CONFLICT (binding_id, finding_id) DO NOTHING;

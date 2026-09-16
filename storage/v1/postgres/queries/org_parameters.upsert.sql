@@ -1,6 +1,5 @@
 INSERT INTO org_parameters (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     version,
     declared_by,
@@ -8,8 +7,7 @@ INSERT INTO org_parameters (
     note,
     parameters
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(version)s,
     %(declared_by)s,
@@ -17,11 +15,4 @@ INSERT INTO org_parameters (
     %(note)s,
     %(parameters)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    version = excluded.version,
-    declared_by = excluded.declared_by,
-    declared_on = excluded.declared_on,
-    note = excluded.note,
-    parameters = excluded.parameters;
+ON CONFLICT (binding_id) DO NOTHING;

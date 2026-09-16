@@ -76,8 +76,9 @@ All notable changes to traust-contracts are documented here.
   loads `storage.yaml` from an explicitly selected test config home; CI integration remains pending.
 - Add optional `storage.yaml` to the canonical config manifest, schema and typed
   context. Runtime callers and tests share the loader; no per-setting environment overrides.
-- Use a live, scoped PostgreSQL dashboard instead of a materialized view.
-  Storage revision 2 rejects mismatched databases rather than implying migrations.
+- Add a live, scoped PostgreSQL `findings_summary` view for the Security Posture
+  dashboard instead of a materialized view. Storage revision checks reject mismatched databases rather than
+  implying migrations.
 - Keep evidence out of normal exception messages and tracebacks; explicit
   `IngestError.payload` access remains available for reject handling.
 - Remove blanket SQL byte-pinning; SQL compatibility requires review, while the

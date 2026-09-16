@@ -1,6 +1,5 @@
 INSERT INTO cloud_config_audit (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -8,8 +7,7 @@ INSERT INTO cloud_config_audit (
     findings,
     gaps
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(title)s,
     %(metadata)s,
@@ -17,11 +15,4 @@ INSERT INTO cloud_config_audit (
     %(findings)s,
     %(gaps)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    summary = excluded.summary,
-    findings = excluded.findings,
-    gaps = excluded.gaps;
+ON CONFLICT (binding_id) DO NOTHING;

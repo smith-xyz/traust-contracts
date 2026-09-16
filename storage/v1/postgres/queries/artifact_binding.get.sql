@@ -1,0 +1,10 @@
+SELECT artifact_digest,
+       artifact_name,
+       scope_id,
+       subject_id,
+       run_id,
+       layer_id,
+       supersedes_binding_id,
+       bound_at
+FROM artifact_binding
+WHERE binding_id = %(binding_id)s;

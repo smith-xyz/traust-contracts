@@ -32,6 +32,22 @@ FAMILIES = [
     "verification",
     "vuln-findings",
 ]
+RUN_BOUND = {
+    "adapter-result",
+    "cloud-config-audit",
+    "cloud-config-findings-current",
+    "compliance-assessment",
+    "doc-variance",
+    "pqc-blockers",
+    "pqc-facts",
+    "pqc-readiness",
+    "remediation",
+    "report",
+    "triage",
+    "validation",
+    "verification",
+    "vuln-findings",
+}
 PROJECTION_TABLES = {
     **{name: name.replace("-", "_") for name in FAMILIES},
     "layer": "layer_metadata",

@@ -1,6 +1,5 @@
 INSERT INTO remediation (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -14,8 +13,7 @@ INSERT INTO remediation (
     notes,
     footer
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(title)s,
     %(metadata)s,
@@ -29,17 +27,4 @@ INSERT INTO remediation (
     %(notes)s,
     %(footer)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    source_findings = excluded.source_findings,
-    fork = excluded.fork,
-    patch = excluded.patch,
-    checks = excluded.checks,
-    revalidation = excluded.revalidation,
-    pull_request = excluded.pull_request,
-    summary = excluded.summary,
-    notes = excluded.notes,
-    footer = excluded.footer;
+ON CONFLICT (binding_id) DO NOTHING;

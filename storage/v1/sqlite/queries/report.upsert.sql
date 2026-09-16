@@ -1,6 +1,5 @@
 INSERT INTO report (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -17,8 +16,7 @@ INSERT INTO report (
     disposition_summary,
     footer
 ) VALUES (
-    :layer_id,
-    :project_id,
+    :binding_id,
     :artifact_digest,
     :title,
     :metadata,
@@ -35,20 +33,4 @@ INSERT INTO report (
     :disposition_summary,
     :footer
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    executive_summary = excluded.executive_summary,
-    severity_criteria = excluded.severity_criteria,
-    findings = excluded.findings,
-    findings_summary = excluded.findings_summary,
-    remediation_roadmap = excluded.remediation_roadmap,
-    dependency_audit = excluded.dependency_audit,
-    negative_results = excluded.negative_results,
-    asvs_coverage = excluded.asvs_coverage,
-    scanner_correlation = excluded.scanner_correlation,
-    peach_isolation_review = excluded.peach_isolation_review,
-    disposition_summary = excluded.disposition_summary,
-    footer = excluded.footer;
+ON CONFLICT (binding_id) DO NOTHING;

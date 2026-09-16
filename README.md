@@ -54,45 +54,55 @@ never move under you.
 ## Storage contract
 
 `storage/v1` ships readable, authored SQLite/PostgreSQL SQL and a reference
-Store with relational projections for all 27 artifact schemas. See the [model and write
+Store that separates exact evidence from caller-owned workflow bindings. Every
+artifact contract has a durable SQL projection, and scoped views can compose
+bindings with those projections. See the [model and write
 semantics](storage/v1/README.md). SQL is grouped by database, entity and operation;
-there is no generator, ORM or shipped test corpus.
+there is no ORM or shipped test corpus.
 
 ```python
 import sqlite3
 from pathlib import Path
 
-from traust_contracts.v1.storage import Store
+from traust_contracts.v1.storage import Binding, Store
 
 conn = sqlite3.connect("traust.db")
 try:
     store = Store(conn)
     store.init()
     payload = Path("my-vuln-findings.json").read_bytes()
-    result = store.ingest("vuln-findings", payload, {"layer_id": "L-demo"})
-    print(result.tables)  # artifact and processed finding counts
+    result = store.ingest(
+        "vuln-findings",
+        payload,
+        Binding(
+            subject_id="sci:inventory-item:42",
+            run_id="sci:scan-result:7",
+        ),
+    )
+    print(result.digest, result.binding_id, result.already_bound)
 finally:
     conn.close()
 ```
 
-The caller owns an idle connection and supplies required `layer_id` metadata;
-`project_id` defaults to `local`. Ingest validates exact bytes, stores evidence
-and projections in one transaction, and makes identical-byte retries a no-op.
+The caller owns an idle connection and supplies opaque context required by the
+artifact's hand-authored storage profile. `scope_id` defaults to `local`.
+Ingest validates exact bytes, stores evidence, binding, and any approved projection
+in one transaction, and makes identical-binding retries a no-op.
 On `IngestError`, the host MUST surface/preserve `error.payload` (the input file
 already on disk suffices). The library never chooses a reject path.
 
 SQLite is complete with stdlib. PostgreSQL >=14 uses the optional `postgres`
 extra (`psycopg>=3`, requiring libpq or separately installed `psycopg[binary]`).
-Both dashboards are live views; no refresh worker is needed. PostgreSQL filters
-by session `traust.project_ids`; callers provision tenant permissions.
-No foreign keys or cross-artifact atomicity are imposed.
+The scoped views are live; no refresh worker is needed. PostgreSQL filters
+by transaction-local `traust.scope_ids`; callers provision tenant permissions.
+Storage-internal foreign keys protect binding/evidence/projection integrity;
+cross-artifact domain references remain soft.
 
-Storage has its own directory major (`storage/v1`) and revision, independent of
-package semver. `init()` rejects any version/revision mismatch; it does not migrate
-existing databases. Current storage is `v1`, revision 1. Edit SQL directly and
+Storage compatibility metadata is independent of package semver. `init()` rejects
+metadata mismatches and does not migrate existing databases. Edit SQL directly and
 review compatibility; SQL is not byte-pinned.
-Tests use focused synthetic inputs plus one real sample under tests, not a
-packaged conformance bundle.
+Tests use focused synthetic inputs and test fixtures, not a packaged
+conformance bundle.
 
 ## Validate an artifact
 

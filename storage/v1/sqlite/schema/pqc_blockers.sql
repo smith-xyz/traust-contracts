@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS pqc_blockers (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     artifact TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -9,8 +8,10 @@ CREATE TABLE IF NOT EXISTS pqc_blockers (
     severity_criteria TEXT NOT NULL CHECK (severity_criteria IS NULL OR json_valid(severity_criteria)),
     findings TEXT NOT NULL CHECK (findings IS NULL OR json_valid(findings)),
     findings_summary TEXT NOT NULL CHECK (findings_summary IS NULL OR json_valid(findings_summary)),
-    remediation_roadmap TEXT NOT NULL CHECK (remediation_roadmap IS NULL OR json_valid(remediation_roadmap))
+    remediation_roadmap TEXT NOT NULL CHECK (remediation_roadmap IS NULL OR json_valid(remediation_roadmap)),
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pqc_blockers_project ON pqc_blockers (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_pqc_blockers_artifact ON pqc_blockers (artifact_digest);

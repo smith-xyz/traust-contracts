@@ -1,6 +1,5 @@
 INSERT INTO risk_rating_methodology (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     methodology,
     methodology_version,
@@ -15,8 +14,7 @@ INSERT INTO risk_rating_methodology (
     fallback,
     threat_intel_factor
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(methodology)s,
     %(methodology_version)s,
@@ -31,18 +29,4 @@ INSERT INTO risk_rating_methodology (
     %(fallback)s,
     %(threat_intel_factor)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    methodology = excluded.methodology,
-    methodology_version = excluded.methodology_version,
-    source = excluded.source,
-    documentation = excluded.documentation,
-    schema = excluded.schema,
-    bands = excluded.bands,
-    bucket_thresholds = excluded.bucket_thresholds,
-    likelihood_factors = excluded.likelihood_factors,
-    impact_factors = excluded.impact_factors,
-    matrix = excluded.matrix,
-    fallback = excluded.fallback,
-    threat_intel_factor = excluded.threat_intel_factor;
+ON CONFLICT (binding_id) DO NOTHING;

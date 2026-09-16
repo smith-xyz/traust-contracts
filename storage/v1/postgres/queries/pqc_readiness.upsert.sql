@@ -1,6 +1,5 @@
 INSERT INTO pqc_readiness (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -15,8 +14,7 @@ INSERT INTO pqc_readiness (
     notes,
     remediations
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(title)s,
     %(metadata)s,
@@ -31,18 +29,4 @@ INSERT INTO pqc_readiness (
     %(notes)s,
     %(remediations)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    scores = excluded.scores,
-    flags = excluded.flags,
-    provenance_summary = excluded.provenance_summary,
-    clock_items = excluded.clock_items,
-    readiness_bucket = excluded.readiness_bucket,
-    fips_interaction = excluded.fips_interaction,
-    runtime_evidence = excluded.runtime_evidence,
-    server_side_caveats = excluded.server_side_caveats,
-    notes = excluded.notes,
-    remediations = excluded.remediations;
+ON CONFLICT (binding_id) DO NOTHING;

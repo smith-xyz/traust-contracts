@@ -1,6 +1,5 @@
 INSERT INTO adapter_result (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     target,
     scanned_at,
@@ -9,8 +8,7 @@ INSERT INTO adapter_result (
     summary,
     focus_areas
 ) VALUES (
-    :layer_id,
-    :project_id,
+    :binding_id,
     :artifact_digest,
     :target,
     :scanned_at,
@@ -19,12 +17,4 @@ INSERT INTO adapter_result (
     :summary,
     :focus_areas
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    target = excluded.target,
-    scanned_at = excluded.scanned_at,
-    metadata = excluded.metadata,
-    findings = excluded.findings,
-    summary = excluded.summary,
-    focus_areas = excluded.focus_areas;
+ON CONFLICT (binding_id) DO NOTHING;

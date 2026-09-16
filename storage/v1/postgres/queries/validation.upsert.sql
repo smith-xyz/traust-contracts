@@ -1,6 +1,5 @@
 INSERT INTO validation (
-    layer_id,
-    project_id,
+    binding_id,
     artifact_digest,
     title,
     metadata,
@@ -14,8 +13,7 @@ INSERT INTO validation (
     execution_log_sha256,
     footer
 ) VALUES (
-    %(layer_id)s,
-    %(project_id)s,
+    %(binding_id)s,
     %(artifact_digest)s,
     %(title)s,
     %(metadata)s,
@@ -29,17 +27,4 @@ INSERT INTO validation (
     %(execution_log_sha256)s,
     %(footer)s
 )
-ON CONFLICT (layer_id) DO UPDATE SET
-    project_id = excluded.project_id,
-    artifact_digest = excluded.artifact_digest,
-    title = excluded.title,
-    metadata = excluded.metadata,
-    source_reports = excluded.source_reports,
-    summary = excluded.summary,
-    validated_findings = excluded.validated_findings,
-    attack_chains = excluded.attack_chains,
-    novel_findings = excluded.novel_findings,
-    negative_results = excluded.negative_results,
-    execution_log_ref = excluded.execution_log_ref,
-    execution_log_sha256 = excluded.execution_log_sha256,
-    footer = excluded.footer;
+ON CONFLICT (binding_id) DO NOTHING;

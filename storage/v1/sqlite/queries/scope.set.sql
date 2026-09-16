@@ -1,0 +1,1 @@
+SELECT :scope_ids;

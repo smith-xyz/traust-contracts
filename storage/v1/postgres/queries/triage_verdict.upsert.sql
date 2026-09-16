@@ -1,30 +1,23 @@
 INSERT INTO triage_verdict (
-    layer_id,
-    triage_completed,
+    binding_id,
+    artifact_digest,
     finding_id,
     source_finding_id,
+    triage_completed,
     verdict,
     severity,
     vote_breakdown,
-    rationale,
-    artifact_digest
+    rationale
 )
 VALUES (
-    %(layer_id)s,
-    %(triage_completed)s,
+    %(binding_id)s,
+    %(artifact_digest)s,
     %(finding_id)s,
     %(source_finding_id)s,
+    %(triage_completed)s,
     %(verdict)s,
     %(severity)s,
     %(vote_breakdown)s,
-    %(rationale)s,
-    %(artifact_digest)s
+    %(rationale)s
 )
-ON CONFLICT (layer_id, finding_id) DO UPDATE SET
-    triage_completed = EXCLUDED.triage_completed,
-    source_finding_id = EXCLUDED.source_finding_id,
-    verdict = EXCLUDED.verdict,
-    severity = EXCLUDED.severity,
-    vote_breakdown = EXCLUDED.vote_breakdown,
-    rationale = EXCLUDED.rationale,
-    artifact_digest = EXCLUDED.artifact_digest;
+ON CONFLICT (binding_id, finding_id) DO NOTHING;

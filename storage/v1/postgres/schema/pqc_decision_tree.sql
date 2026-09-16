@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS pqc_decision_tree (
-    layer_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     tree_version TEXT NOT NULL,
     plan TEXT,
@@ -11,8 +10,10 @@ CREATE TABLE IF NOT EXISTS pqc_decision_tree (
     tls_control_crosswalk JSONB NOT NULL,
     fips_interaction JSONB NOT NULL,
     pqc_classification_map JSONB NOT NULL,
-    server_side_caveat JSONB
+    server_side_caveat JSONB,
+    PRIMARY KEY (binding_id),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pqc_decision_tree_project ON pqc_decision_tree (project_id, layer_id);
 CREATE INDEX IF NOT EXISTS idx_pqc_decision_tree_artifact ON pqc_decision_tree (artifact_digest);
