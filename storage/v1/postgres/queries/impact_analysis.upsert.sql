@@ -1,4 +1,4 @@
-INSERT INTO impact_analysis (
+INSERT INTO traust_storage.impact_analysis (
     binding_id,
     artifact_digest,
     metadata,

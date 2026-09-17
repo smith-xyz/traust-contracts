@@ -1,4 +1,4 @@
-INSERT INTO sla_policy (
+INSERT INTO traust_storage.sla_policy (
     binding_id,
     artifact_digest,
     policy_name,

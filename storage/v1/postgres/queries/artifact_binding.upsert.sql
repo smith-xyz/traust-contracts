@@ -1,4 +1,4 @@
-INSERT INTO artifact_binding (
+INSERT INTO traust_storage.artifact_binding (
     binding_id,
     artifact_digest,
     artifact_name,

@@ -1,4 +1,4 @@
-INSERT INTO org_parameters (
+INSERT INTO traust_storage.org_parameters (
     binding_id,
     artifact_digest,
     version,

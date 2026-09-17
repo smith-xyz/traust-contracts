@@ -1,6 +1,7 @@
 """Authored SQL execution, dependency order, profiles, and package resources."""
 
 import json
+import re
 import sqlite3
 import tomllib
 from pathlib import Path
@@ -16,6 +17,18 @@ TABLES = {
     "traust_storage_meta",
     *PROJECTION_TABLES.values(),
 }
+POSTGRES_SCHEMA = "traust_storage"
+POSTGRES_RELATIONS = {*TABLES, "current_binding", "findings_summary"}
+POSTGRES_RELATION_REFERENCE = re.compile(
+    r"(?:CREATE TABLE IF NOT EXISTS|CREATE OR REPLACE VIEW|INSERT INTO|REFERENCES|FROM|JOIN|"
+    r"UPDATE|ALTER TABLE|DELETE FROM)\s+([a-z_][a-z0-9_.]*)",
+    re.IGNORECASE,
+)
+POSTGRES_INDEX_REFERENCE = re.compile(
+    r"CREATE (?:UNIQUE )?INDEX IF NOT EXISTS [a-z_][a-z0-9_]*\s+ON\s+"
+    r"([a-z_][a-z0-9_.]*)",
+    re.IGNORECASE,
+)
 
 
 def test_sqlite_bootstrap_statements_execute_and_reexecute() -> None:
@@ -36,6 +49,27 @@ def test_sqlite_bootstrap_statements_execute_and_reexecute() -> None:
             assert conn.execute(f"PRAGMA foreign_key_list({table})").fetchall()
     finally:
         conn.close()
+
+
+def test_postgres_relations_use_the_storage_schema() -> None:
+    root = storage_dir() / "postgres"
+    assert (root / "namespace.sql").read_text().strip() == (
+        "CREATE SCHEMA IF NOT EXISTS traust_storage;"
+    )
+    for path in root.rglob("*.sql"):
+        if path.name == "namespace.sql":
+            continue
+        sql = path.read_text()
+        references = [
+            *POSTGRES_RELATION_REFERENCE.findall(sql),
+            *POSTGRES_INDEX_REFERENCE.findall(sql),
+        ]
+        for relation in references:
+            unqualified = relation.rsplit(".", maxsplit=1)[-1]
+            if unqualified in POSTGRES_RELATIONS:
+                assert relation == f"{POSTGRES_SCHEMA}.{unqualified}", (
+                    f"{path.relative_to(root)} contains unqualified relation {relation}"
+                )
 
 
 def test_storage_profiles_cover_schemas_and_only_project_the_first_slice() -> None:
@@ -64,10 +98,10 @@ def test_storage_package_resources() -> None:
     assert (root / "profiles.json").is_file()
     for dialect in ["postgres", "sqlite"]:
         files = bootstrap_files(dialect)
-        assert [path.name for path in files[:2]] == [
-            "artifact_evidence.sql",
-            "artifact_binding.sql",
-        ]
+        expected_prefix = ["artifact_evidence.sql", "artifact_binding.sql"]
+        if dialect == "postgres":
+            expected_prefix.insert(0, "namespace.sql")
+        assert [path.name for path in files[: len(expected_prefix)]] == expected_prefix
         schema_files = {path.stem for path in (root / dialect / "schema").glob("*.sql")}
         assert schema_files == TABLES
         for entity in TABLES - {"traust_storage_meta"}:

@@ -1,4 +1,4 @@
-INSERT INTO isolation_review (
+INSERT INTO traust_storage.isolation_review (
     binding_id,
     artifact_digest,
     title,

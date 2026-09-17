@@ -1,4 +1,4 @@
-INSERT INTO benchmark_target (
+INSERT INTO traust_storage.benchmark_target (
     binding_id,
     artifact_digest,
     version,

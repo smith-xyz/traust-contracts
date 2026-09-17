@@ -1,4 +1,4 @@
-INSERT INTO doc_variance (
+INSERT INTO traust_storage.doc_variance (
     binding_id,
     artifact_digest,
     metadata,

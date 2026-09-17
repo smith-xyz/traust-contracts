@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS finding (
+CREATE TABLE IF NOT EXISTS traust_storage.finding (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     finding_id TEXT NOT NULL,
@@ -17,8 +17,8 @@ CREATE TABLE IF NOT EXISTS finding (
     confidence DOUBLE PRECISION NOT NULL,
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
 CREATE INDEX IF NOT EXISTS idx_finding_severity
-    ON finding (severity);
+    ON traust_storage.finding (severity);

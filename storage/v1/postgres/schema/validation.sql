@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS validation (
+CREATE TABLE IF NOT EXISTS traust_storage.validation (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS validation (
     footer TEXT,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_validation_artifact ON validation (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_validation_artifact ON traust_storage.validation (artifact_digest);

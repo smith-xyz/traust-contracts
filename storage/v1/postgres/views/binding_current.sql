@@ -1,9 +1,9 @@
-CREATE OR REPLACE VIEW current_binding AS
+CREATE OR REPLACE VIEW traust_storage.current_binding AS
 SELECT b.*
-FROM artifact_binding b
+FROM traust_storage.artifact_binding b
 WHERE NOT EXISTS (
     SELECT 1
-    FROM artifact_binding successor
+    FROM traust_storage.artifact_binding successor
     WHERE successor.supersedes_binding_id = b.binding_id
       AND successor.scope_id = b.scope_id
 );

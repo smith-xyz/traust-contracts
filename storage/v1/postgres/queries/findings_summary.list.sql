@@ -6,7 +6,7 @@ SELECT scope_id,
        severity,
        verdict,
        finding_count
-FROM findings_summary
+FROM traust_storage.findings_summary
 WHERE scope_id IN (
     SELECT jsonb_array_elements_text(%(scope_ids)s::jsonb)
 )

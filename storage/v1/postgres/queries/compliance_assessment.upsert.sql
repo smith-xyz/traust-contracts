@@ -1,4 +1,4 @@
-INSERT INTO compliance_assessment (
+INSERT INTO traust_storage.compliance_assessment (
     binding_id,
     artifact_digest,
     metadata,

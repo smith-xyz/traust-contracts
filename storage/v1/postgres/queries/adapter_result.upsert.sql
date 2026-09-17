@@ -1,4 +1,4 @@
-INSERT INTO adapter_result (
+INSERT INTO traust_storage.adapter_result (
     binding_id,
     artifact_digest,
     target,

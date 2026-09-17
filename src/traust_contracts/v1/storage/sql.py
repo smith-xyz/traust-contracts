@@ -23,7 +23,8 @@ def bootstrap_files(dialect: Dialect) -> list[Path]:
     root = storage_dir() / dialect
     schema = {path.name: path for path in (root / "schema").glob("*.sql")}
     first = [schema.pop(name) for name in ("artifact_evidence.sql", "artifact_binding.sql")]
-    return [*first, *sorted(schema.values()), *sorted((root / "views").glob("*.sql"))]
+    namespace = [root / "namespace.sql"] if dialect == "postgres" else []
+    return [*namespace, *first, *sorted(schema.values()), *sorted((root / "views").glob("*.sql"))]
 
 
 def bootstrap_statements(dialect: Dialect, path: Path) -> Iterator[str]:

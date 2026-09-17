@@ -30,14 +30,16 @@ def database(request: pytest.FixtureRequest, postgres_dsn: str) -> Iterator[tupl
 
     conn = psycopg.connect(postgres_dsn, autocommit=True, connect_timeout=2)
     schema = "storage_test_" + uuid4().hex
+    conn.execute("DROP SCHEMA IF EXISTS traust_storage CASCADE")
     conn.execute(sql.SQL("CREATE SCHEMA {} ").format(sql.Identifier(schema)))
-    conn.execute(sql.SQL("SET search_path TO {} ").format(sql.Identifier(schema)))
+    conn.execute(sql.SQL("SET search_path TO {}, traust_storage").format(sql.Identifier(schema)))
     conn.autocommit = request.param
     try:
         yield conn, schema
     finally:
         conn.rollback()
         conn.autocommit = True
+        conn.execute("DROP SCHEMA IF EXISTS traust_storage CASCADE")
         conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
         conn.close()
 
@@ -63,7 +65,7 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
     assert {
         row[0]
         for row in conn.execute(
-            "SELECT tablename FROM pg_tables WHERE schemaname = current_schema()"
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'traust_storage'"
         ).fetchall()
     } == TABLES
     conn.commit()
@@ -86,6 +88,21 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
     conn.commit()
     with pytest.raises(IngestError, match="explicit migration"):
         store.init()
+
+
+def test_postgres_storage_does_not_collide_with_application_tables(
+    database: tuple[Any, str],
+) -> None:
+    conn, _ = database
+    conn.execute("CREATE TABLE report (marker TEXT NOT NULL)")
+    conn.execute("INSERT INTO report VALUES ('application-owned')")
+    conn.commit()
+    store = Store(conn)
+    store.init()
+    store.ingest("report", sample("report")[0], binding_for("report"))
+    assert conn.execute("SELECT marker FROM report").fetchall() == [("application-owned",)]
+    assert conn.execute("SELECT count(*) FROM traust_storage.report").fetchone() == (1,)
+    conn.commit()
 
 
 @pytest.mark.parametrize("number", [1, 1.0, 1e3])

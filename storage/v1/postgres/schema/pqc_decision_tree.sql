@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS pqc_decision_tree (
+CREATE TABLE IF NOT EXISTS traust_storage.pqc_decision_tree (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     tree_version TEXT NOT NULL,
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS pqc_decision_tree (
     server_side_caveat JSONB,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pqc_decision_tree_artifact ON pqc_decision_tree (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_pqc_decision_tree_artifact ON traust_storage.pqc_decision_tree (artifact_digest);

@@ -1,4 +1,4 @@
-INSERT INTO adr_registry (
+INSERT INTO traust_storage.adr_registry (
     binding_id,
     artifact_digest,
     version,

@@ -1,4 +1,4 @@
-INSERT INTO cloud_config_audit (
+INSERT INTO traust_storage.cloud_config_audit (
     binding_id,
     artifact_digest,
     title,

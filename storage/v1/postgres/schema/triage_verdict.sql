@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS triage_verdict (
+CREATE TABLE IF NOT EXISTS traust_storage.triage_verdict (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     finding_id TEXT NOT NULL,
@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS triage_verdict (
     rationale TEXT,
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
 CREATE INDEX IF NOT EXISTS idx_triage_verdict_source
-    ON triage_verdict (source_finding_id, verdict);
+    ON traust_storage.triage_verdict (source_finding_id, verdict);

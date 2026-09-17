@@ -22,6 +22,13 @@ All notable changes to traust-contracts are documented here.
   yet, so there is no existing database to protect from the added column.
   Bump it when a real consumer appears.
 
+- PostgreSQL storage now owns the fixed `traust_storage` schema. Canonical DDL,
+  queries, foreign keys, indexes, and views use qualified relation names, so
+  storage cannot collide with or be redirected to application relations through
+  `search_path`. Initialization creates the schema when absent; restricted
+  deployments may provision it and grant access beforehand. SQLite continues to
+  use the caller-selected database file as its physical namespace.
+
 ## [0.4.0]
 
 ## Changes

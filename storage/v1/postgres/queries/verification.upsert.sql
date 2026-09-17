@@ -1,4 +1,4 @@
-INSERT INTO verification (
+INSERT INTO traust_storage.verification (
     binding_id,
     artifact_digest,
     title,

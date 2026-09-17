@@ -1,4 +1,4 @@
-INSERT INTO risk_rating_methodology (
+INSERT INTO traust_storage.risk_rating_methodology (
     binding_id,
     artifact_digest,
     methodology,

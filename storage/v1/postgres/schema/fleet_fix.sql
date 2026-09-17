@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS fleet_fix (
+CREATE TABLE IF NOT EXISTS traust_storage.fleet_fix (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     id TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS fleet_fix (
     tests JSONB NOT NULL,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_fleet_fix_artifact ON fleet_fix (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_fleet_fix_artifact ON traust_storage.fleet_fix (artifact_digest);

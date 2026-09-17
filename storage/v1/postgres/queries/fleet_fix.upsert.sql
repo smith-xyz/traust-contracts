@@ -1,4 +1,4 @@
-INSERT INTO fleet_fix (
+INSERT INTO traust_storage.fleet_fix (
     binding_id,
     artifact_digest,
     id,

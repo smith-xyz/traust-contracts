@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS report (
+CREATE TABLE IF NOT EXISTS traust_storage.report (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS report (
     footer TEXT,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_report_artifact ON report (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_report_artifact ON traust_storage.report (artifact_digest);

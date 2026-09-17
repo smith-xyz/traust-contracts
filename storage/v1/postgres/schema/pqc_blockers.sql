@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS pqc_blockers (
+CREATE TABLE IF NOT EXISTS traust_storage.pqc_blockers (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     artifact TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS pqc_blockers (
     remediation_roadmap JSONB NOT NULL,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_pqc_blockers_artifact ON pqc_blockers (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_pqc_blockers_artifact ON traust_storage.pqc_blockers (artifact_digest);

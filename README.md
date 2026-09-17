@@ -91,10 +91,14 @@ in one transaction, and makes identical-binding retries a no-op.
 On `IngestError`, the host MUST surface/preserve `error.payload` (the input file
 already on disk suffices). The library never chooses a reject path.
 
-SQLite is complete with stdlib. PostgreSQL >=14 uses the optional `postgres`
-extra (`psycopg>=3`, requiring libpq or separately installed `psycopg[binary]`).
-The scoped views are live; no refresh worker is needed. PostgreSQL filters
-by transaction-local `traust.scope_ids`; callers provision tenant permissions.
+SQLite is complete with stdlib; the caller-selected database file is its
+physical namespace. PostgreSQL >=14 uses the optional `postgres` extra
+(`psycopg>=3`, requiring libpq or separately installed `psycopg[binary]`). Its
+relations live in the fixed `traust_storage` schema, created by `init()` when
+absent or provisioned beforehand by restricted deployments. Qualified canonical
+SQL prevents application relations and `search_path` from redirecting storage.
+The scoped views are live; no refresh worker is needed. PostgreSQL filters by
+transaction-local `traust.scope_ids`; callers provision tenant permissions.
 Storage-internal foreign keys protect binding/evidence/projection integrity;
 cross-artifact domain references remain soft.
 
@@ -126,7 +130,8 @@ uv run pytest tests/ -q
 ```
 
 `tests/test_compat.py` gates breaking JSON Schema changes against the previous tag.
-PostgreSQL tests use a fixed local test DSN and create and remove a private schema per test.
+PostgreSQL tests use a fixed local test DSN, recreate `traust_storage` per test,
+and verify that same-named application tables remain untouched.
 They run automatically when `psycopg` and the database are available; otherwise they warn and skip.
 
 ## License

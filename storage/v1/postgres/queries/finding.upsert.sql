@@ -1,4 +1,4 @@
-INSERT INTO finding (
+INSERT INTO traust_storage.finding (
     binding_id,
     artifact_digest,
     finding_id,

@@ -1,4 +1,4 @@
-INSERT INTO artifact_evidence (
+INSERT INTO traust_storage.artifact_evidence (
     digest,
     payload,
     first_ingested_at

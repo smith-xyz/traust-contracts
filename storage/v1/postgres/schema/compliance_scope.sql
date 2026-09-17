@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS compliance_scope (
+CREATE TABLE IF NOT EXISTS traust_storage.compliance_scope (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     version BIGINT NOT NULL,
@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS compliance_scope (
     boundaries JSONB NOT NULL,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_compliance_scope_artifact ON compliance_scope (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_compliance_scope_artifact ON traust_storage.compliance_scope (artifact_digest);

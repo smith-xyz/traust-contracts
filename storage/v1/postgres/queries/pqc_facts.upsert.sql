@@ -1,4 +1,4 @@
-INSERT INTO pqc_facts (
+INSERT INTO traust_storage.pqc_facts (
     binding_id,
     artifact_digest,
     artifact,

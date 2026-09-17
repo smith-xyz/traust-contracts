@@ -1,4 +1,4 @@
-INSERT INTO pqc_readiness (
+INSERT INTO traust_storage.pqc_readiness (
     binding_id,
     artifact_digest,
     title,

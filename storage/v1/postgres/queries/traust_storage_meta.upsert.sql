@@ -1,4 +1,4 @@
-INSERT INTO traust_storage_meta (
+INSERT INTO traust_storage.traust_storage_meta (
     id,
     contract_version,
     revision,

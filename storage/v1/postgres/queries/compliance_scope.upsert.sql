@@ -1,4 +1,4 @@
-INSERT INTO compliance_scope (
+INSERT INTO traust_storage.compliance_scope (
     binding_id,
     artifact_digest,
     version,

@@ -7,7 +7,7 @@ artifact interpretations.
 | Database | Driver | Scoped dashboard |
 |---|---|---|
 | [SQLite](sqlite/) | Standard-library `sqlite3` | Explicit scope list in the query |
-| [PostgreSQL 14+](postgres/) | `psycopg>=3` + libpq, or `psycopg[binary]` | Transaction-local `traust.scope_ids` plus explicit query scope |
+| [PostgreSQL 14+](postgres/) | `psycopg>=3` + libpq, or `psycopg[binary]` | Fixed `traust_storage` schema; transaction-local `traust.scope_ids` plus explicit query scope |
 
 ```mermaid
 flowchart LR
@@ -129,6 +129,15 @@ Each database has one authored file per table, parameterized queries under
 `queries/`, and one file per view. Evidence and binding tables bootstrap before
 projection tables; views follow in dependency order. Edit SQL directly. SDKs
 generate private query bindings from this canonical source.
+
+PostgreSQL relations live in the fixed `traust_storage` schema and every
+canonical relation reference is qualified. Initialization creates the schema if
+it is absent. Restricted deployments may create it beforehand and grant the
+writer role `USAGE` plus the required object privileges. The fixed namespace
+prevents application tables or caller-controlled `search_path` entries from
+shadowing storage relations. SQLite has no equivalent pooled schema boundary;
+the caller-selected database file is its physical namespace, and a dedicated
+file is recommended.
 
 The database FK from binding to evidence, and projection FKs to both, protect
 storage-internal integrity. Cross-artifact domain references remain soft.

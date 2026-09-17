@@ -1,4 +1,4 @@
-INSERT INTO triage_verdict (
+INSERT INTO traust_storage.triage_verdict (
     binding_id,
     artifact_digest,
     finding_id,

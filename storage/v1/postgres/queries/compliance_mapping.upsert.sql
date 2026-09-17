@@ -1,4 +1,4 @@
-INSERT INTO compliance_mapping (
+INSERT INTO traust_storage.compliance_mapping (
     binding_id,
     artifact_digest,
     version,

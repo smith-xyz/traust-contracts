@@ -1,4 +1,4 @@
-INSERT INTO report (
+INSERT INTO traust_storage.report (
     binding_id,
     artifact_digest,
     title,

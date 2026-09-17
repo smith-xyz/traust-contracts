@@ -1,4 +1,4 @@
-INSERT INTO attack_mapping (
+INSERT INTO traust_storage.attack_mapping (
     binding_id,
     artifact_digest,
     mapping_version,

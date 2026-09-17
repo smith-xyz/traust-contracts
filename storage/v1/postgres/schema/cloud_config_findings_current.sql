@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS cloud_config_findings_current (
+CREATE TABLE IF NOT EXISTS traust_storage.cloud_config_findings_current (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     title TEXT NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS cloud_config_findings_current (
     disposition_summary JSONB NOT NULL,
     PRIMARY KEY (binding_id),
     FOREIGN KEY (binding_id, artifact_digest)
-        REFERENCES artifact_binding(binding_id, artifact_digest)
+        REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
 );
 
-CREATE INDEX IF NOT EXISTS idx_cloud_config_findings_current_artifact ON cloud_config_findings_current (artifact_digest);
+CREATE INDEX IF NOT EXISTS idx_cloud_config_findings_current_artifact ON traust_storage.cloud_config_findings_current (artifact_digest);

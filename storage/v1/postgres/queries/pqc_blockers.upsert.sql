@@ -1,4 +1,4 @@
-INSERT INTO pqc_blockers (
+INSERT INTO traust_storage.pqc_blockers (
     binding_id,
     artifact_digest,
     artifact,

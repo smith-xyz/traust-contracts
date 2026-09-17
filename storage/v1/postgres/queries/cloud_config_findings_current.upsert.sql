@@ -1,4 +1,4 @@
-INSERT INTO cloud_config_findings_current (
+INSERT INTO traust_storage.cloud_config_findings_current (
     binding_id,
     artifact_digest,
     title,

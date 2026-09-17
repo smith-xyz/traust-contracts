@@ -1,4 +1,4 @@
-INSERT INTO remediation (
+INSERT INTO traust_storage.remediation (
     binding_id,
     artifact_digest,
     title,

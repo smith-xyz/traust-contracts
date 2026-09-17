@@ -1,4 +1,4 @@
-INSERT INTO layer_metadata (
+INSERT INTO traust_storage.layer_metadata (
     binding_id,
     artifact_digest,
     repo,

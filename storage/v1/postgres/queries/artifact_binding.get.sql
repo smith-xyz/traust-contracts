@@ -6,5 +6,5 @@ SELECT artifact_digest,
        layer_id,
        supersedes_binding_id,
        bound_at
-FROM artifact_binding
+FROM traust_storage.artifact_binding
 WHERE binding_id = %(binding_id)s;

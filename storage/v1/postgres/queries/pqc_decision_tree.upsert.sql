@@ -1,4 +1,4 @@
-INSERT INTO pqc_decision_tree (
+INSERT INTO traust_storage.pqc_decision_tree (
     binding_id,
     artifact_digest,
     tree_version,
