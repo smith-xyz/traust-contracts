@@ -2,7 +2,7 @@
 
 All notable changes to traust-contracts are documented here.
 
-## [Unreleased]
+## [0.5.0]
 
 ## Changes
 
