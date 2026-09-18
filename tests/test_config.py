@@ -186,3 +186,107 @@ def test_storage_section_missing_required_vs_optional(tmp_path: Path) -> None:
     assert load_section("storage", config_home=tmp_path) is None
     with pytest.raises(DeploymentConfigMissing, match=r"storage.yaml"):
         load_section("storage", config_home=tmp_path, required=True)
+
+
+# --- scope resolution -------------------------------------------------------
+# scope_id is storage/v1's authorization partition, and PostgreSQL enforces it
+# inside the view: a query with no scope returns nothing rather than erroring.
+# So the failure mode of getting this wrong is a silently empty dashboard.
+
+SCOPE_TREES = {
+    "findings": {"ownership": "owned", "label": "a", "business_unit": "Platform Group"},
+    "cloud-config": {"ownership": "owned", "label": "b", "business_unit": "Platform Group"},
+    "other-bu": {"ownership": "external-bu", "label": "c", "business_unit": "Other Unit"},
+    "probes": {"ownership": "harness-qa", "label": "d", "business_unit": "Platform Group"},
+}
+
+
+def _corpus(**scope):
+    from traust_contracts.config import CorpusConfig
+
+    payload = {"version": 1, "trees": SCOPE_TREES}
+    if scope:
+        payload["scope"] = scope
+    return CorpusConfig(**payload)
+
+
+def test_scope_defaults_to_one_scope_so_an_absent_stanza_changes_nothing() -> None:
+    config = _corpus()
+    assert config.scope.mode == "single"
+    assert config.readable_scopes() == ["local"]
+    assert {config.scope_for(tree) for tree in SCOPE_TREES} == {"local"}
+
+
+def test_business_unit_mode_gives_trees_sharing_a_unit_the_same_scope() -> None:
+    """The whole point of the partition: two trees, one unit, one boundary."""
+    config = _corpus(mode="business_unit")
+    assert config.scope_for("findings") == config.scope_for("cloud-config") == "platform-group"
+    assert config.scope_for("other-bu") == "other-unit"
+
+
+def test_readable_scopes_omits_harness_qa_trees() -> None:
+    """harness-qa is registered-but-not-corpus, excluded from every lens.
+
+    Listing it as readable would readmit through the scope list exactly what
+    the resolver excludes by ownership.
+    """
+    config = _corpus(mode="business_unit")
+    assert config.readable_scopes() == ["other-unit", "platform-group"]
+    # Still resolvable for writes — the artifacts exist, they are just not corpus.
+    assert config.scope_for("probes") == "platform-group"
+
+
+def test_every_mode_partitions_without_gaps_or_overlaps() -> None:
+    """Each corpus tree lands in exactly one readable scope, in every mode."""
+    for mode in ("single", "business_unit", "tree"):
+        config = _corpus(mode=mode)
+        readable = set(config.readable_scopes())
+        corpus_trees = [t for t, m in SCOPE_TREES.items() if m["ownership"] != "harness-qa"]
+        assigned = [config.scope_for(tree) for tree in corpus_trees]
+        assert all(scope in readable for scope in assigned), mode
+        assert set(assigned) == readable, mode
+
+
+def test_explicit_mode_names_the_tree_it_cannot_resolve() -> None:
+    config = _corpus(mode="explicit")
+    with pytest.raises(ValueError, match="declares no scope_id"):
+        config.scope_for("findings")
+
+    from traust_contracts.config import CorpusConfig
+
+    trees = {name: dict(meta) for name, meta in SCOPE_TREES.items()}
+    for name in trees:
+        trees[name]["scope_id"] = f"custom-{name}"
+    declared = CorpusConfig(version=1, trees=trees, scope={"mode": "explicit"})
+    assert declared.scope_for("findings") == "custom-findings"
+
+
+def test_unknown_tree_and_unknown_mode_are_rejected() -> None:
+    from traust_contracts.config import CorpusConfig
+
+    with pytest.raises(KeyError, match="not registered"):
+        _corpus().scope_for("never-registered")
+    with pytest.raises(ValueError, match=r"scope\.mode must be one of"):
+        CorpusConfig(version=1, trees=SCOPE_TREES, scope={"mode": "per-user"})
+
+
+def test_readable_scopes_raises_rather_than_returning_empty() -> None:
+    """An empty scope list returns zero rows on PostgreSQL, which reads as
+    'no findings' when it means 'misconfigured'. Fail loudly instead."""
+    from traust_contracts.config import CorpusConfig
+
+    only_qa = {"probes": SCOPE_TREES["probes"]}
+    with pytest.raises(ValueError, match="resolves to no scopes"):
+        CorpusConfig(version=1, trees=only_qa).readable_scopes()
+
+
+def test_scope_slug_is_deterministic_and_collision_free_on_real_shapes() -> None:
+    from traust_contracts.config import scope_slug
+
+    assert scope_slug("Hybrid Platforms") == "hybrid-platforms"
+    assert scope_slug("Hybrid Platforms (upstream community dependencies)") == (
+        "hybrid-platforms-upstream-community-dependencies"
+    )
+    assert scope_slug("  Spaced  Out  ") == "spaced-out"
+    # Distinct units must not collapse onto one authorization boundary.
+    assert scope_slug("Platform Group") != scope_slug("Platform Group 2")

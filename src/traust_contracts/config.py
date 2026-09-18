@@ -271,6 +271,8 @@ class TreeMeta(_Section):
     ownership: str
     label: str
     business_unit: str
+    # Only read under scope.mode 'explicit'; derived modes ignore it.
+    scope_id: str | None = None
 
     @field_validator("ownership")
     @classmethod
@@ -286,11 +288,103 @@ class EngagementMeta(TreeMeta):
     tree: str
 
 
+SCOPE_MODES = ("single", "business_unit", "tree", "explicit")
+
+
+def scope_slug(value: str) -> str:
+    """Deterministic scope id from free text. Lowercase, non-alphanumeric to '-'.
+
+    Deliberately literal rather than clever: a business unit named
+    "Hybrid Platforms (upstream community dependencies)" becomes a long id
+    rather than an invented short one, because a scope id is an
+    authorization boundary and guessing abbreviations is how two units
+    quietly collide. A deployment that wants a short id uses
+    ``mode: explicit`` and says so.
+    """
+    slug = "".join(character if character.isalnum() else "-" for character in value.lower())
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return slug.strip("-")
+
+
+class ScopeConfig(_Section):
+    """How corpus trees map onto storage scope ids.
+
+    ``scope_id`` is storage/v1's authorization partition, and PostgreSQL
+    enforces it *inside* the view — a query that supplies no scope returns
+    nothing rather than erroring. Absent this stanza every tree resolves to
+    one scope, which is the behaviour of a deployment that has never thought
+    about partitioning.
+    """
+
+    mode: str = "single"
+    id: str = "local"
+
+    @field_validator("mode")
+    @classmethod
+    def _known_mode(cls, v: str) -> str:
+        if v not in SCOPE_MODES:
+            raise ValueError(f"scope.mode must be one of {SCOPE_MODES}, got {v!r}")
+        return v
+
+
 class CorpusConfig(_Section):
     version: int
     trees: dict[str, TreeMeta]
     engagements: dict[str, EngagementMeta] = {}
     overrides: dict[str, Any] = {}
+    scope: ScopeConfig = ScopeConfig()
+
+    def scope_for(self, tree: str) -> str:
+        """The scope id to WRITE when ingesting artifacts from ``tree``."""
+        meta = self.trees.get(tree)
+        if meta is None:
+            raise KeyError(f"tree {tree!r} is not registered in corpus-config")
+        mode = self.scope.mode
+        if mode == "single":
+            return self.scope.id
+        if mode == "business_unit":
+            return scope_slug(meta.business_unit)
+        if mode == "tree":
+            return scope_slug(tree)
+        declared = getattr(meta, "scope_id", None)
+        if not declared:
+            raise ValueError(
+                f"scope.mode is 'explicit' but tree {tree!r} declares no scope_id; "
+                "add scope_id to every tree or choose a derived mode"
+            )
+        return str(declared)
+
+    def readable_scopes(self) -> list[str]:
+        """Every scope a reader may query. Pass this to ``query_*``, never a literal.
+
+        Resolved from the registry rather than written into each dashboard so
+        that registering a new tree or business unit surfaces it everywhere at
+        once. A hardcoded list fails silently instead: the number simply drops
+        and nothing errors.
+
+        Raises rather than returning ``[]``. PostgreSQL fails closed, so an
+        empty scope list reads as "no findings" when it means "misconfigured".
+
+        ``harness-qa`` trees are omitted, matching the corpus resolver: they
+        are registered-but-not-corpus (probe and benchmark output), excluded
+        from every metrics lens. Including them here would readmit through
+        the scope list exactly what the resolver excludes by ownership.
+        """
+        scopes = sorted(
+            {
+                self.scope_for(tree)
+                for tree, meta in self.trees.items()
+                if meta.ownership != "harness-qa"
+            }
+        )
+        if not scopes:
+            raise ValueError(
+                "corpus-config resolves to no scopes; a query with an empty "
+                "scope list returns zero rows, which is indistinguishable "
+                "from an empty corpus. Register at least one tree."
+            )
+        return scopes
 
 
 class SafeExecProfiles(_Section):
