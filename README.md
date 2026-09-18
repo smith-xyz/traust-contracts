@@ -33,10 +33,10 @@ End-to-end architecture: `traust/docs/architecture.md` → *Configuration & cont
 ## Install
 
 ```bash
-uv add "traust-contracts @ git+https://github.com/openshift/traust-contracts.git"
+uv add "traust-contracts @ git+https://github.com/traust-security/traust-contracts.git"
 ```
 
-Go SDK: see [traust-sdk](https://github.com/openshift/traust-sdk).
+Go SDK: see [traust-sdk](https://github.com/traust-security/traust-sdk).
 
 ## Versioning
 
