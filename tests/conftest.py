@@ -1,9 +1,13 @@
 """Shared test fixtures."""
 
+import json
 import warnings
 from typing import Never
 
 import pytest
+from storage_samples import encode, sample
+
+from traust_contracts.v1.storage import Binding, Store
 
 POSTGRES_DSN = "postgresql://traust:traust-test-only@127.0.0.1:5432/traust_test"
 POSTGRES_SETUP = (
@@ -35,3 +39,56 @@ def postgres_dsn() -> str:
     except psycopg.OperationalError:
         skip_postgres("local database is unavailable")
     return POSTGRES_DSN
+
+
+FINDINGS_SUMMARY_SCOPE = "local"
+FINDINGS_SUMMARY_SUBJECT = "sci:inventory-item:42"
+FINDINGS_SUMMARY_RUN = "sci:scan-result:7"
+FINDINGS_SUMMARY_LAYER = "ledger:layer:1"
+
+# Full rows, not a column slice: an earlier pair of tests compared only the
+# repo/severity/verdict/count tail, so a divergence in the binding columns
+# would have passed both.
+FINDINGS_SUMMARY_ROWS = [
+    (
+        FINDINGS_SUMMARY_SCOPE,
+        FINDINGS_SUMMARY_SUBJECT,
+        FINDINGS_SUMMARY_RUN,
+        FINDINGS_SUMMARY_LAYER,
+        "https://example.test/repo",
+        "high",
+        "true_positive",
+        1,
+    ),
+    (
+        FINDINGS_SUMMARY_SCOPE,
+        FINDINGS_SUMMARY_SUBJECT,
+        FINDINGS_SUMMARY_RUN,
+        FINDINGS_SUMMARY_LAYER,
+        "https://example.test/repo",
+        "low",
+        None,
+        1,
+    ),
+]
+
+
+def seed_findings_summary(store: Store) -> None:
+    """Ingest the one fixture both dialects' findings_summary tests assert on.
+
+    Shared so a divergence between the SQLite and PostgreSQL views cannot hide
+    behind two independently-authored setups.
+    """
+    finding_payload, _ = sample("vuln-findings")
+    triage = json.loads(sample("triage")[0])
+    triage["findings"][0]["orig_id"] = "REPO-abcdef0-001"
+    layer_payload, _ = sample("layer")
+    context = Binding(
+        FINDINGS_SUMMARY_SCOPE,
+        FINDINGS_SUMMARY_SUBJECT,
+        FINDINGS_SUMMARY_RUN,
+        FINDINGS_SUMMARY_LAYER,
+    )
+    store.ingest("vuln-findings", finding_payload, context)
+    store.ingest("triage", encode(triage), context)
+    store.ingest("layer", layer_payload, Binding(layer_id=FINDINGS_SUMMARY_LAYER))
