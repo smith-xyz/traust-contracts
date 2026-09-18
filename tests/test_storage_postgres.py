@@ -299,3 +299,39 @@ def test_postgres_subject_ownership_matches_sqlite(database: tuple[Any, str]) ->
         ),
     ]
     conn.commit()
+
+
+def test_postgres_report_current_collapses_restatements(database: tuple[Any, str]) -> None:
+    """GAP D on the other dialect. The boolean/integer split matters here:
+    disposition_aware is a CASE expression, so both must yield the same rank."""
+    conn, _ = database
+    store = Store(conn)
+    store.init()
+    audit = json.loads(report_with_findings())
+    for finding in audit["findings"]:
+        finding.pop("disposition", None)
+    current = json.loads(report_with_findings())
+    current["disposition_summary"] = {
+        "layer_ref": "repo-findings-layer.json",
+        "generated_at": "2026-01-02T00:00:00Z",
+        "by_resolution": {
+            "open": 2,
+            "fix_in_progress": 0,
+            "resolved": 0,
+            "partially_resolved": 0,
+            "risk_accepted": 0,
+            "regression_introduced": 0,
+        },
+        "by_validity": {"confirmed": 1, "corrected": 0, "false_positive": 0, "not_verified": 1},
+    }
+    store.ingest("report", encode(audit), Binding(subject_id="repo/a", run_id="run:audit"))
+    store.ingest("report", encode(current), Binding(subject_id="repo/a", run_id="run:current"))
+
+    assert conn.execute("SELECT count(*) FROM report_finding").fetchone() == (4,)
+    assert conn.execute("SELECT subject_id, disposition_aware FROM report_current").fetchall() == [
+        ("repo/a", 1)
+    ]
+    assert conn.execute(
+        "SELECT count(*) FROM report_finding f JOIN report_current c ON c.binding_id = f.binding_id"
+    ).fetchone() == (2,)
+    conn.commit()

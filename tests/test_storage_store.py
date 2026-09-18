@@ -74,7 +74,7 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
     names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert names == {*TABLES, "traust_storage_meta"}
     views = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")}
-    assert views == {"current_binding", "findings_summary"}
+    assert views == {"current_binding", "findings_summary", "report_current"}
     assert conn.execute("PRAGMA foreign_keys").fetchone() == (1,)
     original = conn.execute("SELECT * FROM traust_storage_meta").fetchall()
     assert len(original) == 1 and original[0][:3] == (1, CONTRACT_VERSION, REVISION)
@@ -429,3 +429,88 @@ def test_absent_is_branch_audit_is_null_not_false(store: Store) -> None:
         (result.binding_id, "findings/example/repo"),
     ).fetchone()[0]
     assert value is None
+
+
+def _audit_and_findings_current(subject: str = "repo/a") -> tuple[bytes, bytes]:
+    """The same finding set, restated as a plain audit and a disposition-aware
+    findings-current report. Neither supersedes the other."""
+    audit = json.loads(report_with_findings())
+    for finding in audit["findings"]:
+        finding.pop("disposition", None)
+    current = json.loads(report_with_findings())
+    current["disposition_summary"] = {
+        "layer_ref": "repo-findings-layer.json",
+        "generated_at": "2026-01-02T00:00:00Z",
+        "by_resolution": {
+            "open": 2,
+            "fix_in_progress": 0,
+            "resolved": 0,
+            "partially_resolved": 0,
+            "risk_accepted": 0,
+            "regression_introduced": 0,
+        },
+        "by_validity": {
+            "confirmed": 1,
+            "corrected": 0,
+            "false_positive": 0,
+            "not_verified": 1,
+        },
+    }
+    return encode(audit), encode(current)
+
+
+def test_report_current_collapses_restatements_of_one_subject(store: Store) -> None:
+    """GAP D: both restatements are legitimately current, so counting
+    report_finding directly counts every finding once per restatement."""
+    audit, current = _audit_and_findings_current()
+    store.ingest("report", audit, Binding(subject_id="repo/a", run_id="run:audit"))
+    store.ingest("report", current, Binding(subject_id="repo/a", run_id="run:current"))
+
+    naive = store.conn.execute("SELECT count(*) FROM report_finding").fetchone()[0]
+    distinct = store.conn.execute(
+        "SELECT count(DISTINCT finding_id) FROM report_finding"
+    ).fetchone()[0]
+    assert (naive, distinct) == (4, 2), "the double count this view exists to fix"
+
+    rows = store.conn.execute("SELECT subject_id, disposition_aware FROM report_current").fetchall()
+    assert rows == [("repo/a", 1)], "exactly one, and the disposition-aware one"
+
+    counted = store.conn.execute(
+        "SELECT count(*) FROM report_finding f JOIN report_current c ON c.binding_id = f.binding_id"
+    ).fetchone()[0]
+    assert counted == 2, "each finding counted once"
+
+
+def test_report_current_prefers_disposition_awareness_over_recency(store: Store) -> None:
+    """Order of ingest must not decide the answer -- the layer does."""
+    audit, current = _audit_and_findings_current()
+    store.ingest("report", current, Binding(subject_id="repo/a", run_id="run:current"))
+    store.ingest("report", audit, Binding(subject_id="repo/a", run_id="run:audit"))
+    assert store.conn.execute("SELECT disposition_aware FROM report_current").fetchall() == [(1,)]
+
+
+def test_report_current_is_deterministic_among_equals(store: Store) -> None:
+    """Two reports of the same layer for one subject still yield ONE row."""
+    first = json.loads(report_with_findings())
+    first["title"] = "Audit one"
+    second = json.loads(report_with_findings())
+    second["title"] = "Audit two"
+    for payload, run in ((first, "run:1"), (second, "run:2")):
+        store.ingest("report", encode(payload), Binding(subject_id="repo/a", run_id=run))
+    assert store.conn.execute("SELECT count(*) FROM report_current").fetchall() == [(1,)]
+
+    # Force the recency signal to a tie. Without a tie-break the view would
+    # return both rows, and "the current report" would depend on nothing.
+    store.conn.execute("UPDATE artifact_binding SET bound_at = '2026-01-01T00:00:00Z'")
+    assert store.conn.execute("SELECT count(*) FROM report_current").fetchall() == [(1,)]
+
+
+def test_report_current_keeps_distinct_subjects_apart(store: Store) -> None:
+    """Collapsing restatements must not collapse different repos."""
+    audit, current = _audit_and_findings_current()
+    for subject in ("repo/a", "repo/b"):
+        store.ingest("report", audit, Binding(subject_id=subject, run_id=f"{subject}:audit"))
+        store.ingest("report", current, Binding(subject_id=subject, run_id=f"{subject}:cur"))
+    assert store.conn.execute(
+        "SELECT subject_id FROM report_current ORDER BY subject_id"
+    ).fetchall() == [("repo/a",), ("repo/b",)]

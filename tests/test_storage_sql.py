@@ -24,7 +24,7 @@ TABLES = {
     *SECONDARY_PROJECTION_TABLES.values(),
 }
 POSTGRES_SCHEMA = "traust_storage"
-POSTGRES_RELATIONS = {*TABLES, "current_binding", "findings_summary"}
+POSTGRES_RELATIONS = {*TABLES, "current_binding", "findings_summary", "report_current"}
 POSTGRES_RELATION_REFERENCE = re.compile(
     r"(?:CREATE TABLE IF NOT EXISTS|CREATE OR REPLACE VIEW|INSERT INTO|REFERENCES|FROM|JOIN|"
     r"UPDATE|ALTER TABLE|DELETE FROM)\s+([a-z_][a-z0-9_.]*)",
@@ -120,7 +120,7 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
     """
     for dialect in DIALECTS:
         names = set(_declared_views(dialect))
-        assert names == {"current_binding", "findings_summary"}, dialect
+        assert names == {"current_binding", "findings_summary", "report_current"}, dialect
         assert "binding_current" in {
             path.stem for path in (storage_dir() / dialect / "views").glob("*.sql")
         }
@@ -252,6 +252,7 @@ def test_storage_package_resources() -> None:
         assert {path.stem for path in (root / dialect / "views").glob("*.sql")} == {
             "binding_current",
             "findings_summary",
+            "report_current",
         }
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     targets = project["tool"]["hatch"]["build"]["targets"]
