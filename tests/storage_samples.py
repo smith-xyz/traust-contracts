@@ -13,6 +13,7 @@ FAMILIES = [
     "compliance-assessment",
     "compliance-mapping",
     "compliance-scope",
+    "corpus-registry",
     "doc-variance",
     "fleet-fix",
     "impact-analysis",
@@ -53,6 +54,7 @@ PROJECTION_TABLES = {
     "layer": "layer_metadata",
     "triage": "triage_verdict",
     "vuln-findings": "finding",
+    "corpus-registry": "subject_ownership",
 }
 
 # Artifacts that project into a SECOND table beyond their primary one.
@@ -63,6 +65,34 @@ SECONDARY_PROJECTION_TABLES = {"report": "report_finding"}
 
 
 AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
+    # Two subjects on purpose: one owned HEAD audit and one external-bu branch
+    # re-audit, so the branch-audit exclusion that every denominator depends on
+    # is exercised rather than assumed.
+    "corpus-registry": {
+        "version": 1,
+        "updated": "2026-01-01T00:00:00Z",
+        "subjects": [
+            {
+                "subject_id": "findings/example/repo",
+                "tree": "findings",
+                "ownership": "owned",
+                "business_unit": "Platform Group",
+                "label": "platform",
+                "product": "example-product",
+                "repo_url": "https://example.test/repo",
+                "is_branch_audit": False,
+            },
+            {
+                "subject_id": "other/example/repo@release-1.0",
+                "tree": "other-findings",
+                "ownership": "external-bu",
+                "business_unit": "Other Unit",
+                "ref": "release-1.0",
+                "ref_kind": "branch",
+                "is_branch_audit": True,
+            },
+        ],
+    },
     "impact-analysis": {
         "metadata": {
             "cve": "CVE-2026-1",

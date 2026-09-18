@@ -58,6 +58,11 @@
       "required": [],
       "projection": "compliance_scope"
     },
+    "corpus-registry": {
+      "class": "scope-ref",
+      "required": [],
+      "projection": "subject_ownership"
+    },
     "doc-variance": {
       "class": "run-bound",
       "required": [

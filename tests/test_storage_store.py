@@ -108,7 +108,8 @@ def test_all_artifacts_retain_exact_evidence_and_project(store: Store, name: str
     assert store.get_binding(result.binding_id).binding == binding_for(name)
     table = PROJECTION_TABLES[name]
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
-    assert count == (2 if name == "vuln-findings" else 1)
+    # Fan-out families project one row per item in their sample.
+    assert count == (2 if name in {"vuln-findings", "corpus-registry"} else 1)
 
 
 def test_global_evidence_dedup_is_private_and_binding_scoped(store: Store) -> None:
@@ -341,5 +342,90 @@ def test_absent_disposition_flag_is_null_not_false(store: Store) -> None:
     value = store.conn.execute(
         "SELECT fp_overridden FROM report_finding WHERE binding_id = ? AND finding_id = ?",
         (result.binding_id, "FIND-001"),
+    ).fetchone()[0]
+    assert value is None
+
+
+def test_subject_ownership_projects_the_denominator_columns(store: Store) -> None:
+    """GAP C: ownership had no contract home, so "X% of our repos" was
+    uncomputable from storage/v1. These are the columns every cut divides by."""
+    payload, _ = sample("corpus-registry")
+    result = store.ingest("corpus-registry", payload, Binding())
+    rows = store.conn.execute(
+        "SELECT subject_id, tree, ownership, business_unit, product, ref_kind, "
+        "is_branch_audit FROM subject_ownership WHERE binding_id = ? ORDER BY subject_id",
+        (result.binding_id,),
+    ).fetchall()
+    assert rows == [
+        (
+            "findings/example/repo",
+            "findings",
+            "owned",
+            "Platform Group",
+            "example-product",
+            None,
+            0,
+        ),
+        (
+            "other/example/repo@release-1.0",
+            "other-findings",
+            "external-bu",
+            "Other Unit",
+            None,
+            "branch",
+            1,
+        ),
+    ]
+
+
+def test_ownership_joins_findings_to_a_denominator(store: Store) -> None:
+    """The point of the projection: a finding can be cut by who owns it.
+
+    Before this table the join had no left-hand side at all -- storage/v1
+    knew a finding's subject_id and nothing about that subject.
+    """
+    store.ingest("corpus-registry", sample("corpus-registry")[0], Binding())
+    store.ingest(
+        "report",
+        report_with_findings(),
+        Binding(subject_id="findings/example/repo", run_id="run:1"),
+    )
+    rows = store.conn.execute(
+        "SELECT o.ownership, o.business_unit, count(*) "
+        "FROM report_finding f "
+        "JOIN artifact_binding b ON b.binding_id = f.binding_id "
+        "JOIN subject_ownership o ON o.subject_id = b.subject_id "
+        "GROUP BY o.ownership, o.business_unit"
+    ).fetchall()
+    assert rows == [("owned", "Platform Group", 2)]
+
+
+def test_branch_re_audits_are_separable_from_head(store: Store) -> None:
+    """is_branch_audit is the column a denominator must exclude on.
+
+    A large share of audits are branch re-audits of the same code, so a
+    coverage number that counts them is overstated. Without this column the
+    exclusion cannot be expressed at all.
+    """
+    result = store.ingest("corpus-registry", sample("corpus-registry")[0], Binding())
+    head = store.conn.execute(
+        "SELECT count(*) FROM subject_ownership WHERE binding_id = ? AND is_branch_audit = 0",
+        (result.binding_id,),
+    ).fetchone()[0]
+    total = store.conn.execute(
+        "SELECT count(*) FROM subject_ownership WHERE binding_id = ?", (result.binding_id,)
+    ).fetchone()[0]
+    assert (head, total) == (1, 2), "the sample carries one HEAD audit and one branch re-audit"
+
+
+def test_absent_is_branch_audit_is_null_not_false(store: Store) -> None:
+    """ "Not a branch audit" and "unknown" must not collapse: the second is a
+    registry gap and should be visible as one."""
+    document = json.loads(sample("corpus-registry")[0])
+    del document["subjects"][0]["is_branch_audit"]
+    result = store.ingest("corpus-registry", encode(document), Binding())
+    value = store.conn.execute(
+        "SELECT is_branch_audit FROM subject_ownership WHERE binding_id = ? AND subject_id = ?",
+        (result.binding_id, "findings/example/repo"),
     ).fetchone()[0]
     assert value is None

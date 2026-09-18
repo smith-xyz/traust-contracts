@@ -92,7 +92,8 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
         assert retry.already_bound and retry.binding_id == result.binding_id
     assert conn.execute("SELECT count(*) FROM artifact_binding").fetchone() == (len(FAMILIES),)
     for name, table in PROJECTION_TABLES.items():
-        expected = 2 if name == "vuln-findings" else 1
+        # Fan-out families project one row per item in their sample.
+        expected = 2 if name in {"vuln-findings", "corpus-registry"} else 1
         assert conn.execute(f"SELECT count(*) FROM {table}").fetchone() == (expected,)
     assert conn.execute(
         "SELECT reloptions FROM pg_class WHERE oid='findings_summary'::regclass"
@@ -259,4 +260,42 @@ def test_postgres_report_findings_match_sqlite_row_for_row(database: tuple[Any, 
     assert disposed[10] == "confirmed"
     assert bare[0] == "FIND-002"
     assert all(value is None for value in bare[1:])
+    conn.commit()
+
+
+def test_postgres_subject_ownership_matches_sqlite(database: tuple[Any, str]) -> None:
+    """GAP C on the other dialect, from the same fixture.
+
+    is_branch_audit is INTEGER on SQLite and BOOLEAN here; the row must still
+    say the same thing, and an absent flag must stay NULL on both.
+    """
+    conn, _ = database
+    store = Store(conn)
+    store.init()
+    result = store.ingest("corpus-registry", sample("corpus-registry")[0], Binding())
+    rows = conn.execute(
+        "SELECT subject_id, tree, ownership, business_unit, product, ref_kind, "
+        "is_branch_audit FROM subject_ownership WHERE binding_id = %s ORDER BY subject_id",
+        (result.binding_id,),
+    ).fetchall()
+    assert rows == [
+        (
+            "findings/example/repo",
+            "findings",
+            "owned",
+            "Platform Group",
+            "example-product",
+            None,
+            False,
+        ),
+        (
+            "other/example/repo@release-1.0",
+            "other-findings",
+            "external-bu",
+            "Other Unit",
+            None,
+            "branch",
+            True,
+        ),
+    ]
     conn.commit()

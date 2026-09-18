@@ -358,9 +358,12 @@ def storage_profiles() -> dict[str, dict[str, Any]]:
         raise ValueError("storage profiles must cover every artifact schema exactly")
     tables = {
         **{name: table for name, (table, _) in ONE_ROW_PROJECTIONS.items()},
+        # Families that fan out to a differently-named table rather than
+        # taking the one-row default.
         "layer": "layer_metadata",
         "triage": "triage_verdict",
         "vuln-findings": "finding",
+        "corpus-registry": "subject_ownership",
     }
     for name, profile in profiles.items():
         if profile.get("projection") != tables[name]:
@@ -842,6 +845,25 @@ class Store:
                             else None
                         ),
                         "rationale": finding.get("rationale"),
+                    },
+                )
+        elif artifact == "corpus-registry":
+            for subject in document.get("subjects") or []:
+                self._execute(
+                    query(self.dialect, "subject_ownership.upsert.sql"),
+                    {
+                        "binding_id": binding_id_value,
+                        "artifact_digest": digest,
+                        "subject_id": subject["subject_id"],
+                        "tree": subject["tree"],
+                        "ownership": subject["ownership"],
+                        "business_unit": subject["business_unit"],
+                        "label": subject.get("label"),
+                        "product": subject.get("product"),
+                        "repo_url": subject.get("repo_url"),
+                        "ref": subject.get("ref"),
+                        "ref_kind": subject.get("ref_kind"),
+                        "is_branch_audit": _boolean(subject.get("is_branch_audit")),
                     },
                 )
         else:
