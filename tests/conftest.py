@@ -92,3 +92,50 @@ def seed_findings_summary(store: Store) -> None:
     store.ingest("vuln-findings", finding_payload, context)
     store.ingest("triage", encode(triage), context)
     store.ingest("layer", layer_payload, Binding(layer_id=FINDINGS_SUMMARY_LAYER))
+
+
+def report_with_findings() -> bytes:
+    """A cumulative report: two findings, one fully disposed, one bare.
+
+    The shipped sample has zero findings, so the fan-out was unexercised.
+    """
+    document = json.loads(sample("report")[0])
+    document["findings"] = [
+        {
+            "id": "FIND-001",
+            "title": "Disposed finding",
+            "severity": "high",
+            "description": "x" * 50,
+            "cwes": ["CWE-79"],
+            "locations": [{"path": "a/b.go"}],
+            "remediation": "x" * 20,
+            "fingerprint": "a" * 64,
+            "validation_status": "confirmed",
+            "disposition": {
+                "validity": "confirmed",
+                "resolution": "fix_in_progress",
+                "assurance": "execution_proven",
+                "last_updated": "2026-01-02T00:00:00Z",
+                "events": [],
+                "conflict": False,
+                "fp_overridden": True,
+                "fp_reassertion_blocked": True,
+                "refuted_awaiting_signoff": False,
+                "severity_override": {
+                    "severity": "critical",
+                    "by": "signer@example.test",
+                    "at": "2026-01-02T00:00:00Z",
+                },
+            },
+        },
+        {
+            "id": "FIND-002",
+            "title": "Undisposed finding",
+            "severity": "low",
+            "description": "y" * 50,
+            "cwes": ["CWE-200"],
+            "locations": [{"path": "c/d.go"}],
+            "remediation": "y" * 20,
+        },
+    ]
+    return encode(document)

@@ -6,7 +6,12 @@ import sqlite3
 import tomllib
 from pathlib import Path
 
-from storage_samples import FAMILIES, PROJECTION_TABLES, RUN_BOUND
+from storage_samples import (
+    FAMILIES,
+    PROJECTION_TABLES,
+    RUN_BOUND,
+    SECONDARY_PROJECTION_TABLES,
+)
 
 from traust_contracts.paths import storage_dir
 from traust_contracts.v1.storage.sql import bootstrap_files, bootstrap_statements
@@ -16,6 +21,7 @@ TABLES = {
     "artifact_binding",
     "traust_storage_meta",
     *PROJECTION_TABLES.values(),
+    *SECONDARY_PROJECTION_TABLES.values(),
 }
 POSTGRES_SCHEMA = "traust_storage"
 POSTGRES_RELATIONS = {*TABLES, "current_binding", "findings_summary"}

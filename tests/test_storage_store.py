@@ -11,13 +11,29 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import FINDINGS_SUMMARY_ROWS, FINDINGS_SUMMARY_SCOPE, seed_findings_summary
-from storage_samples import FAMILIES, PROJECTION_TABLES, RUN_BOUND, encode, sample
+from conftest import (
+    FINDINGS_SUMMARY_ROWS,
+    FINDINGS_SUMMARY_SCOPE,
+    report_with_findings,
+    seed_findings_summary,
+)
+from storage_samples import (
+    FAMILIES,
+    PROJECTION_TABLES,
+    RUN_BOUND,
+    SECONDARY_PROJECTION_TABLES,
+    encode,
+    sample,
+)
 
 from traust_contracts.v1.storage import Binding, IngestError, Store, binding_id
 from traust_contracts.v1.storage.sql import CONTRACT_VERSION, REVISION
 
-TABLES = ["artifact_binding", "artifact_evidence", *sorted(set(PROJECTION_TABLES.values()))]
+TABLES = [
+    "artifact_binding",
+    "artifact_evidence",
+    *sorted(set(PROJECTION_TABLES.values()) | set(SECONDARY_PROJECTION_TABLES.values())),
+]
 
 
 @pytest.fixture
@@ -268,3 +284,62 @@ def test_absent_patch_evidence_projects_as_null(store: Store) -> None:
             (result.binding_id,),
         ).fetchone()
         assert row[0] is None
+
+
+def test_report_findings_project_disposition_and_fingerprint(store: Store) -> None:
+    """GAP A/B: what was locked in report.findings is now queryable.
+
+    The blob is unchanged -- this is an index over it, not a replacement.
+    """
+    result = store.ingest("report", report_with_findings(), binding_for("report"))
+
+    rows = store.conn.execute(
+        "SELECT finding_id, fingerprint, validity, resolution, assurance, "
+        "conflict, fp_overridden, fp_reassertion_blocked, refuted_awaiting_signoff, "
+        "severity_override, validation_status "
+        "FROM report_finding WHERE binding_id = ? ORDER BY finding_id",
+        (result.binding_id,),
+    ).fetchall()
+    assert len(rows) == 2, "every finding projects, disposed or not"
+
+    disposed, bare = rows
+    assert disposed[:5] == (
+        "FIND-001",
+        "a" * 64,
+        "confirmed",
+        "fix_in_progress",
+        "execution_proven",
+    )
+    # The two-person-rule flags survive the projection.
+    assert (disposed[5], disposed[6], disposed[7], disposed[8]) == (0, 1, 1, 0)
+    assert json.loads(disposed[9])["severity"] == "critical"
+    assert disposed[10] == "confirmed"
+
+    # A finding with no disposition still projects, carrying identity only.
+    assert bare[0] == "FIND-002"
+    assert all(value is None for value in bare[1:])
+
+
+def test_report_blob_is_unchanged_by_the_new_projection(store: Store) -> None:
+    """The index must not become a second source of truth."""
+    payload = report_with_findings()
+    result = store.ingest("report", payload, binding_for("report"))
+    assert store.get_evidence(result.digest) == payload
+    assert store.get("report", result.binding_id) == payload
+    stored = store.conn.execute(
+        "SELECT findings FROM report WHERE binding_id = ?", (result.binding_id,)
+    ).fetchone()[0]
+    assert json.loads(stored) == json.loads(payload)["findings"]
+
+
+def test_absent_disposition_flag_is_null_not_false(store: Store) -> None:
+    """ "Nobody overrode this FP" and "no record either way" differ, and the
+    two-person rule depends on the difference."""
+    document = json.loads(report_with_findings())
+    del document["findings"][0]["disposition"]["fp_overridden"]
+    result = store.ingest("report", encode(document), binding_for("report"))
+    value = store.conn.execute(
+        "SELECT fp_overridden FROM report_finding WHERE binding_id = ? AND finding_id = ?",
+        (result.binding_id, "FIND-001"),
+    ).fetchone()[0]
+    assert value is None

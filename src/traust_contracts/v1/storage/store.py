@@ -381,6 +381,21 @@ def _integer(value: int | float | None) -> int | None:
     raise ValueError(f"expected int, got {type(value).__name__}")
 
 
+def _boolean(value: bool | None) -> bool | int | None:
+    """SQLite has no boolean type; PostgreSQL insists on one.
+
+    Absent stays absent: a disposition flag that was never set is NULL, not
+    False. "Nobody overrode this false positive" and "we have no record
+    either way" are different claims, and the two-person rule depends on the
+    difference.
+    """
+    if value is None:
+        return None
+    if type(value) is not bool:
+        raise ValueError(f"expected bool, got {type(value).__name__}")
+    return value
+
+
 def _identifier_bytes(field: str, value: str) -> bytes:
     if not isinstance(value, str):
         raise IngestError(f"{field}: expected string")
@@ -830,21 +845,77 @@ class Store:
                     },
                 )
         else:
-            table, fields = ONE_ROW_PROJECTIONS[artifact]
-            values: dict[str, SQLValue] = {
-                "binding_id": binding_id_value,
-                "artifact_digest": digest,
-            }
-            for name, kind in fields:
-                value = document.get(name)
-                if kind == "json" and value is not None:
-                    value = json.dumps(
-                        value,
-                        ensure_ascii=False,
-                        separators=(",", ":"),
-                        allow_nan=False,
-                    )
-                elif kind == "integer":
-                    value = _integer(value)
-                values[name] = value
-            self._execute(query(self.dialect, f"{table}.upsert.sql"), values)
+            self._project_one_row(artifact, document, digest, binding_id_value)
+            if artifact == "report":
+                self._project_report_findings(document, digest, binding_id_value)
+
+    def _project_one_row(
+        self, artifact: str, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        table, fields = ONE_ROW_PROJECTIONS[artifact]
+        values: dict[str, SQLValue] = {
+            "binding_id": binding_id_value,
+            "artifact_digest": digest,
+        }
+        for name, kind in fields:
+            value = document.get(name)
+            if kind == "json" and value is not None:
+                value = json.dumps(
+                    value,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    allow_nan=False,
+                )
+            elif kind == "integer":
+                value = _integer(value)
+            values[name] = value
+        self._execute(query(self.dialect, f"{table}.upsert.sql"), values)
+
+    def _project_report_findings(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a report's findings out of the JSON blob into queryable rows.
+
+        The blob stays: `report.findings` remains the faithful projection of
+        the artifact. This is an index over it, so `validity`/`resolution`
+        can be filtered and `fingerprint` grouped without parsing every row.
+
+        Disposition is optional on the artifact -- only cumulative reports
+        carry it -- so a finding without one still projects, with its
+        identity and NULL disposition.
+        """
+        for finding in document.get("findings") or []:
+            disposition = finding.get("disposition") or {}
+            override = disposition.get("severity_override")
+            self._execute(
+                query(self.dialect, "report_finding.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "finding_id": finding["id"],
+                    "title": finding.get("title"),
+                    "severity": finding.get("severity"),
+                    "fingerprint": finding.get("fingerprint"),
+                    "validation_status": finding.get("validation_status"),
+                    "validity": disposition.get("validity"),
+                    "resolution": disposition.get("resolution"),
+                    "assurance": disposition.get("assurance"),
+                    "last_updated": disposition.get("last_updated"),
+                    "conflict": _boolean(disposition.get("conflict")),
+                    "fp_overridden": _boolean(disposition.get("fp_overridden")),
+                    "fp_reassertion_blocked": _boolean(disposition.get("fp_reassertion_blocked")),
+                    "refuted_awaiting_signoff": _boolean(
+                        disposition.get("refuted_awaiting_signoff")
+                    ),
+                    "severity_override": (
+                        json.dumps(
+                            override,
+                            ensure_ascii=False,
+                            separators=(",", ":"),
+                            allow_nan=False,
+                        )
+                        if override is not None
+                        else None
+                    ),
+                },
+            )

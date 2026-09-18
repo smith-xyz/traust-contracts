@@ -55,6 +55,12 @@ PROJECTION_TABLES = {
     "vuln-findings": "finding",
 }
 
+# Artifacts that project into a SECOND table beyond their primary one.
+# `report` keeps its one-row row (findings stay a faithful JSON column) and
+# additionally fans each finding into report_finding so disposition and
+# fingerprint are queryable.
+SECONDARY_PROJECTION_TABLES = {"report": "report_finding"}
+
 
 AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     "impact-analysis": {

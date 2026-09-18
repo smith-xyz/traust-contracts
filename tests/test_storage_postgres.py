@@ -10,8 +10,20 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from conftest import FINDINGS_SUMMARY_ROWS, FINDINGS_SUMMARY_SCOPE, seed_findings_summary
-from storage_samples import FAMILIES, PROJECTION_TABLES, RUN_BOUND, encode, sample
+from conftest import (
+    FINDINGS_SUMMARY_ROWS,
+    FINDINGS_SUMMARY_SCOPE,
+    report_with_findings,
+    seed_findings_summary,
+)
+from storage_samples import (
+    FAMILIES,
+    PROJECTION_TABLES,
+    RUN_BOUND,
+    SECONDARY_PROJECTION_TABLES,
+    encode,
+    sample,
+)
 
 from traust_contracts.v1.storage import Binding, IngestError, Store
 from traust_contracts.v1.storage.sql import REVISION
@@ -21,6 +33,7 @@ TABLES = {
     "artifact_evidence",
     "traust_storage_meta",
     *PROJECTION_TABLES.values(),
+    *SECONDARY_PROJECTION_TABLES.values(),
 }
 
 
@@ -209,3 +222,41 @@ def test_postgres_caller_transaction_is_untouched(database: tuple[Any, str]) -> 
         store.ingest("vuln-findings", sample("vuln-findings")[0], run_binding())
     assert conn.execute("SELECT * FROM caller_work").fetchall() == [("uncommitted",)]
     conn.execute("ROLLBACK")
+
+
+def test_postgres_report_findings_match_sqlite_row_for_row(database: tuple[Any, str]) -> None:
+    """GAP A/B on the other dialect, from the one shared fixture.
+
+    SQLite stores the flags as 0/1 and PostgreSQL as booleans; the projection
+    must still say the same thing about the same bytes. Comparing normalised
+    values rather than raw driver types is the point -- a dialect that
+    silently coerced an absent flag to False would diverge here.
+    """
+    conn, _ = database
+    store = Store(conn)
+    store.init()
+    result = store.ingest("report", report_with_findings(), run_binding())
+
+    rows = conn.execute(
+        "SELECT finding_id, fingerprint, validity, resolution, assurance, "
+        "conflict, fp_overridden, fp_reassertion_blocked, refuted_awaiting_signoff, "
+        "severity_override, validation_status "
+        "FROM report_finding WHERE binding_id = %s ORDER BY finding_id",
+        (result.binding_id,),
+    ).fetchall()
+    assert len(rows) == 2
+
+    disposed, bare = rows
+    assert disposed[:5] == (
+        "FIND-001",
+        "a" * 64,
+        "confirmed",
+        "fix_in_progress",
+        "execution_proven",
+    )
+    assert (disposed[5], disposed[6], disposed[7], disposed[8]) == (False, True, True, False)
+    assert disposed[9]["severity"] == "critical"
+    assert disposed[10] == "confirmed"
+    assert bare[0] == "FIND-002"
+    assert all(value is None for value in bare[1:])
+    conn.commit()
