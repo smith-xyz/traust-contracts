@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from conftest import FINDINGS_SUMMARY_ROWS, FINDINGS_SUMMARY_SCOPE, seed_findings_summary
 from storage_samples import FAMILIES, PROJECTION_TABLES, RUN_BOUND, encode, sample
 
 from traust_contracts.v1.storage import Binding, IngestError, Store, binding_id
@@ -181,19 +182,14 @@ def test_supersession_rejects_missing_cross_context_and_branches(store: Store) -
 
 
 def test_findings_summary_joins_same_run_and_optional_layer_repo(store: Store) -> None:
-    finding_payload, _ = sample("vuln-findings")
-    triage_document = json.loads(sample("triage")[0])
-    triage_document["findings"][0]["orig_id"] = "REPO-abcdef0-001"
-    layer_payload, _ = sample("layer")
-    context = run_binding(layer="ledger:layer:1")
-    store.ingest("vuln-findings", finding_payload, context)
-    store.ingest("triage", encode(triage_document), context)
-    store.ingest("layer", layer_payload, Binding(layer_id="ledger:layer:1"))
-    rows = store.query_findings_summary(["local"])
-    assert [(row[4], row[5], row[6], row[7]) for row in rows] == [
-        ("https://example.test/repo", "high", "true_positive", 1),
-        ("https://example.test/repo", "low", None, 1),
-    ]
+    """The SQLite half of the cross-dialect parity pair.
+
+    Fixture and expectation are shared with
+    `test_storage_postgres.py::test_postgres_findings_summary_uses_json_scope_and_same_run`
+    so the two views cannot drift behind separately-authored setups.
+    """
+    seed_findings_summary(store)
+    assert store.query_findings_summary([FINDINGS_SUMMARY_SCOPE]) == FINDINGS_SUMMARY_ROWS
     assert store.query_findings_summary(["other"]) == []
 
 
