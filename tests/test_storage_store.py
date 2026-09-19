@@ -89,6 +89,8 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "hardening_findings",
         "open_findings",
         "operator_privilege",
+        "pqc_posture",
+        "pqc_readiness_rollup",
         "report_current",
         "sla_clock",
         "sla_threshold",

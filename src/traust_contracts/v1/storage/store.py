@@ -797,6 +797,18 @@ class Store:
         """
         return self._query_view("finding_sla", scope_ids)
 
+    def query_pqc_posture(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Post-quantum readiness per subject, with its owner."""
+        return self._query_view("pqc_posture", scope_ids)
+
+    def query_pqc_readiness_rollup(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """PQC readiness by bucket, counting SUBJECTS rather than assessments.
+
+        A repo re-assessed five times is one repo in a bucket; counting
+        assessments would inflate the portfolio by rescan frequency.
+        """
+        return self._query_view("pqc_readiness_rollup", scope_ids)
+
     def query_threat_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Modelled threats from the current register, with their owner."""
         return self._query_view("threat_current", scope_ids)

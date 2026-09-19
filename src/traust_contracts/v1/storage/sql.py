@@ -30,7 +30,8 @@ CONTRACT_VERSION = "v1"
 #: 7 (2026-09-19): sla_clock. The policy-level clock was resolved through
 #: the per-severity join, so an unclocked severity aged from a different
 #: timestamp than its siblings under one policy.
-REVISION = 7
+#: 8 (2026-09-19): pqc_posture and pqc_readiness_rollup.
+REVISION = 8
 
 
 @cache
@@ -51,6 +52,7 @@ VIEW_ORDER: tuple[str, ...] = (
     "threat_current.sql",
     "finding_first_seen.sql",
     "finding_timeline.sql",
+    "pqc_posture.sql",
     "sla_clock.sql",
     "sla_threshold.sql",
 )
