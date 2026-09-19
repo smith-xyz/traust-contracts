@@ -80,6 +80,10 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "current_binding",
         "current_finding",
         "distinct_exposure",
+        "exposure_trend",
+        "finding_first_seen",
+        "finding_sla",
+        "finding_timeline",
         "ownership_current",
         "findings_summary",
         "hardening_findings",
@@ -985,6 +989,73 @@ def test_operator_privilege_extracts_summary_counts(store: Store) -> None:
     assert row == (2, 0, 1, 2, 1)
 
 
+def test_ledger_events_project_and_carry_the_clock(store: Store) -> None:
+    """The whole time dimension was being discarded.
+
+    layer.events is an append-only dated transition stream and
+    layer_metadata kept only repo/created/merkle_root, so storage/v1 could
+    answer what is open NOW and nothing about when, how long, or what the
+    estate looked like on any past date.
+    """
+    payload, _ = sample("layer")
+    store.ingest("layer", payload, Binding(layer_id="ledger:layer:1"))
+    rows = store.conn.execute(
+        "SELECT finding_ref, occurred_at, validity, resolution FROM layer_event "
+        "ORDER BY occurred_at"
+    ).fetchall()
+    assert len(rows) == 3
+    assert [r[3] for r in rows] == [None, "regression_introduced", "resolved"]
+    assert all(r[1] for r in rows), "occurred_at is what every duration is computed on"
+
+
+def test_duration_uses_occurred_at_and_respects_the_offset(store: Store) -> None:
+    """Two ways to get MTTR wrong, both seen in real data.
+
+    recorded_at is when the ledger APPENDED -- a bulk re-stamp moves it for
+    thousands of events at once and would report the whole corpus as fixed
+    that day. And real events carry non-UTC offsets, so subtracting the
+    strings naively is wrong by hours.
+
+    The fixture resolves at 2026-07-26T01:46:00-04:00, which is
+    05:46 UTC on the 26th: 4.24 days after a first observation of
+    2026-07-22, not the 4.0 a naive date comparison would give.
+    """
+    _seed_dashboard(store)
+    store.ingest("layer", sample("layer")[0], Binding(layer_id="ledger:layer:1"))
+    row = store.conn.execute(
+        "SELECT first_adjudicated, resolved_at, days_adjudicated_to_resolve "
+        "FROM finding_timeline WHERE resolved_at IS NOT NULL"
+    ).fetchone()
+    assert row is not None, "the layer and report fixtures must share a fingerprint"
+    assert row[2] > 4.0, "a naive string subtraction would give exactly 4.0"
+    assert row[2] < 4.5
+
+
+def test_open_findings_keep_a_null_duration_not_a_zero(store: Store) -> None:
+    """A censored mean reads faster than reality.
+
+    An open finding has no resolution date. Defaulting that to 0 would make
+    every unfixed finding look instantly fixed; the column stays NULL so a
+    consumer must decide what to do about the open ones.
+    """
+    _seed_dashboard(store)
+    document = json.loads(sample("layer")[0])
+    # Same finding, adjudicated but never closed -- the shape that a
+    # censored mean silently drops.
+    document["events"] = [
+        event for event in document["events"]
+        if (event.get("disposition") or {}).get("resolution") != "resolved"
+    ]
+    store.ingest("layer", encode(document), Binding(layer_id="ledger:layer:1"))
+    rows = store.conn.execute(
+        "SELECT resolved_at, days_to_resolve FROM finding_timeline"
+    ).fetchall()
+    assert rows, "the timeline must contain the open finding"
+    for resolved_at, days in rows:
+        assert resolved_at is None
+        assert days is None, "an open finding must not report a duration of 0"
+
+
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
     """PostgreSQL fails closed, so an empty scope reads as 'no findings'
     when it means 'misconfigured'."""
@@ -998,6 +1069,9 @@ def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
         store.query_threat_current,
         store.query_threat_exposure,
         store.query_operator_privilege,
+        store.query_finding_timeline,
+        store.query_exposure_trend,
+        store.query_finding_sla,
     ):
         with pytest.raises(IngestError, match="scope is required"):
             read([])

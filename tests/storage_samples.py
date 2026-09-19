@@ -71,6 +71,9 @@ PROJECTION_TABLES = {
 SECONDARY_PROJECTION_TABLES = {
     "report": "report_finding",
     "cloud-config-findings-current": "cloud_config_finding",
+    # The ledger's dated transitions -- the time dimension. layer_metadata
+    # keeps the merkle root; this keeps the history.
+    "layer": "layer_event",
 }
 
 
@@ -701,7 +704,60 @@ def sample(name: str) -> tuple[bytes, dict[str, str]]:
                 "created": "2026-01-01T00:00:00Z",
                 "harness_version": "0.1.0",
             },
-            "events": [],
+            # Real event shapes, trimmed from the live ledger. Three on one
+            # finding so a duration is computable, and one that never closes
+            # so an OPEN finding is exercised too. Identities are neutral --
+            # a fixture never carries a real person.
+            "events": [
+                {
+                    "event_id": "a" * 64,
+                    "finding_ref": "FIND-001",
+                    "recorded_at": "2026-09-01T00:00:00+00:00",
+                    "occurred_at": "2026-07-22T00:00:00+00:00",
+                    "source": {
+                        "type": "triage_report",
+                        "ref": "example-triage.json",
+                        "actor": {"kind": "machine", "identity": "triage/0.1.0"},
+                    },
+                    "disposition": {"validity": "confirmed"},
+                    "rationale": "2-of-3 confirmed on the exploitability lens.",
+                    "fingerprint": "a" * 64,
+                    "fingerprint_algo": "v3",
+                },
+                {
+                    # occurred_at carries a NON-UTC offset, as real events do.
+                    # A duration computed on the naive string is wrong by
+                    # hours; this is here so that stays caught.
+                    "event_id": "b" * 64,
+                    "finding_ref": "FIND-001",
+                    "recorded_at": "2026-09-01T00:05:00+00:00",
+                    "occurred_at": "2026-07-26T01:46:00-04:00",
+                    "source": {
+                        "type": "jira",
+                        "ref": "EXAMPLE-1",
+                        "actor": {"kind": "human", "identity": "engineer@example.test"},
+                    },
+                    "disposition": {"resolution": "resolved"},
+                    "rationale": "Fix merged upstream.",
+                    "fingerprint": "a" * 64,
+                    "fingerprint_algo": "v3",
+                },
+                {
+                    "event_id": "c" * 64,
+                    "finding_ref": "FIND-002",
+                    "recorded_at": "2026-09-01T00:10:00+00:00",
+                    "occurred_at": "2026-07-24T09:00:00+00:00",
+                    "source": {
+                        "type": "verification_report",
+                        "ref": "example-verification.json",
+                        "actor": {"kind": "machine", "identity": "verify/0.1.0"},
+                    },
+                    "disposition": {"resolution": "regression_introduced"},
+                    "rationale": "Previously fixed behaviour reappeared on main.",
+                    "fingerprint": "b" * 64,
+                    "fingerprint_algo": "v3",
+                },
+            ],
             "needs_review": [],
         }
     elif name == "vuln-findings":

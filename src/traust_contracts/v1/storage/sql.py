@@ -21,7 +21,11 @@ CONTRACT_VERSION = "v1"
 #: CREATE ... IF NOT EXISTS, so a store built on that shape keeps it and reads
 #: the lifted columns as NULL -- silently, since the upsert simply stops
 #: filling them. Same failure mode as revision 2, so the same refusal.
-REVISION = 4
+#: 5 (2026-09-19): layer_event -- the TIME DIMENSION. The ledger's dated
+#: transition stream was ingested and discarded (layer_metadata kept only
+#: repo/created/merkle_root), so a store on revision 4 has no history table
+#: at all and every trend, MTTR and SLA view over it returns nothing.
+REVISION = 5
 
 
 @cache
@@ -40,6 +44,8 @@ VIEW_ORDER: tuple[str, ...] = (
     "ownership_current.sql",
     "current_finding.sql",
     "threat_current.sql",
+    "finding_first_seen.sql",
+    "finding_timeline.sql",
 )
 
 

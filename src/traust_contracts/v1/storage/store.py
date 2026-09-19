@@ -767,6 +767,27 @@ class Store:
         """
         return self._query_view("census_population", scope_ids)
 
+    def query_finding_timeline(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Per-finding clock: born, adjudicated, closed, and the durations.
+
+        days_to_resolve is NULL while open -- a mean taken over closed
+        findings alone is CENSORED and reads faster than reality, so the
+        open ones must stay visible rather than vanish into a zero.
+        """
+        return self._query_view("finding_timeline", scope_ids)
+
+    def query_exposure_trend(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Findings opened and closed per month, each identity counted once."""
+        return self._query_view("exposure_trend", scope_ids)
+
+    def query_finding_sla(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Age of every open finding, clock starting at FIRST OBSERVED.
+
+        Includes still-open findings on purpose: the breaches are exactly
+        the ones that never closed, so a closed-only view inverts the metric.
+        """
+        return self._query_view("finding_sla", scope_ids)
+
     def query_threat_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Modelled threats from the current register, with their owner."""
         return self._query_view("threat_current", scope_ids)
@@ -896,6 +917,7 @@ class Store:
                     "merkle_epoch": _integer(metadata.get("merkle_epoch")),
                 },
             )
+            self._project_layer_events(document, digest, binding_id_value)
         elif artifact == "vuln-findings":
             for finding in document["findings"]:
                 self._execute(
@@ -1067,6 +1089,40 @@ class Store:
                 },
             },
         )
+
+    def _project_layer_events(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan the ledger's dated transitions out of the layer blob.
+
+        This is the whole time dimension. Without it storage/v1 can answer
+        what is open NOW and nothing about when it opened, how long it took
+        to close, or what the estate looked like on any past date.
+        """
+        for event in document.get("events") or []:
+            source = event.get("source") or {}
+            actor = source.get("actor") or {}
+            disposition = event.get("disposition") or {}
+            self._execute(
+                query(self.dialect, "layer_event.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "event_id": event["event_id"],
+                    "finding_ref": event["finding_ref"],
+                    "fingerprint": event.get("fingerprint"),
+                    "fingerprint_algo": event.get("fingerprint_algo"),
+                    "recorded_at": event["recorded_at"],
+                    "occurred_at": event.get("occurred_at"),
+                    "source_type": source.get("type"),
+                    "source_ref": source.get("ref"),
+                    "actor_kind": actor.get("kind"),
+                    "validity": disposition.get("validity"),
+                    "resolution": disposition.get("resolution"),
+                    "evidence_grade": event.get("evidence_grade"),
+                    "auto_accept_tier": _boolean(event.get("auto_accept_tier")),
+                },
+            )
 
     def _project_cloud_config_findings(
         self, document: dict[str, Any], digest: str, binding_id_value: str
