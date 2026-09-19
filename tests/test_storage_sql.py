@@ -26,6 +26,8 @@ TABLES = {
 POSTGRES_SCHEMA = "traust_storage"
 POSTGRES_RELATIONS = {
     *TABLES,
+    "census_exposure",
+    "census_population",
     "current_binding",
     "current_finding",
     "distinct_exposure",
@@ -130,6 +132,8 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
     for dialect in DIALECTS:
         names = set(_declared_views(dialect))
         assert names == {
+            "census_exposure",
+            "census_population",
             "current_binding",
             "current_finding",
             "distinct_exposure",
@@ -213,7 +217,11 @@ def test_postgres_relations_use_the_storage_schema() -> None:
     for path in root.rglob("*.sql"):
         if path.name == "namespace.sql":
             continue
-        sql = path.read_text()
+        # Strip comments first. Prose legitimately says "counted from
+        # subject_ownership", and a bare FROM-regex reads that as an
+        # unqualified relation. Third time comments have tripped a scanner
+        # in this file, hence _uncommented() rather than reworded prose.
+        sql = _uncommented(path.read_text())
         references = [
             *POSTGRES_RELATION_REFERENCE.findall(sql),
             *POSTGRES_INDEX_REFERENCE.findall(sql),
@@ -268,6 +276,8 @@ def test_storage_package_resources() -> None:
             assert (root / dialect / "queries" / f"{entity}.upsert.sql").is_file()
         assert {path.stem for path in (root / dialect / "views").glob("*.sql")} == {
             "binding_current",
+            "census_exposure",
+            "census_population",
             "current_finding",
             "distinct_exposure",
             "findings_summary",
@@ -366,6 +376,5 @@ def test_distinct_exposure_is_one_row_per_fingerprint() -> None:
         assert "fingerprint" in group_by
         for splitter in ("severity", "business_unit", "subject_id", "ownership"):
             assert splitter not in group_by, (
-                f"{dialect}: grouping by {splitter} splits one fingerprint "
-                "into several rows"
+                f"{dialect}: grouping by {splitter} splits one fingerprint into several rows"
             )

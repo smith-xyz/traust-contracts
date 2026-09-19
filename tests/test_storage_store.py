@@ -75,6 +75,8 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
     assert names == {*TABLES, "traust_storage_meta"}
     views = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")}
     assert views == {
+        "census_exposure",
+        "census_population",
         "current_binding",
         "current_finding",
         "distinct_exposure",
