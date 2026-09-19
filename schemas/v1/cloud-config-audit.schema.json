@@ -308,6 +308,16 @@
             "type": "string",
             "minLength": 1,
             "$comment": "Optional (harness >= 0.120.0): free-form identifier of the tenant-facing interface the finding sits on. Only meaningful alongside isolation_dimensions."
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Deterministic cross-scan identity, same recipe as report.schema.json. Policy findings anchor on locations[].resource rather than a file path (files move; RoleBinding.ns.name does not) and append check_id, because the CHECK is what separates two findings on one resource -- without it 20 violations on a single Pod collapsed to one identity."
+          },
+          "fingerprint_algo": {
+            "type": "string",
+            "pattern": "^v\\d+$",
+            "description": "Algorithm version of `fingerprint` (the identity module ALGO_VERSION). Mirrors report.schema.json and layer.schema.json: stamps outlive recipes, so matching fingerprints across an epoch boundary means comparing this field too."
           }
         }
       }

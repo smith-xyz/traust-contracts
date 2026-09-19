@@ -458,6 +458,16 @@
               "informational"
             ],
             "description": "disposition.severity_override.severity when a human override exists, else the finding's severity (cross-checked by the validator)"
+          },
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Deterministic cross-scan identity, same recipe as report.schema.json. Policy findings anchor on locations[].resource rather than a file path (files move; RoleBinding.ns.name does not) and append check_id, because the CHECK is what separates two findings on one resource -- without it 20 violations on a single Pod collapsed to one identity."
+          },
+          "fingerprint_algo": {
+            "type": "string",
+            "pattern": "^v\\d+$",
+            "description": "Algorithm version of `fingerprint` (the identity module ALGO_VERSION). Mirrors report.schema.json and layer.schema.json: stamps outlive recipes, so matching fingerprints across an epoch boundary means comparing this field too."
           }
         }
       }

@@ -195,3 +195,45 @@ class TestEnums:
         }
         errors = list(Draft202012Validator(event_schema).iter_errors(stamped))
         assert not errors, [e.message for e in errors]
+
+
+def test_every_findings_schema_declares_the_identity_fields():
+    """A schema with findings and additionalProperties:false must declare
+    both `fingerprint` and `fingerprint_algo`, or the stamped corpus it
+    describes is invalid against it.
+
+    This has now bitten twice. report.schema.json omitted fingerprint_algo
+    while the producer emitted it, leaving 6,218 audit reports invalid for
+    16 days. cloud-config-findings-current.schema.json declared NEITHER, so
+    stamping 2,592 policy findings turned 89 of 91 valid reports invalid in
+    one command.
+    """
+    import json
+
+    from traust_contracts.paths import schema_dir
+
+    missing = []
+    for path in sorted(schema_dir().glob("*.json")):
+        document = json.loads(path.read_text())
+        candidates = [
+            (
+                "properties.findings.items",
+                document.get("properties", {}).get("findings", {}).get("items"),
+            )
+        ]
+        candidates += [(f"$defs.{name}", node) for name, node in document.get("$defs", {}).items()]
+        for where, node in candidates:
+            if not isinstance(node, dict):
+                continue
+            properties = node.get("properties") or {}
+            if "id" not in properties or "severity" not in properties:
+                continue  # not a finding-shaped object
+            if node.get("additionalProperties") is not False:
+                continue
+            for field in ("fingerprint", "fingerprint_algo"):
+                if field not in properties:
+                    missing.append(f"{path.name} {where}: {field}")
+    assert not missing, (
+        "finding-shaped objects missing an identity field; a stamped corpus "
+        f"would be invalid against them: {missing}"
+    )
