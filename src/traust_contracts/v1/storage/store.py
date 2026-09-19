@@ -1035,13 +1035,13 @@ class Store:
     def _project_priv_profile(
         self, document: dict[str, Any], digest: str, binding_id_value: str
     ) -> None:
-        """Lift the summary counts into columns; keep the asks whole.
+        """One column per ROOT property, which is the one-row invariant here.
 
-        Not a plain one-row blob copy: the numbers a least-privilege
-        dashboard cuts by live one level down in `summary`, and leaving
-        them there means every consumer opens the blob and re-derives them.
+        The summary counts a dashboard cuts by are DERIVED, and the
+        operator_privilege view extracts them rather than storing a second
+        copy. Not a plain _project_one_row only because `repo` is required
+        and the rest are nested blocks that all encode identically.
         """
-        summary = document.get("summary") or {}
         self._execute(
             query(self.dialect, "priv_profile.upsert.sql"),
             {
@@ -1049,16 +1049,6 @@ class Store:
                 "artifact_digest": digest,
                 "repo": document["repo"],
                 "tier": document.get("tier"),
-                "workload_count": _integer(summary.get("workloads")),
-                "privileged_or_host_workloads": _integer(
-                    summary.get("privileged_or_host_workloads")
-                ),
-                "rbac_rule_count": _integer(summary.get("rbac_rules")),
-                "distinct_rule_triples": _integer(summary.get("distinct_rule_triples")),
-                "distinct_cluster_triples": _integer(summary.get("distinct_cluster_triples")),
-                "cluster_scoped_rules": _integer(summary.get("cluster_scoped_rules")),
-                "wildcard_rules": _integer(summary.get("wildcard_rules")),
-                "no_scc_request_recorded": _boolean(summary.get("no_scc_request_recorded")),
                 **{
                     field: _json_or_none(document.get(field))
                     for field in (

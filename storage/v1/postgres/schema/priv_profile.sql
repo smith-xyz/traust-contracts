@@ -3,28 +3,16 @@
 -- DECLARED state, parsed from shipped manifests -- never a live cluster
 -- read. "What would this grant if installed", not "what is granted now".
 --
--- The nested asks (workloads, rules, SCCs) stay whole in JSON because a
--- least-privilege review reads the actual rule; the columns are the
--- summary a dashboard cuts by, lifted out so it need not open the blob.
+-- Columns mirror the schema's ROOT properties, one per artifact, which is
+-- the invariant every one-row projection here holds to. The summary counts
+-- a dashboard cuts by live one level down in `summary`, so they are lifted
+-- in the operator_privilege VIEW rather than duplicated as columns: two
+-- copies of one number is how they drift.
 CREATE TABLE IF NOT EXISTS traust_storage.priv_profile (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,
     repo TEXT NOT NULL,
     tier TEXT,
-    workload_count INTEGER,
-    -- The headline least-privilege number.
-    privileged_or_host_workloads INTEGER,
-    rbac_rule_count INTEGER,
-    -- De-duplicated size of the ask. Rule COUNT inflates with how the
-    -- bundle happens to be authored; the triple count does not, which is
-    -- why both are kept rather than just the cheaper one.
-    distinct_rule_triples INTEGER,
-    distinct_cluster_triples INTEGER,
-    cluster_scoped_rules INTEGER,
-    wildcard_rules INTEGER,
-    -- Distinct from an empty scc_requests list: "asked for nothing" and
-    -- "we could not tell" must never read the same.
-    no_scc_request_recorded INTEGER,
     workloads JSONB,
     rbac_rules JSONB,
     rbac_flags JSONB,

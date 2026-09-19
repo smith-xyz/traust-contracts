@@ -969,9 +969,9 @@ def test_operator_privilege_flags_follow_rbac_flag_presence(store: Store) -> Non
         assert row[f"flag_{absent}"] == 0, absent
 
 
-def test_priv_profile_lifts_summary_counts_into_columns(store: Store) -> None:
-    """The dashboard cuts by these, so leaving them in the blob means every
-    consumer re-derives them."""
+def test_operator_privilege_extracts_summary_counts(store: Store) -> None:
+    """The dashboard cuts by these, so the view surfaces them as columns --
+    without the projection storing a second copy that can drift."""
     payload, _ = sample("operator-priv-profile")
     store.ingest(
         "operator-priv-profile",
@@ -980,7 +980,7 @@ def test_priv_profile_lifts_summary_counts_into_columns(store: Store) -> None:
     )
     row = store.conn.execute(
         "SELECT workload_count, privileged_or_host_workloads, rbac_rule_count, "
-        "distinct_rule_triples, no_scc_request_recorded FROM priv_profile"
+        "distinct_rule_triples, no_scc_request_recorded FROM operator_privilege"
     ).fetchone()
     assert row == (2, 0, 1, 2, 1)
 
