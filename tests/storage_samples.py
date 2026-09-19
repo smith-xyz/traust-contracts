@@ -162,7 +162,7 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
             },
             {
                 # name is null for a kustomize patch fragment -- real shape,
-                # measured across the corpus, and rejected by the schema
+                # 32 of them across the corpus, and rejected by the schema
                 # until it was relaxed to match.
                 "kind": "StatefulSet",
                 "name": None,
