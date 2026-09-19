@@ -1,15 +1,18 @@
 -- Current threats, with the owner of the subject they were modelled against.
 --
 -- threat-register is an aggregate that restates the WHOLE threat population
--- on every regeneration, exactly like corpus-registry -- so its rows
--- ACCUMULATE across bindings and a view reading the `threat` table raw
--- would multiply every threat count by the number of times the register had
--- been imported. This applies the same rule ownership_current does: the most
--- recently bound register wins, binding_id breaking ties.
+-- on every regeneration, exactly like corpus-registry, so its rows
+-- ACCUMULATE across bindings; a view reading `threat` raw multiplies every
+-- count by the number of imports.
 --
--- Ownership is LEFT JOINed because a threat model can exist for a subject
--- the corpus registry does not declare; such a threat is still real, it
--- simply has no denominator, and dropping it would hide it entirely.
+-- Resolved per BINDING, not per threat. The first version of this view raced
+-- rows against each other with a correlated NOT EXISTS on threat_key, which
+-- is quadratic in the threat table -- measured on the live register it had
+-- not finished after 44 minutes at 165,700 rows, and an index on threat_key
+-- does not rescue it. Because the register is a whole-population
+-- restatement, exactly one binding per scope is current, and that set is
+-- tiny: pick it from artifact_binding first, then join. Linear, and it says
+-- what is actually true about the artifact.
 CREATE VIEW IF NOT EXISTS threat_current AS
 SELECT b.scope_id,
        t.threat_key,
@@ -34,18 +37,19 @@ SELECT b.scope_id,
        owner.tree,
        owner.is_branch_audit
 FROM threat t
-JOIN artifact_binding b
-  ON b.binding_id = t.binding_id
+JOIN (
+    SELECT scope_id, binding_id
+    FROM artifact_binding current_register
+    WHERE current_register.artifact_name = 'threat-register'
+      AND NOT EXISTS (
+          SELECT 1
+          FROM artifact_binding rival
+          WHERE rival.artifact_name = 'threat-register'
+            AND rival.scope_id = current_register.scope_id
+            AND (rival.bound_at > current_register.bound_at
+                 OR (rival.bound_at = current_register.bound_at
+                     AND rival.binding_id > current_register.binding_id))
+      )
+) b ON b.binding_id = t.binding_id
 LEFT JOIN ownership_current owner
-  ON owner.subject_id = t.subject_id
-WHERE NOT EXISTS (
-    SELECT 1
-    FROM threat rival
-    JOIN artifact_binding rival_binding
-      ON rival_binding.binding_id = rival.binding_id
-    WHERE rival.threat_key = t.threat_key
-      AND rival_binding.scope_id = b.scope_id
-      AND (rival_binding.bound_at > b.bound_at
-           OR (rival_binding.bound_at = b.bound_at
-               AND rival_binding.binding_id > b.binding_id))
-);
+  ON owner.subject_id = t.subject_id;

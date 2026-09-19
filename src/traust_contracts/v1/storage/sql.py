@@ -15,7 +15,13 @@ CONTRACT_VERSION = "v1"
 #: pre-3 ones join subject_ownership raw, which double-counts every finding
 #: once per corpus-registry import. Failing closed here is deliberate: a
 #: store on the old revision may ALREADY be serving inflated numbers.
-REVISION = 3
+#: 4 (2026-09-19): threat + priv_profile tables and their views. Revision 3
+#: covered an intermediate priv_profile shape that carried the summary counts
+#: as columns; 0.18.2 moved them into operator_privilege. Tables and views are
+#: CREATE ... IF NOT EXISTS, so a store built on that shape keeps it and reads
+#: the lifted columns as NULL -- silently, since the upsert simply stops
+#: filling them. Same failure mode as revision 2, so the same refusal.
+REVISION = 4
 
 
 @cache
