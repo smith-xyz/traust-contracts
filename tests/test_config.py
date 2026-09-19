@@ -264,7 +264,7 @@ def test_explicit_mode_names_the_tree_it_cannot_resolve() -> None:
 def test_unknown_tree_and_unknown_mode_are_rejected() -> None:
     from traust_contracts.config import CorpusConfig
 
-    with pytest.raises(KeyError, match="not registered"):
+    with pytest.raises(KeyError, match="neither as a tree nor as an engagement"):
         _corpus().scope_for("never-registered")
     with pytest.raises(ValueError, match=r"scope\.mode must be one of"):
         CorpusConfig(version=1, trees=SCOPE_TREES, scope={"mode": "per-user"})
@@ -290,3 +290,52 @@ def test_scope_slug_is_deterministic_and_collision_free_on_real_shapes() -> None
     assert scope_slug("  Spaced  Out  ") == "spaced-out"
     # Distinct units must not collapse onto one authorization boundary.
     assert scope_slug("Platform Group") != scope_slug("Platform Group 2")
+
+
+def test_a_registered_engagement_tree_resolves_like_any_other() -> None:
+    """Engagements are tree-per-engagement: a one-time scan for another
+    business unit lands in its own directory, and resolver.active_trees()
+    merges it in. Looking only at `trees` dropped 53 repos and 399
+    findings that carry a declared ownership of external-bu."""
+    from traust_contracts.config import CorpusConfig
+
+    config = CorpusConfig(
+        version=1,
+        trees=SCOPE_TREES,
+        engagements={
+            "sidequest": {
+                "label": "sidequest",
+                "ownership": "external-bu",
+                # A unit no declared TREE has, so readable_scopes() can only
+                # contain it if engagements are resolved.
+                "business_unit": "Sidequest Unit",
+                "tree": "sidequest-findings",
+            }
+        },
+        scope={"mode": "business_unit"},
+    )
+    assert config.tree_meta("sidequest-findings").ownership == "external-bu"
+    assert config.scope_for("sidequest-findings") == "sidequest-unit"
+    # It must also be READABLE, or its artifacts ingest into a scope no
+    # query ever asks for.
+    assert "sidequest-unit" in config.readable_scopes()
+
+
+def test_an_engagement_tree_is_still_excluded_from_the_owned_denominator() -> None:
+    """external-bu is Lens 1 (work performed) only. Inclusion in storage is
+    not inclusion in the risk numbers -- the ownership tag does that."""
+    from traust_contracts.config import CorpusConfig
+
+    config = CorpusConfig(
+        version=1,
+        trees=SCOPE_TREES,
+        engagements={
+            "sidequest": {
+                "label": "s",
+                "ownership": "external-bu",
+                "business_unit": "Other Unit",
+                "tree": "sidequest-findings",
+            }
+        },
+    )
+    assert config.tree_meta("sidequest-findings").ownership != "owned"

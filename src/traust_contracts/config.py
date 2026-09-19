@@ -335,11 +335,32 @@ class CorpusConfig(_Section):
     overrides: dict[str, Any] = {}
     scope: ScopeConfig = ScopeConfig()
 
+    def tree_meta(self, tree: str):
+        """Ownership metadata for a tree, whether declared as a tree OR as a
+        registered engagement.
+
+        Engagements are tree-per-engagement: a one-time scan for another
+        business unit lands in its own directory rather than the portfolio
+        tree, and `resolver.active_trees()` merges them in once that
+        directory exists. Looking only at `trees` silently drops them --
+        measured 2026-09-19, that lost 53 repos and 399 findings that carry
+        a declared ownership of `external-bu`.
+        """
+        if tree in self.trees:
+            return self.trees[tree]
+        for engagement in self.engagements.values():
+            if getattr(engagement, "tree", None) == tree:
+                return engagement
+        return None
+
     def scope_for(self, tree: str) -> str:
         """The scope id to WRITE when ingesting artifacts from ``tree``."""
-        meta = self.trees.get(tree)
+        meta = self.tree_meta(tree)
         if meta is None:
-            raise KeyError(f"tree {tree!r} is not registered in corpus-config")
+            raise KeyError(
+                f"tree {tree!r} is registered neither as a tree nor as an "
+                "engagement in corpus-config"
+            )
         mode = self.scope.mode
         if mode == "single":
             return self.scope.id
@@ -371,11 +392,14 @@ class CorpusConfig(_Section):
         from every metrics lens. Including them here would readmit through
         the scope list exactly what the resolver excludes by ownership.
         """
+        names = list(self.trees) + [
+            e.tree for e in self.engagements.values() if getattr(e, "tree", None)
+        ]
         scopes = sorted(
             {
-                self.scope_for(tree)
-                for tree, meta in self.trees.items()
-                if meta.ownership != "harness-qa"
+                self.scope_for(name)
+                for name in names
+                if (meta := self.tree_meta(name)) and meta.ownership != "harness-qa"
             }
         )
         if not scopes:
