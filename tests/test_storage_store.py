@@ -74,7 +74,15 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
     names = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert names == {*TABLES, "traust_storage_meta"}
     views = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")}
-    assert views == {"current_binding", "findings_summary", "report_current"}
+    assert views == {
+        "current_binding",
+        "current_finding",
+        "distinct_exposure",
+        "findings_summary",
+        "hardening_findings",
+        "open_findings",
+        "report_current",
+    }
     assert conn.execute("PRAGMA foreign_keys").fetchone() == (1,)
     original = conn.execute("SELECT * FROM traust_storage_meta").fetchall()
     assert len(original) == 1 and original[0][:3] == (1, CONTRACT_VERSION, REVISION)
@@ -618,3 +626,113 @@ def test_cloud_config_findings_are_separable_by_check(store: Store) -> None:
         (result.binding_id,),
     ).fetchone()[0]
     assert checks == 2
+
+
+def _registry(subject: str, *, ownership: str = "owned", branch: bool = False) -> bytes:
+    return encode(
+        {
+            "version": 1,
+            "subjects": [
+                {
+                    "subject_id": subject,
+                    "tree": "findings",
+                    "ownership": ownership,
+                    "business_unit": "Platform Group",
+                    "is_branch_audit": branch,
+                }
+            ],
+        }
+    )
+
+
+def _seed_dashboard(store: Store, *, ownership: str = "owned", branch: bool = False) -> None:
+    """A code report and a policy report for one subject, plus its ownership."""
+    subject = "findings/org/repo"
+    store.ingest(
+        "corpus-registry", _registry(subject, ownership=ownership, branch=branch), Binding()
+    )
+    store.ingest("report", report_with_findings(), Binding(subject_id=subject, run_id="r1"))
+    store.ingest(
+        "cloud-config-findings-current",
+        _cloud_config_with_findings(),
+        Binding(subject_id=subject, run_id="r1"),
+    )
+
+
+def test_the_spine_unions_code_and_policy_findings(store: Store) -> None:
+    """A dashboard reading only report_finding omits every policy finding."""
+    _seed_dashboard(store)
+    families = dict(
+        store.conn.execute("SELECT family, count(*) FROM current_finding GROUP BY family")
+    )
+    assert families == {"code": 2, "policy": 2}
+
+
+def test_the_spine_carries_ownership(store: Store) -> None:
+    """Ownership is the denominator and lives in neither finding table."""
+    _seed_dashboard(store)
+    rows = set(store.conn.execute("SELECT DISTINCT ownership, business_unit FROM current_finding"))
+    assert rows == {("owned", "Platform Group")}
+
+
+def test_open_findings_excludes_hardening_and_false_positives(store: Store) -> None:
+    _seed_dashboard(store)
+    store.conn.execute("UPDATE report_finding SET validity='hardening' WHERE finding_id='FIND-001'")
+    store.conn.execute(
+        "UPDATE report_finding SET validity='false_positive' WHERE finding_id='FIND-002'"
+    )
+    store.conn.commit()
+    ids = {r[3] for r in store.query_open_findings(["local"])}
+    assert "FIND-001" not in ids and "FIND-002" not in ids
+
+
+def test_open_findings_keeps_partial_fixes_and_regressions(store: Store) -> None:
+    """Open is anything not AFFIRMATIVELY closed -- these are still exposure."""
+    _seed_dashboard(store)
+    for resolution in ("fix_in_progress", "partially_resolved", "regression_introduced"):
+        store.conn.execute(
+            "UPDATE report_finding SET resolution=? WHERE finding_id='FIND-001'", (resolution,)
+        )
+        store.conn.commit()
+        ids = {r[3] for r in store.query_open_findings(["local"])}
+        assert "FIND-001" in ids, resolution
+    store.conn.execute(
+        "UPDATE report_finding SET resolution='resolved' WHERE finding_id='FIND-001'"
+    )
+    store.conn.commit()
+    assert "FIND-001" not in {r[3] for r in store.query_open_findings(["local"])}
+
+
+def test_hardening_is_separate_from_open(store: Store) -> None:
+    _seed_dashboard(store)
+    store.conn.execute("UPDATE report_finding SET validity='hardening' WHERE finding_id='FIND-001'")
+    store.conn.commit()
+    assert {r[3] for r in store.query_hardening_findings(["local"])} == {"FIND-001"}
+    assert "FIND-001" not in {r[3] for r in store.query_open_findings(["local"])}
+
+
+def test_distinct_exposure_excludes_unowned_and_branch_audits(store: Store) -> None:
+    """Both filters carry meaning: upstream/external-bu are Lens 1 only, and
+    branch re-audits of the same code overstate coverage."""
+    _seed_dashboard(store)
+    assert store.query_distinct_exposure(["local"]), "owned HEAD audit must appear"
+
+    for kwargs in ({"ownership": "upstream"}, {"branch": True}):
+        other = Store(sqlite3.connect(":memory:"))
+        other.init()
+        _seed_dashboard(other, **kwargs)
+        assert other.query_distinct_exposure(["local"]) == [], kwargs
+
+
+def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
+    """PostgreSQL fails closed, so an empty scope reads as 'no findings'
+    when it means 'misconfigured'."""
+    _seed_dashboard(store)
+    for read in (
+        store.query_open_findings,
+        store.query_hardening_findings,
+        store.query_distinct_exposure,
+    ):
+        with pytest.raises(IngestError, match="scope is required"):
+            read([])
+        assert read(["other-scope"]) == []

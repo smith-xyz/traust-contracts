@@ -18,13 +18,33 @@ def query(dialect: Dialect, filename: str) -> str:
     return (storage_dir() / dialect / "queries" / filename).read_text(encoding="utf-8")
 
 
+#: Views that other views select FROM, in the order they must be created.
+#: Alphabetical order is not dependency order -- `current_finding` sorts
+#: before `report_current` but selects from it, and PostgreSQL resolves a
+#: view's references at CREATE time, so the glob order alone fails there
+#: while silently succeeding on SQLite.
+VIEW_ORDER: tuple[str, ...] = (
+    "binding_current.sql",
+    "report_current.sql",
+    "current_finding.sql",
+)
+
+
 def bootstrap_files(dialect: Dialect) -> list[Path]:
-    """Return dependency-ordered tables followed by deterministic views."""
+    """Return dependency-ordered tables followed by dependency-ordered views."""
     root = storage_dir() / dialect
     schema = {path.name: path for path in (root / "schema").glob("*.sql")}
     first = [schema.pop(name) for name in ("artifact_evidence.sql", "artifact_binding.sql")]
     namespace = [root / "namespace.sql"] if dialect == "postgres" else []
-    return [*namespace, *first, *sorted(schema.values()), *sorted((root / "views").glob("*.sql"))]
+    views = {path.name: path for path in (root / "views").glob("*.sql")}
+    ordered = [views.pop(name) for name in VIEW_ORDER if name in views]
+    return [
+        *namespace,
+        *first,
+        *sorted(schema.values()),
+        *ordered,
+        *sorted(views.values()),
+    ]
 
 
 def bootstrap_statements(dialect: Dialect, path: Path) -> Iterator[str]:

@@ -702,6 +702,48 @@ class Store:
                 f"storage findings summary read: {_error_detail(error)}{rollback_error}"
             ) from None
 
+    def _query_view(self, view: str, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Read a scope-gated dashboard view. One implementation, not four.
+
+        Every dashboard read goes through here so the scope contract is
+        stated once: PostgreSQL fails CLOSED, returning zero rows rather
+        than erroring when no scope is set, which reads as "no findings"
+        when it means "misconfigured". An empty list is refused for the
+        same reason.
+        """
+        self._idle()
+        if not scope_ids:
+            raise IngestError("storage scope is required")
+        for scope_id in scope_ids:
+            _identifier_bytes("scope_id", scope_id)
+        encoded = json.dumps(list(scope_ids), ensure_ascii=False, separators=(",", ":"))
+        self._begin()
+        try:
+            if self.dialect == "postgres":
+                self._execute(query(self.dialect, "scope.set.sql"), {"scope_ids": encoded})
+            rows = self._execute(
+                query(self.dialect, f"{view}.list.sql"), {"scope_ids": encoded}
+            ).fetchall()
+            self.conn.execute("COMMIT")
+            return rows
+        except Exception as error:
+            rollback_error = self._rollback()
+            raise IngestError(
+                f"storage {view} read: {_error_detail(error)}{rollback_error}"
+            ) from None
+
+    def query_open_findings(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Open exposure: not affirmatively closed, not FP, not hardening."""
+        return self._query_view("open_findings", scope_ids)
+
+    def query_hardening_findings(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Posture debt, kept out of open exposure so the two never blend."""
+        return self._query_view("hardening_findings", scope_ids)
+
+    def query_distinct_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Lens 2: distinct problems over owned HEAD audits, not row counts."""
+        return self._query_view("distinct_exposure", scope_ids)
+
     def _validate_binding(self, artifact: str, binding: Binding) -> None:
         if not isinstance(binding, Binding):
             raise IngestError("binding: expected Binding")

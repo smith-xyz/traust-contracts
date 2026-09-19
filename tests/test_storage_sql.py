@@ -24,7 +24,16 @@ TABLES = {
     *SECONDARY_PROJECTION_TABLES.values(),
 }
 POSTGRES_SCHEMA = "traust_storage"
-POSTGRES_RELATIONS = {*TABLES, "current_binding", "findings_summary", "report_current"}
+POSTGRES_RELATIONS = {
+    *TABLES,
+    "current_binding",
+    "current_finding",
+    "distinct_exposure",
+    "findings_summary",
+    "hardening_findings",
+    "open_findings",
+    "report_current",
+}
 POSTGRES_RELATION_REFERENCE = re.compile(
     r"(?:CREATE TABLE IF NOT EXISTS|CREATE OR REPLACE VIEW|INSERT INTO|REFERENCES|FROM|JOIN|"
     r"UPDATE|ALTER TABLE|DELETE FROM)\s+([a-z_][a-z0-9_.]*)",
@@ -120,7 +129,15 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
     """
     for dialect in DIALECTS:
         names = set(_declared_views(dialect))
-        assert names == {"current_binding", "findings_summary", "report_current"}, dialect
+        assert names == {
+            "current_binding",
+            "current_finding",
+            "distinct_exposure",
+            "findings_summary",
+            "hardening_findings",
+            "open_findings",
+            "report_current",
+        }, dialect
         assert "binding_current" in {
             path.stem for path in (storage_dir() / dialect / "views").glob("*.sql")
         }
@@ -251,10 +268,86 @@ def test_storage_package_resources() -> None:
             assert (root / dialect / "queries" / f"{entity}.upsert.sql").is_file()
         assert {path.stem for path in (root / dialect / "views").glob("*.sql")} == {
             "binding_current",
+            "current_finding",
+            "distinct_exposure",
             "findings_summary",
+            "hardening_findings",
+            "open_findings",
             "report_current",
         }
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     targets = project["tool"]["hatch"]["build"]["targets"]
     assert targets["wheel"]["force-include"]["storage/v1"] == "traust_contracts/storage/v1"
     assert "/tests/fixtures/storage" in targets["sdist"]["exclude"]
+
+
+def test_dashboard_view_filters_match_the_contract_enums() -> None:
+    """The view SQL hard-codes disposition values; this is what keeps them true.
+
+    The harness projection once excluded 'in_progress' where the enum says
+    'fix_in_progress', so every in-progress finding silently vanished from
+    open exposure. SQL files cannot import an enum, so the next best thing
+    is a test that fails the moment they disagree.
+    """
+    from traust_contracts.v1.enums import DispositionResolution, Validity
+
+    closed = {DispositionResolution.RESOLVED.value, DispositionResolution.RISK_ACCEPTED.value}
+    non_exposure = {Validity.FALSE_POSITIVE.value, Validity.HARDENING.value}
+
+    for dialect in DIALECTS:
+        # Comments deliberately NAME the values this gate exists to catch
+        # (see the open_findings header), so scan the SQL only.
+        sql = _uncommented((storage_dir() / dialect / "views" / "open_findings.sql").read_text())
+        quoted = set(re.findall(r"'([a-z_]+)'", sql))
+        assert closed <= quoted, f"{dialect}: open_findings lost a closed resolution"
+        assert non_exposure <= quoted, f"{dialect}: open_findings lost a non-exposure validity"
+        # Every quoted value must BE an enum member -- a typo'd value filters
+        # nothing and is invisible until someone counts.
+        known = (
+            {m.value for m in DispositionResolution}
+            | {m.value for m in Validity}
+            | {"code", "policy", "owned"}
+        )
+        assert quoted <= known, f"{dialect}: unknown value(s) {quoted - known}"
+
+        hardening = _uncommented(
+            (storage_dir() / dialect / "views" / "hardening_findings.sql").read_text()
+        )
+        assert f"'{Validity.HARDENING.value}'" in hardening
+
+
+def test_the_spine_unions_both_finding_families() -> None:
+    """A view reading only report_finding omits every policy finding --
+    2,592 of them in the corpus, and silently."""
+    for dialect in DIALECTS:
+        sql = (storage_dir() / dialect / "views" / "current_finding.sql").read_text()
+        assert "report_finding" in sql and "cloud_config_finding" in sql
+        assert sql.count("UNION ALL") == 1
+        # It must go through report_current, or a repo's findings are counted
+        # once per restatement (measured 49% inflation).
+        assert "report_current" in sql
+        assert "subject_ownership" in sql, "ownership is the denominator"
+
+
+def test_distinct_exposure_keeps_both_lens_filters() -> None:
+    """Dropping either one silently changes what the number means."""
+    for dialect in DIALECTS:
+        sql = (storage_dir() / dialect / "views" / "distinct_exposure.sql").read_text()
+        assert "ownership = 'owned'" in sql
+        # FALSE, not 0: the column is BOOLEAN on PostgreSQL and INTEGER on
+        # SQLite, and `= 0` is an UndefinedFunction error on the former.
+        # Caught only by running the PostgreSQL tier.
+        assert "is_branch_audit = FALSE" in sql
+        assert "fingerprint IS NOT NULL" in sql
+
+
+def test_views_are_created_in_dependency_order() -> None:
+    """Alphabetical order is not dependency order: current_finding sorts
+    before report_current but selects from it, and PostgreSQL resolves a
+    view's references at CREATE time."""
+    for dialect in DIALECTS:
+        names = [p.name for p in bootstrap_files(dialect) if "/views/" in str(p)]
+        assert names.index("report_current.sql") < names.index("current_finding.sql")
+        assert names.index("binding_current.sql") < names.index("report_current.sql")
+        for dependent in ("open_findings.sql", "hardening_findings.sql", "distinct_exposure.sql"):
+            assert names.index("current_finding.sql") < names.index(dependent)

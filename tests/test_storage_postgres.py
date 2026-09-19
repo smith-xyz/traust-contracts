@@ -335,3 +335,46 @@ def test_postgres_report_current_collapses_restatements(database: tuple[Any, str
         "SELECT count(*) FROM report_finding f JOIN report_current c ON c.binding_id = f.binding_id"
     ).fetchone() == (2,)
     conn.commit()
+
+
+def test_postgres_dashboard_views_agree_with_sqlite(database: tuple[Any, str]) -> None:
+    """The three dashboard views, on the other dialect, from one fixture.
+
+    This tier is what caught `is_branch_audit = 0`: the column is BOOLEAN
+    here and INTEGER on SQLite, so the comparison was an UndefinedFunction
+    error that SQLite accepted silently.
+    """
+    conn, _ = database
+    store = Store(conn)
+    store.init()
+    subject = "findings/org/repo"
+    store.ingest(
+        "corpus-registry",
+        encode(
+            {
+                "version": 1,
+                "subjects": [
+                    {
+                        "subject_id": subject,
+                        "tree": "findings",
+                        "ownership": "owned",
+                        "business_unit": "Platform Group",
+                        "is_branch_audit": False,
+                    }
+                ],
+            }
+        ),
+        Binding(),
+    )
+    store.ingest("report", report_with_findings(), Binding(subject_id=subject, run_id="r1"))
+
+    families = dict(
+        conn.execute("SELECT family, count(*) FROM current_finding GROUP BY family").fetchall()
+    )
+    assert families == {"code": 2}
+    conn.commit()  # the raw read above opens a txn on the transactional driver
+    assert len(store.query_open_findings(["local"])) == 2
+    assert store.query_hardening_findings(["local"]) == []
+    # Owned, HEAD, fingerprinted -> exactly one distinct-exposure row.
+    assert len(store.query_distinct_exposure(["local"])) == 1
+    conn.commit()
