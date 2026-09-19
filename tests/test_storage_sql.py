@@ -351,3 +351,21 @@ def test_views_are_created_in_dependency_order() -> None:
         assert names.index("binding_current.sql") < names.index("report_current.sql")
         for dependent in ("open_findings.sql", "hardening_findings.sql", "distinct_exposure.sql"):
             assert names.index("current_finding.sql") < names.index(dependent)
+
+
+def test_distinct_exposure_is_one_row_per_fingerprint() -> None:
+    """Lens 2 counts distinct PROBLEMS. Grouping by severity or business
+    unit as well splits one problem into several when it surfaces at
+    different severities across repos -- measured +219 against
+    findings.db's v_distinct_owned before this was corrected."""
+    for dialect in DIALECTS:
+        sql = _uncommented(
+            (storage_dir() / dialect / "views" / "distinct_exposure.sql").read_text()
+        )
+        group_by = sql[sql.upper().rindex("GROUP BY") :]
+        assert "fingerprint" in group_by
+        for splitter in ("severity", "business_unit", "subject_id", "ownership"):
+            assert splitter not in group_by, (
+                f"{dialect}: grouping by {splitter} splits one fingerprint "
+                "into several rows"
+            )
