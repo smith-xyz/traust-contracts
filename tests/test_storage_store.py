@@ -90,6 +90,7 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "open_findings",
         "operator_privilege",
         "report_current",
+        "sla_clock",
         "sla_threshold",
         "threat_current",
         "threat_exposure",
@@ -1125,6 +1126,31 @@ def test_clock_start_is_policy_and_moves_the_clock(store: Store) -> None:
     assert row is not None
     assert row[0] == "first_event"
     assert row[1] != row[2], "the policy must move the clock off the report date"
+
+
+def test_clock_start_applies_to_unclocked_severities_too(store: Store) -> None:
+    """clock_start is a property of the POLICY, not of a severity.
+
+    A severity the profile does not give a threshold is UNCLOCKED, but the
+    policy still says where every clock starts. Resolving the clock through
+    the per-severity join let those findings fall back to a different clock
+    than their siblings -- measured on the live corpus, 21,322 findings aged
+    from the report date while 22,076 aged from the ledger event, under one
+    policy naming a single clock.
+    """
+    _seed_dashboard(store)
+    store.ingest("layer", sample("layer")[0], Binding(layer_id="ledger:layer:1"))
+    store.ingest("sla-policy", sample("sla-policy")[0], Binding())
+    # 'medium' is absent from the sample profile, so it has no threshold.
+    store.conn.execute("UPDATE report_finding SET severity='medium'")
+    store.conn.commit()
+    rows = store.conn.execute(
+        "SELECT clock_start, resolve_days FROM finding_sla WHERE severity='medium'"
+    ).fetchall()
+    assert rows
+    for clock_start, resolve_days in rows:
+        assert resolve_days is None, "medium is unclocked under this profile"
+        assert clock_start == "first_event", "but the POLICY clock still applies"
 
 
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:

@@ -27,7 +27,10 @@ CONTRACT_VERSION = "v1"
 #: at all and every trend, MTTR and SLA view over it returns nothing.
 #: 6 (2026-09-19): sla_threshold, and finding_sla now honours the policy.
 #: A store on 5 has a finding_sla with no threshold and no breach column.
-REVISION = 6
+#: 7 (2026-09-19): sla_clock. The policy-level clock was resolved through
+#: the per-severity join, so an unclocked severity aged from a different
+#: timestamp than its siblings under one policy.
+REVISION = 7
 
 
 @cache
@@ -48,6 +51,7 @@ VIEW_ORDER: tuple[str, ...] = (
     "threat_current.sql",
     "finding_first_seen.sql",
     "finding_timeline.sql",
+    "sla_clock.sql",
     "sla_threshold.sql",
 )
 

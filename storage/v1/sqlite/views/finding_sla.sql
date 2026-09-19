@@ -27,10 +27,10 @@ SELECT t.scope_id,
        c.ownership,
        c.business_unit,
        c.tree,
-       policy.policy_name,
-       policy.profile_name,
-       COALESCE(policy.clock_start, 'audit_date') AS clock_start,
-       CASE COALESCE(policy.clock_start, 'audit_date')
+       clock.policy_name,
+       clock.profile_name,
+       COALESCE(clock.clock_start, 'audit_date') AS clock_start,
+       CASE COALESCE(clock.clock_start, 'audit_date')
             WHEN 'first_event' THEN COALESCE(t.first_adjudicated, t.first_seen)
             WHEN 'first_routed_or_filed'
                  THEN COALESCE(t.first_routed_or_filed, t.first_adjudicated,
@@ -41,7 +41,7 @@ SELECT t.scope_id,
        CASE WHEN t.resolved_at IS NULL THEN 1 ELSE 0 END AS still_open,
        policy.resolve_days,
        julianday(COALESCE(t.resolved_at, t.last_seen))
-           - julianday(CASE COALESCE(policy.clock_start, 'audit_date')
+           - julianday(CASE COALESCE(clock.clock_start, 'audit_date')
                 WHEN 'first_event' THEN COALESCE(t.first_adjudicated, t.first_seen)
                 WHEN 'first_routed_or_filed'
                      THEN COALESCE(t.first_routed_or_filed, t.first_adjudicated,
@@ -50,7 +50,7 @@ SELECT t.scope_id,
            END) AS age_days,
        CASE WHEN policy.resolve_days IS NULL THEN NULL
             WHEN julianday(COALESCE(t.resolved_at, t.last_seen))
-                 - julianday(CASE COALESCE(policy.clock_start, 'audit_date')
+                 - julianday(CASE COALESCE(clock.clock_start, 'audit_date')
                       WHEN 'first_event' THEN COALESCE(t.first_adjudicated, t.first_seen)
                       WHEN 'first_routed_or_filed'
                            THEN COALESCE(t.first_routed_or_filed, t.first_adjudicated,
@@ -72,5 +72,7 @@ JOIN (
       AND COALESCE(validity, 'confirmed') NOT IN ('false_positive', 'hardening')
     GROUP BY scope_id, fingerprint
 ) c ON c.scope_id = t.scope_id AND c.fingerprint = t.fingerprint
+LEFT JOIN sla_clock clock
+       ON clock.scope_id = t.scope_id
 LEFT JOIN sla_threshold policy
        ON policy.scope_id = t.scope_id AND policy.severity = c.severity;
