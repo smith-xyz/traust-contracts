@@ -514,3 +514,107 @@ def test_report_current_keeps_distinct_subjects_apart(store: Store) -> None:
     assert store.conn.execute(
         "SELECT subject_id FROM report_current ORDER BY subject_id"
     ).fetchall() == [("repo/a",), ("repo/b",)]
+
+
+def _cloud_config_with_findings() -> bytes:
+    """Shaped from REAL corpus findings, not invented.
+
+    The first attempt guessed: provider="checkov" (it is an enum of clouds),
+    status="FAILED" (it is confirmed|suppressed|needs_review), and omitted
+    fact_ids / effective_severity / disposition.assurance, all required.
+    Two findings on ONE resource differing only by check_id -- the case
+    check_id exists to separate.
+    """
+    document = json.loads(sample("cloud-config-findings-current")[0])
+    base = {
+        "fact_ids": ["cca-d26590b3507a"],
+        "framework": "bicep",
+        "provider": "azure",
+        "rationale": "r" * 30,
+        "locations": [
+            {
+                "file_path": "/modules/rp-cosmos-account.bicep",
+                "resource": "Microsoft.DocumentDB/databaseAccounts.cosmosDbAccount",
+                "file_line_range": [8, 51],
+            }
+        ],
+        "cwe": "CWE-284",
+        "validation_status": "not_verified",
+        "disposition": {
+            "validity": "not_verified",
+            "resolution": "open",
+            "assurance": "claimed",
+            "last_updated": "2026-07-29T06:10:00Z",
+            "events": [],
+        },
+    }
+    document["findings"] = [
+        {
+            **base,
+            "id": "CCA-ARO-HCP-001",
+            "check_id": "CKV_AZURE_101",
+            "title": "Ensure that Azure Cosmos DB disables public network access",
+            "severity": "high",
+            "effective_severity": "high",
+            "scanner_severity": "unrated",
+            "status": "confirmed",
+            "fingerprint": "b" * 64,
+            "fingerprint_algo": "v3",
+        },
+        {
+            **base,
+            "id": "CCA-ARO-HCP-002",
+            "check_id": "CKV_AZURE_99",
+            "title": "Ensure that Cosmos DB accounts have restricted firewall rules",
+            "severity": "low",
+            "effective_severity": "low",
+            "status": "needs_review",
+        },
+    ]
+    return encode(document)
+
+
+def test_cloud_config_findings_project_into_queryable_rows(store: Store) -> None:
+    """91 repos carrying 2,592 findings were absent from every storage/v1
+    query while present in findings.db, because this family projected one
+    row and kept its findings in a JSON column."""
+    payload = _cloud_config_with_findings()
+    result = store.ingest("cloud-config-findings-current", payload, run_binding())
+
+    rows = store.conn.execute(
+        "SELECT finding_id, check_id, framework, provider, status, severity, "
+        "fingerprint, validity, resolution, fp_overridden "
+        "FROM cloud_config_finding WHERE binding_id = ? ORDER BY finding_id",
+        (result.binding_id,),
+    ).fetchall()
+    assert len(rows) == 2, "every finding projects, disposed or not"
+
+    first, second = rows
+    assert first[:6] == (
+        "CCA-ARO-HCP-001",
+        "CKV_AZURE_101",
+        "bicep",
+        "azure",
+        "confirmed",
+        "high",
+    )
+    assert first[6] == "b" * 64
+    assert first[7:10] == ("not_verified", "open", None)
+    # check_id is what separates two findings on ONE resource.
+    assert second[0] == "CCA-ARO-HCP-002" and second[1] == "CKV_AZURE_99"
+    assert second[4] == "needs_review" and second[6] is None
+
+    # The blob stays authoritative.
+    assert store.get_evidence(result.digest) == payload
+
+
+def test_cloud_config_findings_are_separable_by_check(store: Store) -> None:
+    """Two findings on the same resource must not be indistinguishable."""
+    result = store.ingest(
+        "cloud-config-findings-current", _cloud_config_with_findings(), run_binding()
+    )
+    checks = store.conn.execute(
+        "SELECT count(DISTINCT check_id) FROM cloud_config_finding WHERE binding_id = ?",
+        (result.binding_id,),
+    ).fetchone()[0]
+    assert checks == 2

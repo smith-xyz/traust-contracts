@@ -61,7 +61,10 @@ PROJECTION_TABLES = {
 # `report` keeps its one-row row (findings stay a faithful JSON column) and
 # additionally fans each finding into report_finding so disposition and
 # fingerprint are queryable.
-SECONDARY_PROJECTION_TABLES = {"report": "report_finding"}
+SECONDARY_PROJECTION_TABLES = {
+    "report": "report_finding",
+    "cloud-config-findings-current": "cloud_config_finding",
+}
 
 
 AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {

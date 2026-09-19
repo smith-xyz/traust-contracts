@@ -847,6 +847,9 @@ class Store:
                         "rationale": finding.get("rationale"),
                     },
                 )
+        elif artifact == "cloud-config-findings-current":
+            self._project_one_row(artifact, document, digest, binding_id_value)
+            self._project_cloud_config_findings(document, digest, binding_id_value)
         elif artifact == "corpus-registry":
             for subject in document.get("subjects") or []:
                 self._execute(
@@ -892,6 +895,55 @@ class Store:
                 value = _integer(value)
             values[name] = value
         self._execute(query(self.dialect, f"{table}.upsert.sql"), values)
+
+    def _project_cloud_config_findings(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a policy report's findings out of the JSON blob.
+
+        Same shape and same reason as _project_report_findings: the blob
+        stays authoritative and this is an index over it. Carries the IaC
+        columns a policy finding is cut by -- check_id separates two
+        findings on one resource, framework and provider slice a compliance
+        view.
+        """
+        for finding in document.get("findings") or []:
+            disposition = finding.get("disposition") or {}
+            override = disposition.get("severity_override")
+            self._execute(
+                query(self.dialect, "cloud_config_finding.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "finding_id": finding["id"],
+                    "title": finding.get("title"),
+                    "severity": finding.get("severity"),
+                    "fingerprint": finding.get("fingerprint"),
+                    "validation_status": finding.get("validation_status"),
+                    "check_id": finding.get("check_id"),
+                    "framework": finding.get("framework"),
+                    "provider": finding.get("provider"),
+                    "status": finding.get("status"),
+                    "scanner_severity": finding.get("scanner_severity"),
+                    "validity": disposition.get("validity"),
+                    "resolution": disposition.get("resolution"),
+                    "assurance": disposition.get("assurance"),
+                    "last_updated": disposition.get("last_updated"),
+                    "conflict": _boolean(disposition.get("conflict")),
+                    "fp_overridden": _boolean(disposition.get("fp_overridden")),
+                    "fp_reassertion_blocked": _boolean(disposition.get("fp_reassertion_blocked")),
+                    "refuted_awaiting_signoff": _boolean(
+                        disposition.get("refuted_awaiting_signoff")
+                    ),
+                    "severity_override": (
+                        json.dumps(
+                            override, ensure_ascii=False, separators=(",", ":"), allow_nan=False
+                        )
+                        if override is not None
+                        else None
+                    ),
+                },
+            )
 
     def _project_report_findings(
         self, document: dict[str, Any], digest: str, binding_id_value: str
