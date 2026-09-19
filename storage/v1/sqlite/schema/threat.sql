@@ -1,0 +1,44 @@
+-- Per-threat projection of the threat register.
+--
+-- Threat MODELS are prose Markdown and cannot be projected; the register is
+-- their structured restatement, and this is one row per threat in it. The
+-- register blob stays authoritative -- this is an index over it, the same
+-- relationship report_finding has to report.findings.
+--
+-- `threat_key` is the identity, not `threat_id`: every model numbers its
+-- threats from T1, so threat_id alone collides across all ~7,500 models.
+CREATE TABLE IF NOT EXISTS threat (
+    binding_id TEXT NOT NULL,
+    artifact_digest TEXT NOT NULL,
+    threat_key TEXT NOT NULL,
+    threat_id TEXT NOT NULL,
+    model TEXT NOT NULL,
+    subject_id TEXT,
+    product TEXT,
+    statement TEXT,
+    surface TEXT,
+    asset TEXT,
+    impact TEXT,
+    likelihood TEXT,
+    -- Four states, and partially_mitigated is the largest in practice.
+    -- Folding it into mitigated is the single biggest way to overstate
+    -- threat coverage, so it stays its own value all the way to the view.
+    status TEXT,
+    controls TEXT,
+    actors JSONB,
+    -- Empty means modelled but NOT evidenced, which is a different claim
+    -- from unmitigated. Kept so a view can tell the two apart.
+    evidence JSONB,
+    linddun INTEGER,
+    -- impact weight x likelihood weight. An ORDERING for triage queues,
+    -- never a calibrated risk value and never comparable to CVSS.
+    score INTEGER,
+    isolation_dimensions JSONB,
+    isolation_boundaries JSONB,
+    PRIMARY KEY (binding_id, threat_key),
+    FOREIGN KEY (binding_id, artifact_digest)
+        REFERENCES artifact_binding(binding_id, artifact_digest)
+);
+
+CREATE INDEX IF NOT EXISTS idx_threat_subject ON threat (subject_id);
+CREATE INDEX IF NOT EXISTS idx_threat_rank ON threat (status, score);

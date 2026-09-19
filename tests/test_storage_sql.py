@@ -141,7 +141,13 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
             "findings_summary",
             "hardening_findings",
             "open_findings",
+            "operator_privilege",
+        "operator_privilege",
             "report_current",
+            "threat_current",
+            "threat_exposure",
+        "threat_current",
+        "threat_exposure",
         }, dialect
         assert "binding_current" in {
             path.stem for path in (storage_dir() / dialect / "views").glob("*.sql")
@@ -285,7 +291,13 @@ def test_storage_package_resources() -> None:
             "findings_summary",
             "hardening_findings",
             "open_findings",
+            "operator_privilege",
+        "operator_privilege",
             "report_current",
+            "threat_current",
+            "threat_exposure",
+        "threat_current",
+        "threat_exposure",
         }
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     targets = project["tool"]["hatch"]["build"]["targets"]

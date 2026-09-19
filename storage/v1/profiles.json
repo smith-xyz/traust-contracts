@@ -93,6 +93,14 @@
       ],
       "projection": "layer_metadata"
     },
+    "operator-priv-profile": {
+      "class": "run-bound",
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "projection": "priv_profile"
+    },
     "org-parameters": {
       "class": "scope-ref",
       "required": [],
@@ -152,6 +160,11 @@
       "class": "scope-ref",
       "required": [],
       "projection": "sla_policy"
+    },
+    "threat-register": {
+      "class": "scope-ref",
+      "required": [],
+      "projection": "threat"
     },
     "triage": {
       "class": "run-bound",

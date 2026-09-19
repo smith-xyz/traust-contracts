@@ -33,6 +33,7 @@ VIEW_ORDER: tuple[str, ...] = (
     "report_current.sql",
     "ownership_current.sql",
     "current_finding.sql",
+    "threat_current.sql",
 )
 
 

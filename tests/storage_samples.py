@@ -19,6 +19,7 @@ FAMILIES = [
     "impact-analysis",
     "isolation-review",
     "layer",
+    "operator-priv-profile",
     "org-parameters",
     "pqc-blockers",
     "pqc-decision-tree",
@@ -28,6 +29,7 @@ FAMILIES = [
     "report",
     "risk-rating-methodology",
     "sla-policy",
+    "threat-register",
     "triage",
     "validation",
     "verification",
@@ -39,6 +41,7 @@ RUN_BOUND = {
     "cloud-config-findings-current",
     "compliance-assessment",
     "doc-variance",
+    "operator-priv-profile",
     "pqc-blockers",
     "pqc-facts",
     "pqc-readiness",
@@ -55,6 +58,10 @@ PROJECTION_TABLES = {
     "triage": "triage_verdict",
     "vuln-findings": "finding",
     "corpus-registry": "subject_ownership",
+    # Threat MODELS are prose Markdown and cannot be projected; the register
+    # is their structured restatement, so the family and its table differ.
+    "threat-register": "threat",
+    "operator-priv-profile": "priv_profile",
 }
 
 # Artifacts that project into a SECOND table beyond their primary one.
@@ -71,6 +78,126 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     # Two subjects on purpose: one owned HEAD audit and one external-bu branch
     # re-audit, so the branch-audit exclusion that every denominator depends on
     # is exercised rather than assumed.
+    # Both rows are REAL, trimmed from the live register: one with the PEACH
+    # isolation lens applied and one without, because the two optional arrays
+    # are the only shape variation in 82,850 rows. Authoring these by hand is
+    # how a fixture ends up testing a document the producer never emits.
+    "threat-register": {
+        "version": 1,
+        "updated": "2026-01-01T00:00:00Z",
+        "models": 2,
+        "models_skipped_nonconforming": 0,
+        "scoring": "rank score = impact weight x likelihood weight; ordering only, not CVSS",
+        "threats": [
+            {
+                "key": "example/repo:T1",
+                "id": "T1",
+                "model": "findings/example/repo/repo-threat-model.md",
+                "subject_id": "findings/example/repo",
+                "product": "example",
+                "threat": "Cross-tenant data theft via SQL injection in list parameters",
+                "actors": ["remote_auth", "insider"],
+                "surface": "list/search query parameters",
+                "asset": "fleet service-log database",
+                "impact": "critical",
+                "likelihood": "almost_certain",
+                "status": "unmitigated",
+                "controls": "search values are parameterized, but orderBy is string-built",
+                "evidence": ["EXAMPLE-001", "EXAMPLE-002"],
+                "linddun": False,
+                "score": 128,
+                "isolation_dimensions": ["privilege"],
+                "isolation_boundaries": ["IF-1"],
+            },
+            {
+                # Same in-model id as above ON PURPOSE: every model numbers
+                # from T1, so this pair is what proves the projection is
+                # keyed on `key` and not on `id`.
+                "key": "example/other:T1",
+                "id": "T1",
+                "model": "findings/example/other/other-threat-model.md",
+                "subject_id": "findings/example/other",
+                "product": "example",
+                "threat": "Operator service account can read secrets fleet-wide",
+                "actors": ["local_priv"],
+                "surface": "controller-manager ClusterRole",
+                "asset": "Cluster secrets",
+                "impact": "high",
+                "likelihood": "possible",
+                "status": "partially_mitigated",
+                "controls": "namespaced in most install modes",
+                "evidence": [],
+                "linddun": False,
+                "score": 16,
+            },
+        ],
+    },
+    # Trimmed from a real profile: the summary block is what the dashboard
+    # cuts by, and rbac_flags keys appear ONLY when they matched.
+    "operator-priv-profile": {
+        "repo": "example-operator",
+        "tier": "static (1-2); runtime SCC assignment requires tier-3 capture",
+        "workloads": [
+            {
+                "kind": "CSV-Deployment",
+                "name": "example-operator-controller-manager",
+                "manifest": "bundle/manifests/example-operator.clusterserviceversion.yaml",
+                "serviceAccountName": "example-operator",
+                "hostNetwork": False,
+                "hostPID": False,
+                "hostIPC": False,
+                "hostPath_volumes": 0,
+                "pod_securityContext": {},
+                "containers": [
+                    {
+                        "name": "manager",
+                        "image": "quay.io/example/example-operator:latest",
+                        "securityContext": {},
+                    }
+                ],
+            },
+            {
+                # name is null for a kustomize patch fragment -- real shape,
+                # measured across the corpus, and rejected by the schema
+                # until it was relaxed to match.
+                "kind": "StatefulSet",
+                "name": None,
+                "manifest": "deploy/common/patch-statefulset.yaml",
+                "serviceAccountName": "operator-controller-manager",
+                "hostNetwork": False,
+                "hostPID": False,
+                "hostIPC": False,
+                "hostPath_volumes": 0,
+                "pod_securityContext": {},
+                "containers": [],
+            },
+        ],
+        "rbac_rules": [
+            {"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "list"]}
+        ],
+        "rbac_flags": {
+            "secrets_access": ["namespace::secrets:get,list"],
+            "escalate_bind_impersonate": ["cluster:rbac.authorization.k8s.io::escalate"],
+        },
+        "scc_requests": [],
+        "sccs_shipped": [],
+        "namespaces": ["example-operator-system"],
+        "install_modes": {"AllNamespaces": True, "OwnNamespace": True},
+        "operatorgroups": [],
+        "tier2_required_vs_granted": {"kubebuilder_markers": 12},
+        "example_or_test_manifests_excluded": {"workload_like": 3, "rbac_rules": 1},
+        "summary": {
+            "workloads": 2,
+            "privileged_or_host_workloads": 0,
+            "rbac_rules": 1,
+            "distinct_rule_triples": 2,
+            "distinct_cluster_triples": 1,
+            "cluster_scoped_rules": 1,
+            "scc_requests": [],
+            "wildcard_rules": 0,
+            "no_scc_request_recorded": True,
+        },
+    },
     "corpus-registry": {
         "version": 1,
         "updated": "2026-01-01T00:00:00Z",

@@ -84,7 +84,10 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "findings_summary",
         "hardening_findings",
         "open_findings",
+        "operator_privilege",
         "report_current",
+        "threat_current",
+        "threat_exposure",
     }
     assert conn.execute("PRAGMA foreign_keys").fetchone() == (1,)
     original = conn.execute("SELECT * FROM traust_storage_meta").fetchall()
@@ -120,7 +123,9 @@ def test_all_artifacts_retain_exact_evidence_and_project(store: Store, name: str
     table = PROJECTION_TABLES[name]
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     # Fan-out families project one row per item in their sample.
-    assert count == (2 if name in {"vuln-findings", "corpus-registry"} else 1)
+    assert count == (
+        2 if name in {"vuln-findings", "corpus-registry", "threat-register"} else 1
+    )
 
 
 def test_global_evidence_dedup_is_private_and_binding_scoped(store: Store) -> None:
@@ -885,6 +890,101 @@ def test_ownership_current_takes_the_latest_declaration(store: Store) -> None:
     assert rows == {("upstream", "Storage Group")}
 
 
+def test_threats_are_keyed_on_key_not_in_model_id(store: Store) -> None:
+    """Every threat model numbers its threats from T1.
+
+    The fixture holds two different threats that are both `T1`. Key the
+    projection on `id` and ~7,500 models collapse into one numbering space,
+    keeping a single threat per number.
+    """
+    payload, _ = sample("threat-register")
+    store.ingest("threat-register", payload, Binding())
+    rows = store.conn.execute("SELECT threat_key, threat_id FROM threat").fetchall()
+    assert len(rows) == 2
+    assert {r[1] for r in rows} == {"T1"}, "both rows must share the in-model id"
+    assert len({r[0] for r in rows}) == 2, "and still be distinct"
+
+
+def test_reimporting_the_threat_register_does_not_double_threats(store: Store) -> None:
+    """Same aggregate-restatement shape as corpus-registry.
+
+    The register restates every threat on each regeneration and carries an
+    `updated` timestamp, so its rows accumulate per binding. Without
+    threat_current the threat count multiplies by the number of imports.
+    """
+    payload, _ = sample("threat-register")
+    store.ingest("threat-register", payload, Binding())
+    before = store.conn.execute("SELECT COUNT(*) FROM threat_current").fetchone()[0]
+    assert before == 2
+
+    document = json.loads(payload)
+    document["updated"] = "2026-09-19T00:00:00Z"
+    store.ingest("threat-register", encode(document), Binding())
+
+    assert store.conn.execute("SELECT COUNT(*) FROM threat").fetchone()[0] == 4
+    assert store.conn.execute("SELECT COUNT(*) FROM threat_current").fetchone()[0] == before
+
+
+def test_threat_exposure_keeps_partially_mitigated_and_marks_evidence(store: Store) -> None:
+    """Two collapses that would each overstate coverage.
+
+    partially_mitigated is the largest status bucket in the real register
+    (45,273 of 82,850), and a threat with no evidence is modelled rather
+    than proven -- a different claim from unmitigated.
+    """
+    payload, _ = sample("threat-register")
+    store.ingest("threat-register", payload, Binding())
+    rows = store.query_threat_exposure(["local"])
+    by_status = {row[7]: row[8] for row in rows}
+    assert set(by_status) == {"unmitigated", "partially_mitigated"}
+    assert by_status["unmitigated"] == 1, "the evidenced threat"
+    assert by_status["partially_mitigated"] == 0, "no evidence on that one"
+
+
+def test_operator_privilege_flags_follow_rbac_flag_presence(store: Store) -> None:
+    """A flag key appears ONLY when it matched, so presence is the signal.
+
+    The fixture matches two of the seven patterns; the other five must read
+    as 0 rather than NULL, or a dashboard filter drops the row entirely.
+    """
+    payload, _ = sample("operator-priv-profile")
+    store.ingest(
+        "operator-priv-profile",
+        payload,
+        Binding(subject_id="findings/example/repo", run_id="r1"),
+    )
+    rows = store.query_operator_privilege(["local"])
+    assert len(rows) == 1
+    columns = [
+        description[0]
+        for description in store.conn.execute(
+            "SELECT * FROM operator_privilege LIMIT 1"
+        ).description
+    ]
+    row = dict(zip(columns, rows[0], strict=True))
+    assert row["flag_secrets_access"] == 1
+    assert row["flag_escalate_bind_impersonate"] == 1
+    for absent in ("nodes_access", "wildcard_verbs", "wildcard_resources",
+                   "pods_exec", "rbac_write"):
+        assert row[f"flag_{absent}"] == 0, absent
+
+
+def test_priv_profile_lifts_summary_counts_into_columns(store: Store) -> None:
+    """The dashboard cuts by these, so leaving them in the blob means every
+    consumer re-derives them."""
+    payload, _ = sample("operator-priv-profile")
+    store.ingest(
+        "operator-priv-profile",
+        payload,
+        Binding(subject_id="findings/example/repo", run_id="r1"),
+    )
+    row = store.conn.execute(
+        "SELECT workload_count, privileged_or_host_workloads, rbac_rule_count, "
+        "distinct_rule_triples, no_scc_request_recorded FROM priv_profile"
+    ).fetchone()
+    assert row == (2, 0, 1, 2, 1)
+
+
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
     """PostgreSQL fails closed, so an empty scope reads as 'no findings'
     when it means 'misconfigured'."""
@@ -895,6 +995,9 @@ def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
         store.query_distinct_exposure,
         store.query_census_population,
         store.query_census_exposure,
+        store.query_threat_current,
+        store.query_threat_exposure,
+        store.query_operator_privilege,
     ):
         with pytest.raises(IngestError, match="scope is required"):
             read([])

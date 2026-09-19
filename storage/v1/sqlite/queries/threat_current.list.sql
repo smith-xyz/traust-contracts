@@ -1,0 +1,25 @@
+SELECT scope_id,
+       threat_key,
+       threat_id,
+       model,
+       subject_id,
+       product,
+       statement,
+       surface,
+       asset,
+       impact,
+       likelihood,
+       status,
+       controls,
+       evidence,
+       linddun,
+       score,
+       isolation_dimensions,
+       isolation_boundaries,
+       ownership,
+       business_unit,
+       tree,
+       is_branch_audit
+FROM threat_current
+WHERE scope_id IN (SELECT value FROM json_each(:scope_ids))
+ORDER BY scope_id, threat_key;

@@ -1,0 +1,29 @@
+-- Threat exposure: every modelled threat classified once, aggregated.
+--
+-- The census equivalent for the threat lens. `status` is carried through
+-- UNCOLLAPSED -- partially_mitigated is the largest bucket in practice
+-- (45,273 of 82,850 measured), so folding it into mitigated is the single
+-- biggest way to overstate threat coverage.
+--
+-- `evidenced` separates a threat backed by a finding or validation from one
+-- that is only modelled. "Unmitigated" and "unevidenced" are different
+-- claims and a rollup that blends them cannot be acted on.
+CREATE VIEW IF NOT EXISTS threat_exposure AS
+SELECT scope_id,
+       tree,
+       ownership,
+       business_unit,
+       product,
+       impact,
+       likelihood,
+       status,
+       CASE WHEN evidence IS NULL OR evidence IN ('[]', '') THEN 0 ELSE 1 END AS evidenced,
+       linddun,
+       COUNT(*) AS threats,
+       COUNT(DISTINCT subject_id) AS subjects,
+       MAX(score) AS top_score
+FROM threat_current
+GROUP BY scope_id, tree, ownership, business_unit, product, impact,
+         likelihood, status,
+         CASE WHEN evidence IS NULL OR evidence IN ('[]', '') THEN 0 ELSE 1 END,
+         linddun;

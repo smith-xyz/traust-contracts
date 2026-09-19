@@ -364,6 +364,8 @@ def storage_profiles() -> dict[str, dict[str, Any]]:
         "triage": "triage_verdict",
         "vuln-findings": "finding",
         "corpus-registry": "subject_ownership",
+        "threat-register": "threat",
+        "operator-priv-profile": "priv_profile",
     }
     for name, profile in profiles.items():
         if profile.get("projection") != tables[name]:
@@ -402,6 +404,13 @@ def _boolean(value: bool | None) -> int | None:
     if type(value) is not bool:
         raise ValueError(f"expected bool, got {type(value).__name__}")
     return int(value)
+
+
+def _json_or_none(value: Any) -> str | None:
+    """Encode a nested block for a JSON column, canonically. None stays None."""
+    if value is None:
+        return None
+    return json.dumps(value, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
 
 
 def _identifier_bytes(field: str, value: str) -> bytes:
@@ -758,6 +767,27 @@ class Store:
         """
         return self._query_view("census_population", scope_ids)
 
+    def query_threat_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Modelled threats from the current register, with their owner."""
+        return self._query_view("threat_current", scope_ids)
+
+    def query_threat_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Threats aggregated by impact/likelihood/status, and whether evidenced.
+
+        status stays UNCOLLAPSED: partially_mitigated is the largest bucket
+        in practice, so folding it into mitigated overstates threat coverage
+        more than any other choice available here.
+        """
+        return self._query_view("threat_exposure", scope_ids)
+
+    def query_operator_privilege(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Privilege each operator ASKS FOR, parsed from shipped manifests.
+
+        Declared state only -- never a live cluster read. Read as a runtime
+        grant it is simply wrong.
+        """
+        return self._query_view("operator_privilege", scope_ids)
+
     def query_census_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Every finding classified once into an exhaustive exposure_class.
 
@@ -916,6 +946,10 @@ class Store:
         elif artifact == "cloud-config-findings-current":
             self._project_one_row(artifact, document, digest, binding_id_value)
             self._project_cloud_config_findings(document, digest, binding_id_value)
+        elif artifact == "threat-register":
+            self._project_threats(document, digest, binding_id_value)
+        elif artifact == "operator-priv-profile":
+            self._project_priv_profile(document, digest, binding_id_value)
         elif artifact == "corpus-registry":
             for subject in document.get("subjects") or []:
                 self._execute(
@@ -961,6 +995,88 @@ class Store:
                 value = _integer(value)
             values[name] = value
         self._execute(query(self.dialect, f"{table}.upsert.sql"), values)
+
+    def _project_threats(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan the register's threats out of the JSON blob.
+
+        Keyed on `key`, never `id`: every threat model numbers its threats
+        from T1, so `id` collides across the whole model set and an
+        id-keyed projection would keep only one threat per number.
+        """
+        for threat in document.get("threats") or []:
+            self._execute(
+                query(self.dialect, "threat.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "threat_key": threat["key"],
+                    "threat_id": threat["id"],
+                    "model": threat["model"],
+                    "subject_id": threat.get("subject_id"),
+                    "product": threat.get("product"),
+                    "statement": threat.get("threat"),
+                    "surface": threat.get("surface"),
+                    "asset": threat.get("asset"),
+                    "impact": threat.get("impact"),
+                    "likelihood": threat.get("likelihood"),
+                    "status": threat.get("status"),
+                    "controls": threat.get("controls"),
+                    "actors": _json_or_none(threat.get("actors")),
+                    "evidence": _json_or_none(threat.get("evidence")),
+                    "linddun": _boolean(threat.get("linddun")),
+                    "score": _integer(threat.get("score")),
+                    "isolation_dimensions": _json_or_none(threat.get("isolation_dimensions")),
+                    "isolation_boundaries": _json_or_none(threat.get("isolation_boundaries")),
+                },
+            )
+
+    def _project_priv_profile(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Lift the summary counts into columns; keep the asks whole.
+
+        Not a plain one-row blob copy: the numbers a least-privilege
+        dashboard cuts by live one level down in `summary`, and leaving
+        them there means every consumer opens the blob and re-derives them.
+        """
+        summary = document.get("summary") or {}
+        self._execute(
+            query(self.dialect, "priv_profile.upsert.sql"),
+            {
+                "binding_id": binding_id_value,
+                "artifact_digest": digest,
+                "repo": document["repo"],
+                "tier": document.get("tier"),
+                "workload_count": _integer(summary.get("workloads")),
+                "privileged_or_host_workloads": _integer(
+                    summary.get("privileged_or_host_workloads")
+                ),
+                "rbac_rule_count": _integer(summary.get("rbac_rules")),
+                "distinct_rule_triples": _integer(summary.get("distinct_rule_triples")),
+                "distinct_cluster_triples": _integer(summary.get("distinct_cluster_triples")),
+                "cluster_scoped_rules": _integer(summary.get("cluster_scoped_rules")),
+                "wildcard_rules": _integer(summary.get("wildcard_rules")),
+                "no_scc_request_recorded": _boolean(summary.get("no_scc_request_recorded")),
+                **{
+                    field: _json_or_none(document.get(field))
+                    for field in (
+                        "workloads",
+                        "rbac_rules",
+                        "rbac_flags",
+                        "scc_requests",
+                        "sccs_shipped",
+                        "namespaces",
+                        "install_modes",
+                        "operatorgroups",
+                        "tier2_required_vs_granted",
+                        "example_or_test_manifests_excluded",
+                        "summary",
+                    )
+                },
+            },
+        )
 
     def _project_cloud_config_findings(
         self, document: dict[str, Any], digest: str, binding_id_value: str
