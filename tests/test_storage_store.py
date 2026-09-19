@@ -90,6 +90,7 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "open_findings",
         "operator_privilege",
         "report_current",
+        "sla_threshold",
         "threat_current",
         "threat_exposure",
     }
@@ -1056,6 +1057,76 @@ def test_open_findings_keep_a_null_duration_not_a_zero(store: Store) -> None:
         assert days is None, "an open finding must not report a duration of 0"
 
 
+def test_sla_threshold_reads_only_the_default_profile(store: Store) -> None:
+    """A deployment ships several profiles and marks one default.
+
+    Selecting a stricter one is a query-time choice; resolving ALL of them
+    here would give a finding two contradictory thresholds at once.
+    """
+    store.ingest("sla-policy", sample("sla-policy")[0], Binding())
+    rows = store.query_sla_threshold(["local"])
+    assert {row[2] for row in rows} == {"baseline"}, "contractual is not default"
+    assert {row[4]: row[5] for row in rows} == {
+        "critical": 7,
+        "high": 30,
+        "low": None,
+    }
+
+
+def test_a_null_threshold_is_tracked_never_overdue(store: Store) -> None:
+    """resolve_days null is a real policy position, not zero days.
+
+    A severity the policy tracks without clocking must never read as
+    breached -- and must not read as compliant either. Both are claims the
+    policy did not make.
+    """
+    _seed_dashboard(store)
+    store.ingest("sla-policy", sample("sla-policy")[0], Binding())
+    store.conn.execute("UPDATE report_finding SET severity='low'")
+    store.conn.commit()
+    rows = store.conn.execute(
+        "SELECT resolve_days, breached FROM finding_sla WHERE severity='low'"
+    ).fetchall()
+    assert rows
+    for resolve_days, breached in rows:
+        assert resolve_days is None
+        assert breached is None, "never overdue, and never affirmatively compliant"
+
+
+def test_no_policy_means_unknown_not_compliant(store: Store) -> None:
+    """The fail-open shape. With no policy ingested a finding has no
+    threshold, so `breached` must be NULL -- reporting 0 would let an
+    estate with no policy at all render as fully within SLA."""
+    _seed_dashboard(store)
+    rows = store.conn.execute(
+        "SELECT resolve_days, breached, policy_name FROM finding_sla"
+    ).fetchall()
+    assert rows
+    for resolve_days, breached, policy_name in rows:
+        assert (resolve_days, breached, policy_name) == (None, None, None)
+
+
+def test_clock_start_is_policy_and_moves_the_clock(store: Store) -> None:
+    """The reason this is policy and not opinion.
+
+    The same finding has three defensible start times and they give
+    different answers. The sample policy says first_event, so the clock
+    must start at the ledger adjudication, NOT at the report date the view
+    used to hardcode.
+    """
+    _seed_dashboard(store)
+    store.ingest("layer", sample("layer")[0], Binding(layer_id="ledger:layer:1"))
+    store.ingest("sla-policy", sample("sla-policy")[0], Binding())
+    row = store.conn.execute(
+        "SELECT clock_start, clock_started_at, first_seen FROM finding_sla "
+        "JOIN finding_timeline USING (scope_id, fingerprint) "
+        "WHERE first_adjudicated IS NOT NULL LIMIT 1"
+    ).fetchone()
+    assert row is not None
+    assert row[0] == "first_event"
+    assert row[1] != row[2], "the policy must move the clock off the report date"
+
+
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
     """PostgreSQL fails closed, so an empty scope reads as 'no findings'
     when it means 'misconfigured'."""
@@ -1072,6 +1143,7 @@ def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
         store.query_finding_timeline,
         store.query_exposure_trend,
         store.query_finding_sla,
+        store.query_sla_threshold,
     ):
         with pytest.raises(IngestError, match="scope is required"):
             read([])

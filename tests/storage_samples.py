@@ -337,11 +337,30 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
             },
         },
     },
+    # Two profiles so DEFAULT selection is exercised, a null resolve_days so
+    # "tracked, never overdue" stays distinct from zero days, and a
+    # non-default clock_start so the policy actually MOVES the clock rather
+    # than agreeing with the hardcoded behaviour by coincidence.
     "sla-policy": {
-        "policy_name": "x",
-        "source": {"name": "x", "retrieved": "2026-01-01"},
-        "severity_mapping": {"critical": "critical"},
-        "profiles": {"default": {"slas": {}}},
+        "policy_name": "example-baseline",
+        "source": {"name": "Example security policy", "retrieved": "2026-01-01"},
+        "severity_mapping": {"critical": "critical", "high": "high"},
+        "clock_start": "first_event",
+        "profiles": {
+            "baseline": {
+                "default": True,
+                "description": "Applies unless a stricter profile is selected.",
+                "slas": {
+                    "critical": {"resolve_days": 7, "acknowledge_days": 1},
+                    "high": {"resolve_days": 30},
+                    "low": {"resolve_days": None},
+                },
+            },
+            "contractual": {
+                "description": "Stricter; selected per engagement, never default.",
+                "slas": {"critical": {"resolve_days": 3}},
+            },
+        },
     },
     "pqc-facts": {
         "artifact": "pqc-facts",

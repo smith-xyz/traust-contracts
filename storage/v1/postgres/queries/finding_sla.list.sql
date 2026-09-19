@@ -4,10 +4,15 @@ SELECT scope_id,
        ownership,
        business_unit,
        tree,
-       first_seen,
+       policy_name,
+       profile_name,
+       clock_start,
+       clock_started_at,
        resolved_at,
        still_open,
+       resolve_days,
        age_days,
+       breached,
        days_to_resolve
 FROM traust_storage.finding_sla
 WHERE scope_id IN (

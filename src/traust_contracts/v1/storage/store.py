@@ -780,6 +780,15 @@ class Store:
         """Findings opened and closed per month, each identity counted once."""
         return self._query_view("exposure_trend", scope_ids)
 
+    def query_sla_threshold(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """The deployment's own per-severity SLA thresholds, default profile.
+
+        Exposed separately so a consumer can show what the policy IS, not
+        only who breached it -- and so "which policy were we judged
+        against" is answerable alongside the trend.
+        """
+        return self._query_view("sla_threshold", scope_ids)
+
     def query_finding_sla(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Age of every open finding, clock starting at FIRST OBSERVED.
 

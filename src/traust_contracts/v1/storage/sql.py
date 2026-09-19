@@ -25,7 +25,9 @@ CONTRACT_VERSION = "v1"
 #: transition stream was ingested and discarded (layer_metadata kept only
 #: repo/created/merkle_root), so a store on revision 4 has no history table
 #: at all and every trend, MTTR and SLA view over it returns nothing.
-REVISION = 5
+#: 6 (2026-09-19): sla_threshold, and finding_sla now honours the policy.
+#: A store on 5 has a finding_sla with no threshold and no breach column.
+REVISION = 6
 
 
 @cache
@@ -46,6 +48,7 @@ VIEW_ORDER: tuple[str, ...] = (
     "threat_current.sql",
     "finding_first_seen.sql",
     "finding_timeline.sql",
+    "sla_threshold.sql",
 )
 
 

@@ -24,6 +24,7 @@ SELECT seen.scope_id,
        seen.last_seen,
        seen.subjects,
        clock.first_adjudicated,
+       clock.first_routed_or_filed,
        clock.resolved_at,
        clock.regression_at,
        -- NULL when the clock is inconsistent rather than a negative
@@ -64,6 +65,11 @@ LEFT JOIN (
            e.fingerprint,
            COUNT(*) AS events,
            MIN(e.occurred_at) AS first_adjudicated,
+           -- The routing/filing clock an SLA policy may choose to
+           -- start from: when the finding reached a tracker or a
+           -- review, not when a scanner first emitted it.
+           MIN(CASE WHEN e.source_type IN ('jira', 'mr_comment')
+                    THEN e.occurred_at END) AS first_routed_or_filed,
            MIN(CASE WHEN e.resolution = 'resolved' THEN e.occurred_at END) AS resolved_at,
            MIN(CASE WHEN e.resolution = 'regression_introduced' THEN e.occurred_at END)
                AS regression_at,
