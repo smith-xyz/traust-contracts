@@ -384,8 +384,13 @@ def _integer(value: int | float | None) -> int | None:
     raise ValueError(f"expected int, got {type(value).__name__}")
 
 
-def _boolean(value: bool | None) -> bool | int | None:
-    """SQLite has no boolean type; PostgreSQL insists on one.
+def _boolean(value: bool | None) -> int | None:
+    """Store a flag as 0/1 in an INTEGER column on BOTH dialects.
+
+    storage/v1 has no BOOLEAN anywhere -- even traust_storage_meta uses
+    INTEGER on PostgreSQL -- and the Go generator refuses a table whose
+    column types differ between dialects, which is how the first attempt
+    at this was caught.
 
     Absent stays absent: a disposition flag that was never set is NULL, not
     False. "Nobody overrode this false positive" and "we have no record
@@ -396,7 +401,7 @@ def _boolean(value: bool | None) -> bool | int | None:
         return None
     if type(value) is not bool:
         raise ValueError(f"expected bool, got {type(value).__name__}")
-    return value
+    return int(value)
 
 
 def _identifier_bytes(field: str, value: str) -> bytes:

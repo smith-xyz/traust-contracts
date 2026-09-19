@@ -334,10 +334,10 @@ def test_distinct_exposure_keeps_both_lens_filters() -> None:
     for dialect in DIALECTS:
         sql = (storage_dir() / dialect / "views" / "distinct_exposure.sql").read_text()
         assert "ownership = 'owned'" in sql
-        # FALSE, not 0: the column is BOOLEAN on PostgreSQL and INTEGER on
-        # SQLite, and `= 0` is an UndefinedFunction error on the former.
-        # Caught only by running the PostgreSQL tier.
-        assert "is_branch_audit = FALSE" in sql
+        # 0, not FALSE: the column is INTEGER on BOTH dialects. It was
+        # briefly BOOLEAN on PostgreSQL, which the Go generator refuses --
+        # it requires identical column types across dialects.
+        assert "is_branch_audit = 0" in sql
         assert "fingerprint IS NOT NULL" in sql
 
 

@@ -25,10 +25,10 @@ CREATE TABLE IF NOT EXISTS traust_storage.report_finding (
     -- The four flags that carry the two-person rule and the countersign
     -- queue. Dropping them is how a dashboard loses sight of whether an FP
     -- was overridden by execution evidence.
-    conflict BOOLEAN,
-    fp_overridden BOOLEAN,
-    fp_reassertion_blocked BOOLEAN,
-    refuted_awaiting_signoff BOOLEAN,
+    conflict INTEGER,
+    fp_overridden INTEGER,
+    fp_reassertion_blocked INTEGER,
+    refuted_awaiting_signoff INTEGER,
     severity_override JSONB,
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)

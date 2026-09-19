@@ -21,7 +21,7 @@ SELECT scope_id,
 FROM traust_storage.current_finding
 WHERE fingerprint IS NOT NULL
   AND ownership = 'owned'
-  AND is_branch_audit = FALSE
+  AND is_branch_audit = 0
   AND COALESCE(resolution, 'open') NOT IN ('resolved', 'risk_accepted')
   AND COALESCE(validity, 'confirmed') NOT IN ('false_positive', 'hardening')
 GROUP BY scope_id, fingerprint;

@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS traust_storage.subject_ownership (
     ref_kind TEXT,
     -- Load-bearing: a large share of audits are branch re-audits of the same
     -- code, so a denominator that does not exclude them overstates coverage.
-    is_branch_audit BOOLEAN,
+    is_branch_audit INTEGER,
     PRIMARY KEY (binding_id, subject_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)
