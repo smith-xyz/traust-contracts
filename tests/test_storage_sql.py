@@ -175,6 +175,43 @@ def test_view_output_columns_are_identical_across_dialects() -> None:
     assert sqlite_views["current_binding"] == ["*"]
 
 
+def test_upsert_columns_match_the_table_definition() -> None:
+    """An upsert that omits a column silently drops that data forever.
+
+    Only the Go generator compared these, and it caught a real one:
+    priv_profile.tier2_required_vs_granted was missing from the generated
+    upsert because the column name contains a DIGIT. Python never noticed --
+    sqlite3 ignores extra named parameters, so the projector happily passed a
+    value into a statement with nowhere to put it.
+    """
+    for dialect in DIALECTS:
+        root = storage_dir() / dialect
+        for schema_path in sorted((root / "schema").glob("*.sql")):
+            table = schema_path.stem
+            upsert_path = root / "queries" / f"{table}.upsert.sql"
+            if not upsert_path.is_file():
+                continue
+            ddl = schema_path.read_text(encoding="utf-8")
+            body = ddl.split("(", 1)[1]
+            declared = []
+            for line in body.splitlines():
+                line = line.strip()
+                # Every column type in use across both dialects. Narrowing
+                # this list silently shrinks what the gate compares.
+                match = re.match(
+                    r"^([a-z_0-9]+)\s+(TEXT|INTEGER|JSONB|BOOLEAN|BIGINT"
+                    r"|TIMESTAMPTZ|REAL|DOUBLE|BYTEA|BLOB)\b",
+                    line,
+                )
+                if match:
+                    declared.append(match.group(1))
+            insert = upsert_path.read_text(encoding="utf-8").split("(", 1)[1].split(")", 1)[0]
+            inserted = [c.strip() for c in insert.split(",") if c.strip()]
+            assert inserted == declared, (
+                f"{dialect}/{table}: upsert columns {inserted} != table columns {declared}"
+            )
+
+
 def test_read_queries_exist_in_both_dialects_and_target_views() -> None:
     """The per-dialect tax on a new dashboard aggregate is two `.list.sql` files.
 

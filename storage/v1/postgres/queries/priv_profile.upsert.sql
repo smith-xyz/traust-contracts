@@ -19,6 +19,7 @@ INSERT INTO traust_storage.priv_profile (
     namespaces,
     install_modes,
     operatorgroups,
+    tier2_required_vs_granted,
     example_or_test_manifests_excluded,
     summary
 )
@@ -43,6 +44,7 @@ VALUES (
     %(namespaces)s,
     %(install_modes)s,
     %(operatorgroups)s,
+    %(tier2_required_vs_granted)s,
     %(example_or_test_manifests_excluded)s,
     %(summary)s
 )
