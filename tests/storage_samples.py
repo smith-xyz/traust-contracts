@@ -83,11 +83,15 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     # are the only shape variation in 82,850 rows. Authoring these by hand is
     # how a fixture ends up testing a document the producer never emits.
     "threat-register": {
-        "version": 1,
-        "updated": "2026-01-01T00:00:00Z",
-        "models": 2,
-        "models_skipped_nonconforming": 0,
-        "scoring": "rank score = impact weight x likelihood weight; ordering only, not CVSS",
+        "meta": {
+            "generated": "2026-01-01",
+            "models": 2,
+            "models_skipped_nonconforming": 0,
+            "threat_count": 2,
+            "scoring": (
+                "rank score = impact weight x likelihood weight; ordering only, not CVSS"
+            ),
+        },
         "threats": [
             {
                 "key": "example/repo:T1",

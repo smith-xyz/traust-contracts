@@ -918,7 +918,7 @@ def test_reimporting_the_threat_register_does_not_double_threats(store: Store) -
     assert before == 2
 
     document = json.loads(payload)
-    document["updated"] = "2026-09-19T00:00:00Z"
+    document["meta"]["generated"] = "2026-09-19"
     store.ingest("threat-register", encode(document), Binding())
 
     assert store.conn.execute("SELECT COUNT(*) FROM threat").fetchone()[0] == 4
