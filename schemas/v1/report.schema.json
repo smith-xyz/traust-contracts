@@ -304,7 +304,7 @@
           "type": "string",
           "minLength": 1,
           "description": "Repository-relative path of the artifact this finding concerns, including an artifact that SHOULD exist and does not (an absent SECURITY.md is still `SECURITY.md`). Never a repo-root marker: `.`, `/`, `./` and `/./` all canonicalize to empty, which collapses the ledger fingerprint to (repo, '', cwe). When a finding genuinely concerns no artifact (e.g. 'repository appears unmaintained'), use a controlled pseudo-path from enums/v1/repo-scope-path.json. Not a notes field: prose in this field silently feeds identity.",
-          "$comment": "Enforcement is staged, following the P0.4 -> P6 precedent (backfill, then flip): the rule is declared here and checked by the harness gate at warning level while existing corpus findings are migrated; the pattern below and the identity module strict mode become errors once that lands. Do NOT add the pattern before the migration — it would invalidate every existing report. Proposed: \"pattern\": \"^(?!\\\\.?/?$)(repo:[a-z-]+|[^\\\\n]{1,200})$\"."
+          "$comment": "Enforcement is staged, following the P0.4 -> P6 precedent (backfill, then flip): the rule is declared here and checked by the harness gate at warning level while existing corpus findings are migrated; the pattern below and the identity module strict mode become errors once that lands. Do NOT add the pattern before the migration \u2014 it would invalidate every existing report. Proposed: \"pattern\": \"^(?!\\\\.?/?$)(repo:[a-z-]+|[^\\\\n]{1,200})$\"."
         },
         "lines": {
           "type": "string"
@@ -517,6 +517,11 @@
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
           "description": "Deterministic cross-scan identity: sha256(canonical repo URL | ';'-joined sorted set of lineless location paths | primary CWE). One implementation, the identity module fingerprint function; stamped by the finding-identity utility, never model-authored. Only the harness computes identity \u2014 a non-harness producer submits unstamped rather than inventing a value. Validation recomputes every stamp and compares (check_finding_identity), so a forged or drifted value is an error rather than a silent identity split. Secondary correlation key \u2014 the scan-scoped id stays the primary key, and a fingerprint is never the sole key of a disposition record."
+        },
+        "fingerprint_algo": {
+          "type": "string",
+          "pattern": "^v\\d+$",
+          "description": "Algorithm version of `fingerprint` (the identity module ALGO_VERSION). Mirrors layer.schema.json's event field of the same name, and for the same reason: stamps outlive recipes, so matching fingerprints across an epoch boundary means comparing this field too. Absent on the 25,515 findings stamped before 2026-09-18 -- those predate the field rather than declaring an unknown version, and were separable only because exactly two recipes existed to try."
         },
         "effective_severity": {
           "type": "string",
