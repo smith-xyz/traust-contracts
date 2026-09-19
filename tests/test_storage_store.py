@@ -80,6 +80,7 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "current_binding",
         "current_finding",
         "distinct_exposure",
+        "ownership_current",
         "findings_summary",
         "hardening_findings",
         "open_findings",
@@ -726,6 +727,164 @@ def test_distinct_exposure_excludes_unowned_and_branch_audits(store: Store) -> N
         assert other.query_distinct_exposure(["local"]) == [], kwargs
 
 
+def test_census_exposure_classifies_every_finding_exactly_once(store: Store) -> None:
+    """Exhaustive and mutually exclusive, or the census over- or under-counts.
+
+    A consumer FILTERS this view instead of restating the disposition policy,
+    so a finding that falls through every branch -- or matches two -- is a
+    silent arithmetic error in every cut built on top of it.
+    """
+    _seed_dashboard(store)
+    store.conn.execute("UPDATE report_finding SET validity='hardening' WHERE finding_id='FIND-001'")
+    store.conn.execute(
+        "UPDATE report_finding SET resolution='risk_accepted' WHERE finding_id='FIND-002'"
+    )
+    store.conn.commit()
+    total = store.conn.execute("SELECT COUNT(*) FROM current_finding").fetchone()[0]
+    rows = store.query_census_exposure(["local"])
+    assert sum(row[8] for row in rows) == total
+    assert {row[7] for row in rows} <= {"false_positive", "hardening", "closed", "open"}
+
+
+def test_census_exposure_prefers_validity_over_resolution(store: Store) -> None:
+    """A hardening item that is also resolved is hardening, not closed.
+
+    Ordering matters: classify it as closed and posture debt vanishes from
+    the backlog the moment someone marks it fixed on one subject.
+    """
+    _seed_dashboard(store)
+    store.conn.execute(
+        "UPDATE report_finding SET validity='hardening', resolution='resolved' "
+        "WHERE finding_id='FIND-001'"
+    )
+    store.conn.commit()
+    classes = {
+        row[7]: row[8]
+        for row in store.query_census_exposure(["local"])
+        if row[5] == "code" and row[7] == "hardening"
+    }
+    assert classes.get("hardening") == 1
+
+
+def test_census_population_counts_a_subject_with_no_findings(store: Store) -> None:
+    """The denominator comes from ownership, not from findings.
+
+    A subject that was audited clean is still coverage. Counting the
+    denominator from findings drops it and overstates every percentage
+    divided by it -- which is the specific way census numbers drifted.
+    """
+    _seed_dashboard(store)
+    store.ingest(
+        "corpus-registry",
+        encode(
+            {
+                "version": 1,
+                "subjects": [
+                    {
+                        "subject_id": "findings/org/repo",
+                        "tree": "findings",
+                        "ownership": "owned",
+                        "business_unit": "Platform Group",
+                        "is_branch_audit": False,
+                    },
+                    {
+                        "subject_id": "findings/org/clean",
+                        "tree": "findings",
+                        "ownership": "owned",
+                        "business_unit": "Platform Group",
+                        "is_branch_audit": False,
+                    },
+                ],
+            }
+        ),
+        Binding(),
+    )
+    rows = store.query_census_population(["local"])
+    assert len(rows) == 1
+    subjects, branch_reaudits, with_report = rows[0][4], rows[0][5], rows[0][6]
+    assert (subjects, branch_reaudits, with_report) == (2, 0, 1)
+
+
+def test_reimporting_the_registry_does_not_double_the_numbers(store: Store) -> None:
+    """The shape that made every view wrong on the second import.
+
+    corpus-registry restates the whole population and carries an `updated`
+    timestamp, so each import is new content, a new digest and a new
+    binding; subject_ownership keeps a row set per binding. Measured on the
+    live corpus before ownership_current: one re-import took current_finding
+    from 79,855 to 159,710 and the census population from 8,604 to 17,208.
+    Invisible in the suite until now because the store was always fresh.
+    """
+    _seed_dashboard(store)
+
+    def numbers() -> tuple[int, int, int]:
+        findings = store.conn.execute("SELECT COUNT(*) FROM current_finding").fetchone()[0]
+        population = store.conn.execute(
+            "SELECT SUM(subjects) FROM census_population"
+        ).fetchone()[0]
+        exposure = store.conn.execute(
+            "SELECT SUM(occurrences) FROM census_exposure"
+        ).fetchone()[0]
+        return findings, population, exposure
+
+    before = numbers()
+    assert before[0] and before[1] and before[2]
+
+    # Byte-different content -- exactly what `updated` guarantees per import.
+    store.ingest(
+        "corpus-registry",
+        encode(
+            {
+                "version": 1,
+                "updated": "2026-09-19T00:00:00Z",
+                "subjects": [
+                    {
+                        "subject_id": "findings/org/repo",
+                        "tree": "findings",
+                        "ownership": "owned",
+                        "business_unit": "Platform Group",
+                        "is_branch_audit": False,
+                    }
+                ],
+            }
+        ),
+        Binding(),
+    )
+    assert store.conn.execute("SELECT COUNT(*) FROM subject_ownership").fetchone()[0] == 2, (
+        "the raw table is expected to accumulate -- that is why the view exists"
+    )
+    assert numbers() == before
+
+
+def test_ownership_current_takes_the_latest_declaration(store: Store) -> None:
+    """A re-import is also how ownership CHANGES. Deduplicating must not
+    freeze the first answer -- a repo moving business unit has to land."""
+    _seed_dashboard(store)
+    store.ingest(
+        "corpus-registry",
+        encode(
+            {
+                "version": 1,
+                "updated": "2026-09-19T00:00:00Z",
+                "subjects": [
+                    {
+                        "subject_id": "findings/org/repo",
+                        "tree": "findings",
+                        "ownership": "upstream",
+                        "business_unit": "Storage Group",
+                        "is_branch_audit": False,
+                    }
+                ],
+            }
+        ),
+        Binding(),
+    )
+    rows = set(
+        store.conn.execute("SELECT DISTINCT ownership, business_unit FROM current_finding")
+    )
+    assert rows == {("upstream", "Storage Group")}
+
+
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
     """PostgreSQL fails closed, so an empty scope reads as 'no findings'
     when it means 'misconfigured'."""
@@ -734,6 +893,8 @@ def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
         store.query_open_findings,
         store.query_hardening_findings,
         store.query_distinct_exposure,
+        store.query_census_population,
+        store.query_census_exposure,
     ):
         with pytest.raises(IngestError, match="scope is required"):
             read([])

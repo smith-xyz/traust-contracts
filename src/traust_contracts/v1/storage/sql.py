@@ -10,7 +10,12 @@ from traust_contracts.paths import storage_dir
 
 Dialect = Literal["postgres", "sqlite"]
 CONTRACT_VERSION = "v1"
-REVISION = 2
+#: 3 (2026-09-19): ownership_current. Views are CREATE ... IF NOT EXISTS,
+#: so an existing store keeps the definitions it was built with -- and the
+#: pre-3 ones join subject_ownership raw, which double-counts every finding
+#: once per corpus-registry import. Failing closed here is deliberate: a
+#: store on the old revision may ALREADY be serving inflated numbers.
+REVISION = 3
 
 
 @cache
@@ -26,6 +31,7 @@ def query(dialect: Dialect, filename: str) -> str:
 VIEW_ORDER: tuple[str, ...] = (
     "binding_current.sql",
     "report_current.sql",
+    "ownership_current.sql",
     "current_finding.sql",
 )
 

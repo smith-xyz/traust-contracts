@@ -15,12 +15,7 @@ SELECT owner.scope_id,
        COUNT(*) AS subjects,
        SUM(CASE WHEN owner.is_branch_audit = 1 THEN 1 ELSE 0 END) AS branch_reaudits,
        SUM(CASE WHEN reported.subject_id IS NULL THEN 0 ELSE 1 END) AS with_report
-FROM (
-    SELECT b.scope_id, o.subject_id, o.tree, o.ownership, o.business_unit,
-           o.is_branch_audit
-    FROM subject_ownership o
-    JOIN artifact_binding b ON b.binding_id = o.binding_id
-) owner
+FROM ownership_current owner
 LEFT JOIN (
     SELECT DISTINCT scope_id, subject_id FROM current_finding
 ) reported

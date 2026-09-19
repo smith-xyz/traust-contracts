@@ -36,7 +36,7 @@ JOIN traust_storage.report_current current_report
   ON current_report.binding_id = f.binding_id
 JOIN traust_storage.artifact_binding binding
   ON binding.binding_id = f.binding_id
-LEFT JOIN traust_storage.subject_ownership owner
+LEFT JOIN traust_storage.ownership_current owner
   ON owner.subject_id = binding.subject_id
 UNION ALL
 SELECT binding.scope_id,
@@ -57,5 +57,5 @@ SELECT binding.scope_id,
 FROM traust_storage.cloud_config_finding f
 JOIN traust_storage.current_binding binding
   ON binding.binding_id = f.binding_id
-LEFT JOIN traust_storage.subject_ownership owner
+LEFT JOIN traust_storage.ownership_current owner
   ON owner.subject_id = binding.subject_id;

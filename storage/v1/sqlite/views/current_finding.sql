@@ -36,7 +36,7 @@ JOIN report_current current_report
   ON current_report.binding_id = f.binding_id
 JOIN artifact_binding binding
   ON binding.binding_id = f.binding_id
-LEFT JOIN subject_ownership owner
+LEFT JOIN ownership_current owner
   ON owner.subject_id = binding.subject_id
 UNION ALL
 SELECT binding.scope_id,
@@ -57,5 +57,5 @@ SELECT binding.scope_id,
 FROM cloud_config_finding f
 JOIN current_binding binding
   ON binding.binding_id = f.binding_id
-LEFT JOIN subject_ownership owner
+LEFT JOIN ownership_current owner
   ON owner.subject_id = binding.subject_id;

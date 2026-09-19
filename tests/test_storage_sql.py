@@ -137,6 +137,7 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
             "current_binding",
             "current_finding",
             "distinct_exposure",
+            "ownership_current",
             "findings_summary",
             "hardening_findings",
             "open_findings",
@@ -280,6 +281,7 @@ def test_storage_package_resources() -> None:
             "census_population",
             "current_finding",
             "distinct_exposure",
+            "ownership_current",
             "findings_summary",
             "hardening_findings",
             "open_findings",
@@ -336,7 +338,12 @@ def test_the_spine_unions_both_finding_families() -> None:
         # It must go through report_current, or a repo's findings are counted
         # once per restatement (measured 49% inflation).
         assert "report_current" in sql
-        assert "subject_ownership" in sql, "ownership is the denominator"
+        assert "ownership_current" in sql, "ownership is the denominator"
+    assert "subject_ownership" not in sql, (
+        "the spine must read DEDUPLICATED ownership: subject_ownership accumulates "
+        "one row set per registry import, and joining it raw fans every finding out "
+        "across generations"
+    )
 
 
 def test_distinct_exposure_keeps_both_lens_filters() -> None:

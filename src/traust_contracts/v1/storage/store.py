@@ -749,6 +749,25 @@ class Store:
         """Lens 2: distinct problems over owned HEAD audits, not row counts."""
         return self._query_view("distinct_exposure", scope_ids)
 
+    def query_census_population(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """The denominator, per tree -- counted from ownership, not findings.
+
+        `with_report` is the coverage numerator. A subject with no finding
+        is still coverage; a denominator built from findings silently drops
+        it and overstates every percentage computed against it.
+        """
+        return self._query_view("census_population", scope_ids)
+
+    def query_census_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Every finding classified once into an exhaustive exposure_class.
+
+        The census asks several questions of one population -- owned,
+        upstream, external-bu, cloud-config, branch re-audits -- and each is
+        this data filtered differently. Consumers FILTER this; they do not
+        restate the disposition policy, which is where the numbers drifted.
+        """
+        return self._query_view("census_exposure", scope_ids)
+
     def _validate_binding(self, artifact: str, binding: Binding) -> None:
         if not isinstance(binding, Binding):
             raise IngestError("binding: expected Binding")
