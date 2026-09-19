@@ -26,16 +26,32 @@ SELECT seen.scope_id,
        clock.first_adjudicated,
        clock.resolved_at,
        clock.regression_at,
+       -- NULL when the clock is inconsistent rather than a negative
+       -- number: a resolution dated BEFORE the first report we still hold
+       -- means the report that first showed the finding is not in the
+       -- corpus (superseded, or it failed validation), so the duration is
+       -- unknown, not negative. Measured: 1 of 698 resolved findings.
        CASE WHEN clock.resolved_at IS NOT NULL
+                 AND julianday(clock.resolved_at) >= julianday(seen.first_seen)
             THEN julianday(clock.resolved_at) - julianday(seen.first_seen)
        END AS days_to_resolve,
+       CASE WHEN clock.resolved_at IS NOT NULL
+                 AND julianday(clock.resolved_at) < julianday(seen.first_seen)
+            THEN 1 ELSE 0 END AS clock_inconsistent,
        CASE WHEN clock.resolved_at IS NOT NULL AND clock.first_adjudicated IS NOT NULL
             THEN julianday(clock.resolved_at) - julianday(clock.first_adjudicated)
        END AS days_adjudicated_to_resolve,
-       -- A regression still open has no end date, so the clock runs to the
-       -- last time we looked rather than reporting NULL as "no dwell".
+       -- Only when the regression actually CLOSED. Running the clock to
+       -- the last report date was wrong: a regression is often recorded
+       -- after the last audit of that subject, which produced negative
+       -- dwell on real data. An open regression's dwell is "as of when you
+       -- ask", which belongs in the query alongside :as_of, not baked in
+       -- here where every caller would inherit one arbitrary end date.
        CASE WHEN clock.regression_at IS NOT NULL
-            THEN julianday(COALESCE(clock.resolved_after_regression, seen.last_seen))
+                 AND clock.resolved_after_regression IS NOT NULL
+                 AND julianday(clock.resolved_after_regression)
+                     >= julianday(clock.regression_at)
+            THEN julianday(clock.resolved_after_regression)
                  - julianday(clock.regression_at)
        END AS regression_days,
        CASE WHEN clock.regression_at IS NOT NULL
