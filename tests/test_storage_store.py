@@ -1155,6 +1155,45 @@ def test_clock_start_applies_to_unclocked_severities_too(store: Store) -> None:
         assert clock_start == "first_event", "but the POLICY clock still applies"
 
 
+def test_rebaseline_events_project_and_assert_nothing(store: Store) -> None:
+    """A rebaseline is a RENAME record, not evidence.
+
+    46,956 of them exist in the live corpus, appended by one migration that
+    moved finding aliases out of mutable metadata into the Merkle-covered
+    event stream. Because the source type was missing from the enum, every
+    layer carrying one rejected outright -- 1,412 layers, and with them
+    6,257 real validation_report events that storage/v1 never saw.
+
+    They must project, and they must stay out of validity precedence: an
+    empty disposition is the invariant, so a consumer folding events into a
+    current state skips them rather than reading a rename as a verdict.
+    """
+    document = json.loads(sample("layer")[0])
+    document["events"].append(
+        {
+            "event_id": "d" * 64,
+            "finding_ref": "FIND-001",
+            "recorded_at": "2026-07-16T00:00:00+00:00",
+            "occurred_at": "2026-07-16T00:00:00+00:00",
+            "source": {
+                "type": "rebaseline",
+                "ref": "repo-old-report.json",
+                "actor": {"kind": "machine", "identity": "migration/alias_tables_to_events"},
+            },
+            "disposition": {},
+            "rationale": "Migrated from metadata.finding_aliases; values carried over unchanged.",
+        }
+    )
+    store.ingest("layer", encode(document), Binding(layer_id="ledger:layer:1"))
+    row = store.conn.execute(
+        "SELECT validity, resolution FROM layer_event WHERE source_type='rebaseline'"
+    ).fetchone()
+    assert row == (None, None), "a rebaseline must assert no disposition"
+    assert store.conn.execute(
+        "SELECT COUNT(*) FROM layer_event WHERE source_type='rebaseline'"
+    ).fetchone()[0] == 1
+
+
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
     """PostgreSQL fails closed, so an empty scope reads as 'no findings'
     when it means 'misconfigured'."""

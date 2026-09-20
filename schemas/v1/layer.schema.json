@@ -15,7 +15,7 @@
       "$ref": "#/$defs/layer_metadata"
     },
     "events": {
-      "description": "Append-only disposition events, in chronological order. Events are never edited or deleted — a correction is a new event.",
+      "description": "Append-only disposition events, in chronological order. Events are never edited or deleted \u2014 a correction is a new event.",
       "type": "array",
       "items": {
         "$ref": "#/$defs/event"
@@ -47,7 +47,7 @@
         "corrected",
         "hardening"
       ],
-      "$comment": "The validity axis: is the finding real? 'not_verified' is the audit-stage default and is never set by an event. 'hardening' (harness >= 0.27.0) = accurately described defense-in-depth/benchmark gap with no concrete exploit path (triage exclusion rule 13) — real, risk-bearing at a category-aware weight, but not an exploitable vulnerability; never a false positive."
+      "$comment": "The validity axis: is the finding real? 'not_verified' is the audit-stage default and is never set by an event. 'hardening' (harness >= 0.27.0) = accurately described defense-in-depth/benchmark gap with no concrete exploit path (triage exclusion rule 13) \u2014 real, risk-bearing at a category-aware weight, but not an exploitable vulnerability; never a false positive."
     },
     "resolution": {
       "type": "string",
@@ -73,9 +73,10 @@
         "triage_report",
         "impact_report",
         "vuln_scan_report",
-        "fuzz_report"
+        "fuzz_report",
+        "rebaseline"
       ],
-      "$comment": "Evidence classes for validity precedence (the cumulative builder): validation_report, verification_report and fuzz_report are execution-verified (class 1) and outrank human static determinations (class 2), which outrank machine static sources incl. triage_report, impact_report and vuln_scan_report (class 3). Recency breaks ties only within a class. fuzz_report is class 1 because a fuzz finding is a crasher WITH a reproducer: the input that triggers it is recorded, so the claim is replayable rather than asserted. A fuzz run that found nothing records no event -- absence of a crash is not evidence of correctness."
+      "$comment": "Evidence classes for validity precedence (the cumulative builder): validation_report, verification_report and fuzz_report are execution-verified (class 1) and outrank human static determinations (class 2), which outrank machine static sources incl. triage_report, impact_report and vuln_scan_report (class 3). Recency breaks ties only within a class. fuzz_report is class 1 because a fuzz finding is a crasher WITH a reproducer: the input that triggers it is recorded, so the claim is replayable rather than asserted. A fuzz run that found nothing records no event -- absence of a crash is not evidence of correctness. rebaseline is NOT an evidence class and never participates in validity precedence: it records that a finding was RENAMED, so the alias lives in the Merkle-covered event stream rather than in mutable metadata. Every one of the 46,956 in the live corpus carries an EMPTY disposition, which is the invariant a consumer should rely on -- a rebaseline event asserts nothing about whether a finding is real."
     },
     "actor": {
       "type": "object",
@@ -128,7 +129,6 @@
     "disposition": {
       "type": "object",
       "additionalProperties": false,
-      "minProperties": 1,
       "properties": {
         "validity": {
           "$ref": "#/$defs/validity"
@@ -157,7 +157,8 @@
           ],
           "description": "Embargo handling assertion (harness >= 0.274.0): whether this finding must be handled under security team embargo criteria (remote code execution, authentication bypass, privilege escalation, sensitive data exposure, network-accessible vulnerability). 'required' = meets the criteria, not yet embargoed; 'active' = an embargoed tracker already exists (put its URL in evidence_refs); 'not_required' = assessed and does not meet the criteria; 'uncertain' = needs security team consultation. HUMAN-ONLY - the validator rejects machine actors carrying disposition.embargo, on the same identity-provider-verified footing as disposition.severity. ORTHOGONAL to validity and resolution: an embargoed finding is still tracked on both axes, and embargo alone never changes finding state. Consumed by embargo workflows that apply restricted tracker security levels when active. Idempotency: the status is encoded in source.ref (interactive:<date>:embargo:<status>), so the canonical event_id formula is unchanged."
         }
-      }
+      },
+      "description": "What this event asserts about the finding. Required to state something for every source EXCEPT rebaseline, which records a rename; that rule lives on the event, next to the source it depends on."
     },
     "layer_metadata": {
       "type": "object",
@@ -177,7 +178,7 @@
         "audit_report_sha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "sha256 of the annotated baseline report's exact bytes. Makes the layer's link to its report CONTENT-addressed rather than path-addressed, which is the prerequisite for reports living anywhere but beside the layer (e.g. object storage while the ledger stays in git). Complements metadata.claim_hashes, which pins the semantic claims of each finding: the digest answers 'are these the bytes I annotated?', the claim hashes answer 'did any finding's claim change?'. Recomputed whenever the baseline is legitimately rewritten (a re-audit, or a corpus migration such as the v1->v2 fingerprint re-stamp); a mismatch is surfaced, never auto-healed, on the same footing as a claim-hash mismatch. NOT covered by merkle_signature_payload today — see the format-3 note before relying on it as tamper-evidence.",
+          "description": "sha256 of the annotated baseline report's exact bytes. Makes the layer's link to its report CONTENT-addressed rather than path-addressed, which is the prerequisite for reports living anywhere but beside the layer (e.g. object storage while the ledger stays in git). Complements metadata.claim_hashes, which pins the semantic claims of each finding: the digest answers 'are these the bytes I annotated?', the claim hashes answer 'did any finding's claim change?'. Recomputed whenever the baseline is legitimately rewritten (a re-audit, or a corpus migration such as the v1->v2 fingerprint re-stamp); a mismatch is surfaced, never auto-healed, on the same footing as a claim-hash mismatch. NOT covered by merkle_signature_payload today \u2014 see the format-3 note before relying on it as tamper-evidence.",
           "$comment": "Additive and optional so existing layers stay valid; backfilled by hashing the report in place."
         },
         "artifact_digests": {
@@ -192,7 +193,7 @@
         "audit_report_ref": {
           "type": "string",
           "minLength": 1,
-          "description": "Opaque location of the annotated baseline report — an object-storage key/URI once reports move out of git, absent while they sit beside the layer. Deliberately opaque: consumers resolve it through the report_store accessor, never by string-munging a path, so the same layer works against a local checkout, a bucket, or a future ledger database without edits.",
+          "description": "Opaque location of the annotated baseline report \u2014 an object-storage key/URI once reports move out of git, absent while they sit beside the layer. Deliberately opaque: consumers resolve it through the report_store accessor, never by string-munging a path, so the same layer works against a local checkout, a bucket, or a future ledger database without edits.",
           "$comment": "Pairs with audit_report_sha256: the ref says where, the digest says which bytes."
         },
         "audit_commit": {
@@ -220,7 +221,7 @@
         },
         "claim_hashes": {
           "type": "object",
-          "description": "Baseline tamper-evidence (harness >= 0.39.0): finding id -> sha256 of the finding's canonical claim fields (id, title, severity, cwes, locations, description, remediation — validation_status excluded). Recorded by the baseline claims tool when a finding is first baselined; never overwritten except by an explicit --rebaseline of a 'corrected' finding. Verified by the validator on every layer validation and by the cumulative builder before every rebuild.",
+          "description": "Baseline tamper-evidence (harness >= 0.39.0): finding id -> sha256 of the finding's canonical claim fields (id, title, severity, cwes, locations, description, remediation \u2014 validation_status excluded). Recorded by the baseline claims tool when a finding is first baselined; never overwritten except by an explicit --rebaseline of a 'corrected' finding. Verified by the validator on every layer validation and by the cumulative builder before every rebuild.",
           "additionalProperties": {
             "type": "string",
             "pattern": "^[0-9a-f]{64}$"
@@ -338,7 +339,7 @@
         "merkle_root": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "SHA-256 Merkle tree root over post-epoch events (RFC 9162 §2.1 MTH)."
+          "description": "SHA-256 Merkle tree root over post-epoch events (RFC 9162 \u00a72.1 MTH)."
         },
         "merkle_epoch": {
           "type": "integer",
@@ -363,7 +364,7 @@
             1,
             2
           ],
-          "description": "Merkle leaf format: 1 = legacy event_id-only binding (verifies with a content-unbound warning); 2 = full canonical event content (current — any edit to any event field breaks the root)."
+          "description": "Merkle leaf format: 1 = legacy event_id-only binding (verifies with a content-unbound warning); 2 = full canonical event content (current \u2014 any edit to any event field breaks the root)."
         },
         "pre_merkle_checkpoint": {
           "type": "string",
@@ -420,7 +421,7 @@
         "occurred_at": {
           "type": "string",
           "format": "date-time",
-          "description": "When the underlying determination actually happened — commit author date, Jira transition date, MR comment date, machine report date. Trend tooling buckets by this when present (falling back to recorded_at), so late ingestion does not distort time series. Should not be later than recorded_at."
+          "description": "When the underlying determination actually happened \u2014 commit author date, Jira transition date, MR comment date, machine report date. Trend tooling buckets by this when present (falling back to recorded_at), so late ingestion does not distort time series. Should not be later than recorded_at."
         },
         "source": {
           "type": "object",
@@ -471,7 +472,7 @@
         "fingerprint": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "The annotated finding's identity as observed when this event was recorded, copied from the baseline report's finding.fingerprint. Stamped by the sanctioned write path (the events module attach_identity), never model-authored. Makes the event self-contained: finding_ref is scan-scoped and changes on re-audit, so replay previously depended on metadata.finding_aliases — a mutable table outside the Merkle tree. Under leaf_format 2 the stamp is tamper-evident for free. A historical observation, never corrected in place: if the identity later changes (moved file, recategorised CWE, algo bump) that is a NEW event."
+          "description": "The annotated finding's identity as observed when this event was recorded, copied from the baseline report's finding.fingerprint. Stamped by the sanctioned write path (the events module attach_identity), never model-authored. Makes the event self-contained: finding_ref is scan-scoped and changes on re-audit, so replay previously depended on metadata.finding_aliases \u2014 a mutable table outside the Merkle tree. Under leaf_format 2 the stamp is tamper-evident for free. A historical observation, never corrected in place: if the identity later changes (moved file, recategorised CWE, algo bump) that is a NEW event."
         },
         "fingerprint_algo": {
           "type": "string",
@@ -535,7 +536,37 @@
         "finding": {
           "$ref": "#/$defs/event_finding"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "source"
+            ],
+            "properties": {
+              "source": {
+                "required": [
+                  "type"
+                ],
+                "properties": {
+                  "type": {
+                    "not": {
+                      "const": "rebaseline"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "disposition": {
+                "minProperties": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "review_item": {
       "type": "object",
@@ -565,7 +596,7 @@
         "author": {
           "type": "string",
           "minLength": 1,
-          "description": "Username of the original author (may be unverified — that can be why it was queued)."
+          "description": "Username of the original author (may be unverified \u2014 that can be why it was queued)."
         },
         "suggested_finding_ref": {
           "type": "string"
@@ -592,7 +623,7 @@
             "severity_proposal",
             "needs_identity"
           ],
-          "$comment": "'undetermined_finding' = triage could not decide (unlocatable material or split votes) — needs human review; 'fp_audit_valve' = deterministic 10% sample of auto-accepted machine false positives, queued so the auto-accept tier's error rate is continuously measured; 'needs_manual_test' = an unconfident triage confirmation (recall-mode split) awaiting a human PoC or live validation — no validity event was emitted; 'stale_baseline' = a validation verdict was recorded against an audit baseline whose sha256 has since changed (the validation event emitter) — the event was still emitted, but a human should confirm the claim it proves/refutes survived the baseline revision. 'unsound_refutation' = a machine refuted verdict was blocked by the refutation-soundness gate (error-signature transcript, zero-subject RBAC probe, or target-not-deployed run) — no false_positive event was emitted; the finding awaits re-validation or human review. 'weak_confirmation' = an E3 inference-only confirmation quarantined by the validation event emitter — no validity event until the evidence is graded E0-E2 or a human accepts it; 'ungraded_confirmation' = a post-0.179.0 confirmation with no evidence_grade, same quarantine; 'severity_proposal' = a validation-time severity re-rating proposal — severity changes are human-only (disposition.severity), so the proposal queues for countersign instead of setting state. 'needs_identity' = a report was submitted with a finding carrying no `fingerprint`, so the receiver cannot say WHICH finding the statement is about. The submission is accepted and the statement queues here rather than being recorded: identity is computed by the producer, which holds the repository URL, the location paths and the CWE at audit time, and a receiver that hashes what the envelope happens to carry produces a confident wrong answer instead of no answer — with `metadata.repository` absent, every unstamped finding sharing a path and CWE collapses to one identity across unrelated repositories. Re-submit stamped, or confirm the queued item by hand."
+          "$comment": "'undetermined_finding' = triage could not decide (unlocatable material or split votes) \u2014 needs human review; 'fp_audit_valve' = deterministic 10% sample of auto-accepted machine false positives, queued so the auto-accept tier's error rate is continuously measured; 'needs_manual_test' = an unconfident triage confirmation (recall-mode split) awaiting a human PoC or live validation \u2014 no validity event was emitted; 'stale_baseline' = a validation verdict was recorded against an audit baseline whose sha256 has since changed (the validation event emitter) \u2014 the event was still emitted, but a human should confirm the claim it proves/refutes survived the baseline revision. 'unsound_refutation' = a machine refuted verdict was blocked by the refutation-soundness gate (error-signature transcript, zero-subject RBAC probe, or target-not-deployed run) \u2014 no false_positive event was emitted; the finding awaits re-validation or human review. 'weak_confirmation' = an E3 inference-only confirmation quarantined by the validation event emitter \u2014 no validity event until the evidence is graded E0-E2 or a human accepts it; 'ungraded_confirmation' = a post-0.179.0 confirmation with no evidence_grade, same quarantine; 'severity_proposal' = a validation-time severity re-rating proposal \u2014 severity changes are human-only (disposition.severity), so the proposal queues for countersign instead of setting state. 'needs_identity' = a report was submitted with a finding carrying no `fingerprint`, so the receiver cannot say WHICH finding the statement is about. The submission is accepted and the statement queues here rather than being recorded: identity is computed by the producer, which holds the repository URL, the location paths and the CWE at audit time, and a receiver that hashes what the envelope happens to carry produces a confident wrong answer instead of no answer \u2014 with `metadata.repository` absent, every unstamped finding sharing a path and CWE collapses to one identity across unrelated repositories. Re-submit stamped, or confirm the queued item by hand."
         },
         "status": {
           "type": "string",
@@ -709,11 +740,11 @@
         },
         "validation_status": {
           "type": "string",
-          "description": "'not_verified' on arrival — nothing at scan time sets 'confirmed'; that takes execution evidence or a human, and those verdicts flow through the ledger."
+          "description": "'not_verified' on arrival \u2014 nothing at scan time sets 'confirmed'; that takes execution evidence or a human, and those verdicts flow through the ledger."
         },
         "origin": {
           "type": "string",
-          "description": "Producing skill (vuln-scan, impact-analysis, verify-remediation) — provenance for the extraction migration and for audit trails."
+          "description": "Producing skill (vuln-scan, impact-analysis, verify-remediation) \u2014 provenance for the extraction migration and for audit trails."
         },
         "source_findings": {
           "type": "array",

@@ -74,6 +74,9 @@ SECONDARY_PROJECTION_TABLES = {
     # The ledger's dated transitions -- the time dimension. layer_metadata
     # keeps the merkle root; this keeps the history.
     "layer": "layer_event",
+    # The live-validation outcome per claimed finding: confirmed, refuted,
+    # inconclusive, blocked by scope, or not attempted and why.
+    "validation": "validation_finding",
 }
 
 
@@ -280,29 +283,70 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
         ],
         "remediation_roadmap": [{"priority": "x", "action": "xxxxxxxxxx", "addresses": ["x"]}],
     },
+    # Real outcome shapes, trimmed from the live corpus: the three verdicts
+    # that behave differently. not_attempted dominates in practice (184,148
+    # of 208,346), so a fixture with only attempted findings would describe
+    # 12% of what this lane records.
+    #
+    # WHY it was not attempted is deliberately absent: that is run detail
+    # and lives in the validation-audit.jsonl sidecar, not in the contract
+    # artifact. The VERDICT stays -- "we did not attempt this" is a real
+    # outcome the validation is entitled to assert.
     "validation": {
-        "title": "Validation report",
+        "title": "Live validation",
         "metadata": {
             "date": "2026-01-01",
-            "harness_version": "xxx",
-            "scope_binding_mode": "explicit",
+            "harness_version": "0.1.0",
+            "scope_binding_mode": "mixed",
             "target_fingerprint": [],
         },
-        "source_reports": [{"kind": "security-audit", "path": "x"}],
+        "source_reports": [
+            {"kind": "security-audit", "path": "findings/example/repo/repo-security-audit.json"}
+        ],
         "summary": {
+            # All five are REQUIRED by the contract, so "zero refuted" is
+            # an affirmative statement rather than an omission.
             "by_verdict": {
-                "confirmed": 0,
-                "refuted": 0,
+                "confirmed": 1,
+                "refuted": 1,
                 "inconclusive": 0,
                 "blocked_by_scope": 0,
-                "not_attempted": 0,
+                "not_attempted": 1,
             },
-            "by_technique": {},
+            "by_technique": {"replay": 2, "skip": 1},
         },
-        "validated_findings": [],
+        "validated_findings": [
+            {
+                "source_id": "example:repo/FIND-001",
+                "source_report": "findings/example/repo/repo-security-audit.json",
+                "title": "API credentials written to access log in cleartext",
+                "claimed_severity": "high",
+                "verdict": "confirmed",
+                "technique": "replay",
+                "observed_impact": "VULN: tenant credential in access log",
+            },
+            {
+                "source_id": "example:repo/FIND-002",
+                "source_report": "findings/example/repo/repo-security-audit.json",
+                "title": "Raw dump bypassing redaction",
+                "claimed_severity": "high",
+                "verdict": "refuted",
+                "technique": "replay",
+                "observed_impact": "Permission denied",
+            },
+            {
+                "source_id": "example:repo/FIND-003",
+                "source_report": "findings/example/repo/repo-security-audit.json",
+                "title": "Credentials seeded with wall-clock time",
+                "claimed_severity": "high",
+                "verdict": "not_attempted",
+                "technique": "skip",
+                "observed_impact": "",
+            },
+        ],
         "attack_chains": [],
         "novel_findings": [],
-        "execution_log_ref": "x",
+        "execution_log_ref": "log.jsonl",
     },
     "risk-rating-methodology": {
         "methodology": "OWASP Risk Rating Methodology",

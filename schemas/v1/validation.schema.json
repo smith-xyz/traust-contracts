@@ -351,6 +351,10 @@
         },
         "caption": {
           "type": "string"
+        },
+        "redacted": {
+          "type": "boolean",
+          "description": "True when this evidence file had secrets stripped before it was retained. Chain of custody: a consumer must be able to tell sanitised evidence from raw, and dropping the flag would make the two indistinguishable."
         }
       }
     },
@@ -605,7 +609,7 @@
       "properties": {
         "chain_id": {
           "type": "string",
-          "pattern": "^CHAIN-[0-9]{3}$"
+          "pattern": "^CHAIN-[0-9]{3,4}$"
         },
         "name": {
           "type": "string",

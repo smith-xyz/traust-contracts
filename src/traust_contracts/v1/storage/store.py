@@ -1016,6 +1016,8 @@ class Store:
             self._project_one_row(artifact, document, digest, binding_id_value)
             if artifact == "report":
                 self._project_report_findings(document, digest, binding_id_value)
+            elif artifact == "validation":
+                self._project_validation_findings(document, digest, binding_id_value)
 
     def _project_one_row(
         self, artifact: str, document: dict[str, Any], digest: str, binding_id_value: str
@@ -1142,6 +1144,37 @@ class Store:
                     "resolution": disposition.get("resolution"),
                     "evidence_grade": event.get("evidence_grade"),
                     "auto_accept_tier": _boolean(event.get("auto_accept_tier")),
+                },
+            )
+
+    def _project_validation_findings(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a live-validation run's outcomes out of the JSON blob.
+
+        `source_id` is `<product>:<repo>/<finding_id>`; the tail is the
+        scan-scoped finding id report_finding is keyed on, so splitting it
+        here turns "was this ever proven against a running system" into a
+        join instead of a separate spreadsheet.
+        """
+        for finding in document.get("validated_findings") or []:
+            source_id = finding.get("source_id")
+            if not source_id:
+                continue
+            self._execute(
+                query(self.dialect, "validation_finding.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "source_id": source_id,
+                    "source_finding_id": source_id.rsplit("/", 1)[-1] or None,
+                    "title": finding.get("title"),
+                    "claimed_severity": finding.get("claimed_severity"),
+                    "surface": finding.get("surface"),
+                    "verdict": finding.get("verdict"),
+                    "skip_reason": finding.get("skip_reason"),
+                    "technique": finding.get("technique"),
+                    "observed_impact": finding.get("observed_impact"),
                 },
             )
 
