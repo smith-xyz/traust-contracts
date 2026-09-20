@@ -191,9 +191,7 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
                 "containers": [],
             },
         ],
-        "rbac_rules": [
-            {"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "list"]}
-        ],
+        "rbac_rules": [{"apiGroups": [""], "resources": ["secrets"], "verbs": ["get", "list"]}],
         "rbac_flags": {
             "secrets_access": ["namespace::secrets:get,list"],
             "escalate_bind_impersonate": ["cluster:rbac.authorization.k8s.io::escalate"],

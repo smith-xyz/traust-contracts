@@ -93,9 +93,7 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
     assert conn.execute("SELECT count(*) FROM artifact_binding").fetchone() == (len(FAMILIES),)
     for name, table in PROJECTION_TABLES.items():
         # Fan-out families project one row per item in their sample.
-        expected = (
-            2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1
-        )
+        expected = 2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1
         assert conn.execute(f"SELECT count(*) FROM {table}").fetchone() == (expected,)
     assert conn.execute(
         "SELECT reloptions FROM pg_class WHERE oid='findings_summary'::regclass"

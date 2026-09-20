@@ -406,6 +406,36 @@ def _boolean(value: bool | None) -> int | None:
     return int(value)
 
 
+#: Ordinal weights for the threat rank score. The score is DERIVED here and
+#: is deliberately not a schema field: `$defs/threat` sets
+#: `additionalProperties: false`, so a producer that wrote one would emit an
+#: invalid artifact, and reading a field the schema forbids is how
+#: `threat.score` came to be NULL on every row. The product is a TRIAGE
+#: ORDER only -- never a calibrated risk value and never comparable to CVSS.
+_IMPACT_WEIGHT = {"low": 1, "medium": 2, "high": 4, "critical": 8, "existential": 16}
+_LIKELIHOOD_WEIGHT = {
+    "very_rare": 1,
+    "rare": 2,
+    "possible": 4,
+    "likely": 8,
+    "almost_certain": 16,
+}
+
+
+def _threat_score(impact: Any, likelihood: Any) -> int | None:
+    """impact weight x likelihood weight, or None when either is unrateable.
+
+    Zero would claim "rated, and it came out lowest"; the two enums are
+    required, so an unrecognised value means the model is off-contract and
+    the ordering has nothing to say about it.
+    """
+    left = _IMPACT_WEIGHT.get(impact if isinstance(impact, str) else "")
+    right = _LIKELIHOOD_WEIGHT.get(likelihood if isinstance(likelihood, str) else "")
+    if left is None or right is None:
+        return None
+    return left * right
+
+
 def _json_or_none(value: Any) -> str | None:
     """Encode a nested block for a JSON column, canonically. None stays None."""
     if value is None:
@@ -1080,7 +1110,7 @@ class Store:
                     "linddun": _boolean(
                         str(threat.get("threat", "")).lower().startswith("linddun:")
                     ),
-                    "score": _integer(threat.get("score")),
+                    "score": _threat_score(threat.get("impact"), threat.get("likelihood")),
                     "attack_refs": _json_or_none(threat.get("attack_refs")),
                     "isolation_dimensions": _json_or_none(threat.get("isolation_dimensions")),
                     "isolation_boundaries": _json_or_none(threat.get("isolation_boundaries")),

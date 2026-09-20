@@ -28,6 +28,7 @@ from storage_samples import (
 
 from traust_contracts.v1.storage import Binding, IngestError, Store, binding_id
 from traust_contracts.v1.storage.sql import CONTRACT_VERSION, REVISION
+from traust_contracts.v1.storage.store import _threat_score
 
 TABLES = [
     "artifact_binding",
@@ -131,9 +132,7 @@ def test_all_artifacts_retain_exact_evidence_and_project(store: Store, name: str
     table = PROJECTION_TABLES[name]
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     # Fan-out families project one row per item in their sample.
-    assert count == (
-        2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1
-    )
+    assert count == (2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1)
 
 
 def test_global_evidence_dedup_is_private_and_binding_scoped(store: Store) -> None:
@@ -832,12 +831,8 @@ def test_reimporting_the_registry_does_not_double_the_numbers(store: Store) -> N
 
     def numbers() -> tuple[int, int, int]:
         findings = store.conn.execute("SELECT COUNT(*) FROM current_finding").fetchone()[0]
-        population = store.conn.execute(
-            "SELECT SUM(subjects) FROM census_population"
-        ).fetchone()[0]
-        exposure = store.conn.execute(
-            "SELECT SUM(occurrences) FROM census_exposure"
-        ).fetchone()[0]
+        population = store.conn.execute("SELECT SUM(subjects) FROM census_population").fetchone()[0]
+        exposure = store.conn.execute("SELECT SUM(occurrences) FROM census_exposure").fetchone()[0]
         return findings, population, exposure
 
     before = numbers()
@@ -892,9 +887,7 @@ def test_ownership_current_takes_the_latest_declaration(store: Store) -> None:
         ),
         Binding(),
     )
-    rows = set(
-        store.conn.execute("SELECT DISTINCT ownership, business_unit FROM current_finding")
-    )
+    rows = set(store.conn.execute("SELECT DISTINCT ownership, business_unit FROM current_finding"))
     assert rows == {("upstream", "Storage Group")}
 
 
@@ -908,9 +901,7 @@ def test_threat_keys_are_scoped_to_their_subject(store: Store) -> None:
     """
     payload, _ = sample("threat-model")
     for subject in ("findings/example/repo", "findings/example/other"):
-        store.ingest(
-            "threat-model", payload, Binding(subject_id=subject, run_id="r1")
-        )
+        store.ingest("threat-model", payload, Binding(subject_id=subject, run_id="r1"))
     rows = store.conn.execute(
         "SELECT threat_key, threat_id, subject_id FROM threat WHERE threat_id='T1'"
     ).fetchall()
@@ -928,12 +919,8 @@ def test_threat_carries_its_attack_refs(store: Store) -> None:
     one did.
     """
     payload, _ = sample("threat-model")
-    store.ingest(
-        "threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1")
-    )
-    row = store.conn.execute(
-        "SELECT attack_refs FROM threat WHERE threat_id='T1'"
-    ).fetchone()
+    store.ingest("threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
+    row = store.conn.execute("SELECT attack_refs FROM threat WHERE threat_id='T1'").fetchone()
     assert row is not None and row[0], "attack_refs must reach the projection"
     assert json.loads(row[0]) == ["T1190", "T1078"]
 
@@ -978,8 +965,13 @@ def test_operator_privilege_flags_follow_rbac_flag_presence(store: Store) -> Non
     row = dict(zip(columns, rows[0], strict=True))
     assert row["flag_secrets_access"] == 1
     assert row["flag_escalate_bind_impersonate"] == 1
-    for absent in ("nodes_access", "wildcard_verbs", "wildcard_resources",
-                   "pods_exec", "rbac_write"):
+    for absent in (
+        "nodes_access",
+        "wildcard_verbs",
+        "wildcard_resources",
+        "pods_exec",
+        "rbac_write",
+    ):
         assert row[f"flag_{absent}"] == 0, absent
 
 
@@ -1053,7 +1045,8 @@ def test_open_findings_keep_a_null_duration_not_a_zero(store: Store) -> None:
     # Same finding, adjudicated but never closed -- the shape that a
     # censored mean silently drops.
     document["events"] = [
-        event for event in document["events"]
+        event
+        for event in document["events"]
         if (event.get("disposition") or {}).get("resolution") != "resolved"
     ]
     store.ingest("layer", encode(document), Binding(layer_id="ledger:layer:1"))
@@ -1195,9 +1188,12 @@ def test_rebaseline_events_project_and_assert_nothing(store: Store) -> None:
         "SELECT validity, resolution FROM layer_event WHERE source_type='rebaseline'"
     ).fetchone()
     assert row == (None, None), "a rebaseline must assert no disposition"
-    assert store.conn.execute(
-        "SELECT COUNT(*) FROM layer_event WHERE source_type='rebaseline'"
-    ).fetchone()[0] == 1
+    assert (
+        store.conn.execute(
+            "SELECT COUNT(*) FROM layer_event WHERE source_type='rebaseline'"
+        ).fetchone()[0]
+        == 1
+    )
 
 
 def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
@@ -1221,3 +1217,36 @@ def test_every_dashboard_read_refuses_an_empty_scope(store: Store) -> None:
         with pytest.raises(IngestError, match="scope is required"):
             read([])
         assert read(["other-scope"]) == []
+
+
+def test_threat_score_is_derived_not_read_from_the_document(store: Store) -> None:
+    """`score` is not a schema field, so reading one leaves the column NULL.
+
+    `$defs/threat` sets `additionalProperties: false` and declares no
+    `score`, so a producer cannot legally emit one -- the projector used
+    to read `threat["score"]` and every row in the live corpus came back
+    NULL, taking `threat_exposure.top_score` and the `(status, score)`
+    rank index with it. Derive it from the two enums that ARE required.
+    """
+    payload, _ = sample("threat-model")
+    store.ingest("threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
+    scores = dict(store.conn.execute("SELECT threat_id, score FROM threat").fetchall())
+    # critical (8) x almost_certain (16); high (4) x possible (4)
+    assert scores == {"T1": 128, "T2": 16}
+    top = store.conn.execute("SELECT MAX(top_score) FROM threat_exposure").fetchone()[0]
+    assert top == 128, "the exposure view must be able to rank"
+
+
+def test_threat_score_is_null_when_a_rating_is_off_contract() -> None:
+    """Unrateable must not read as "rated, and it came out lowest".
+
+    A zero would sort alongside genuinely low-ranked threats; None keeps
+    an off-contract model out of the ordering instead of at the bottom of
+    it. Tested directly because the schema rejects such a document at
+    ingest -- the guard is for the day a value is added to one enum and
+    not to the weight table.
+    """
+    assert _threat_score("catastrophic", "likely") is None
+    assert _threat_score("high", "sometimes") is None
+    assert _threat_score(None, None) is None
+    assert _threat_score("low", "very_rare") == 1
