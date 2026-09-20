@@ -94,7 +94,7 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
     for name, table in PROJECTION_TABLES.items():
         # Fan-out families project one row per item in their sample.
         expected = (
-            2 if name in {"vuln-findings", "corpus-registry", "threat-register"} else 1
+            2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1
         )
         assert conn.execute(f"SELECT count(*) FROM {table}").fetchone() == (expected,)
     assert conn.execute(

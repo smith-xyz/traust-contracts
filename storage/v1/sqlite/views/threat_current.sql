@@ -1,18 +1,17 @@
 -- Current threats, with the owner of the subject they were modelled against.
 --
--- threat-register is an aggregate that restates the WHOLE threat population
--- on every regeneration, exactly like corpus-registry, so its rows
--- ACCUMULATE across bindings; a view reading `threat` raw multiplies every
--- count by the number of imports.
+-- One threat model per subject, and a re-modelled subject must not count
+-- twice. Same rule report_current applies to restated reports: most
+-- recently bound wins, binding_id breaking ties.
 --
--- Resolved per BINDING, not per threat. The first version of this view raced
--- rows against each other with a correlated NOT EXISTS on threat_key, which
--- is quadratic in the threat table -- measured on the live register it had
--- not finished after 44 minutes at 165,700 rows, and an index on threat_key
--- does not rescue it. Because the register is a whole-population
--- restatement, exactly one binding per scope is current, and that set is
--- tiny: pick it from artifact_binding first, then join. Linear, and it says
--- what is actually true about the artifact.
+-- Resolved per SUBJECT, not per scope. An earlier cut of this view read a
+-- fleet-wide register and resolved one current document for the whole
+-- scope -- wrong grain, and fed from the dashboard's own output. The
+-- estate has one model per subject; that is what this counts.
+--
+-- Ownership is LEFT JOINed: a threat model can exist for a subject the
+-- corpus registry does not declare, and such a model is still real. It
+-- simply has no denominator.
 CREATE VIEW IF NOT EXISTS threat_current AS
 SELECT b.scope_id,
        t.threat_key,
@@ -28,6 +27,7 @@ SELECT b.scope_id,
        t.status,
        t.controls,
        t.evidence,
+       t.attack_refs,
        t.linddun,
        t.score,
        t.isolation_dimensions,
@@ -37,19 +37,17 @@ SELECT b.scope_id,
        owner.tree,
        owner.is_branch_audit
 FROM threat t
-JOIN (
-    SELECT scope_id, binding_id
-    FROM artifact_binding current_register
-    WHERE current_register.artifact_name = 'threat-register'
-      AND NOT EXISTS (
-          SELECT 1
-          FROM artifact_binding rival
-          WHERE rival.artifact_name = 'threat-register'
-            AND rival.scope_id = current_register.scope_id
-            AND (rival.bound_at > current_register.bound_at
-                 OR (rival.bound_at = current_register.bound_at
-                     AND rival.binding_id > current_register.binding_id))
-      )
-) b ON b.binding_id = t.binding_id
+JOIN artifact_binding b
+  ON b.binding_id = t.binding_id
 LEFT JOIN ownership_current owner
-  ON owner.subject_id = t.subject_id;
+  ON owner.subject_id = b.subject_id
+WHERE b.artifact_name = 'threat-model'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM artifact_binding rival
+      WHERE rival.artifact_name = 'threat-model'
+        AND rival.scope_id = b.scope_id
+        AND rival.subject_id = b.subject_id
+        AND (rival.bound_at > b.bound_at
+             OR (rival.bound_at = b.bound_at AND rival.binding_id > b.binding_id))
+  );

@@ -31,7 +31,9 @@ CONTRACT_VERSION = "v1"
 #: the per-severity join, so an unclocked severity aged from a different
 #: timestamp than its siblings under one policy.
 #: 8 (2026-09-19): pqc_posture and pqc_readiness_rollup.
-REVISION = 8
+#: 9 (2026-09-20): threat-model replaces threat-register as the family;
+#: threat gains attack_refs and threat_current resolves per SUBJECT.
+REVISION = 9
 
 
 @cache

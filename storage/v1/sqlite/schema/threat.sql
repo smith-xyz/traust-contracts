@@ -33,6 +33,10 @@ CREATE TABLE IF NOT EXISTS threat (
     -- impact weight x likelihood weight. An ORDERING for triage queues,
     -- never a calibrated risk value and never comparable to CVSS.
     score INTEGER,
+    -- Column 11 of the threats table, default since harness 0.82.0.
+    -- This is what an ATT&CK coverage rollup reads; omitting it drops
+    -- every MITRE mapping the estate has recorded.
+    attack_refs JSONB,
     isolation_dimensions JSONB,
     isolation_boundaries JSONB,
     PRIMARY KEY (binding_id, threat_key),

@@ -132,7 +132,7 @@ def test_all_artifacts_retain_exact_evidence_and_project(store: Store, name: str
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     # Fan-out families project one row per item in their sample.
     assert count == (
-        2 if name in {"vuln-findings", "corpus-registry", "threat-register"} else 1
+        2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1
     )
 
 
@@ -898,39 +898,44 @@ def test_ownership_current_takes_the_latest_declaration(store: Store) -> None:
     assert rows == {("upstream", "Storage Group")}
 
 
-def test_threats_are_keyed_on_key_not_in_model_id(store: Store) -> None:
+def test_threat_keys_are_scoped_to_their_subject(store: Store) -> None:
     """Every threat model numbers its threats from T1.
 
-    The fixture holds two different threats that are both `T1`. Key the
-    projection on `id` and ~7,500 models collapse into one numbering space,
-    keeping a single threat per number.
+    The in-model id is unique only within its own model, so a projection
+    keyed on it alone would keep ONE threat per number across 7,476
+    models. The key is derived from the subject, not read from the
+    document.
     """
-    payload, _ = sample("threat-register")
-    store.ingest("threat-register", payload, Binding())
-    rows = store.conn.execute("SELECT threat_key, threat_id FROM threat").fetchall()
-    assert len(rows) == 2
-    assert {r[1] for r in rows} == {"T1"}, "both rows must share the in-model id"
-    assert len({r[0] for r in rows}) == 2, "and still be distinct"
+    payload, _ = sample("threat-model")
+    for subject in ("findings/example/repo", "findings/example/other"):
+        store.ingest(
+            "threat-model", payload, Binding(subject_id=subject, run_id="r1")
+        )
+    rows = store.conn.execute(
+        "SELECT threat_key, threat_id, subject_id FROM threat WHERE threat_id='T1'"
+    ).fetchall()
+    assert len(rows) == 2, "both subjects' T1 must survive"
+    assert len({r[0] for r in rows}) == 2, "their keys must differ"
+    assert {r[2] for r in rows} == {"findings/example/repo", "findings/example/other"}
 
 
-def test_reimporting_the_threat_register_does_not_double_threats(store: Store) -> None:
-    """Same aggregate-restatement shape as corpus-registry.
+def test_threat_carries_its_attack_refs(store: Store) -> None:
+    """Column 11, and the input to any ATT&CK coverage rollup.
 
-    The register restates every threat on each regeneration and carries an
-    `updated` timestamp, so its rows accumulate per binding. Without
-    threat_current the threat count multiplies by the number of imports.
+    Present on only 781 of 82,075 threats in the live corpus despite being
+    default since harness 0.82.0, so it is exactly the field a projection
+    drops without anyone noticing -- which is what the first cut of this
+    one did.
     """
-    payload, _ = sample("threat-register")
-    store.ingest("threat-register", payload, Binding())
-    before = store.conn.execute("SELECT COUNT(*) FROM threat_current").fetchone()[0]
-    assert before == 2
-
-    document = json.loads(payload)
-    document["meta"]["generated"] = "2026-09-19"
-    store.ingest("threat-register", encode(document), Binding())
-
-    assert store.conn.execute("SELECT COUNT(*) FROM threat").fetchone()[0] == 4
-    assert store.conn.execute("SELECT COUNT(*) FROM threat_current").fetchone()[0] == before
+    payload, _ = sample("threat-model")
+    store.ingest(
+        "threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1")
+    )
+    row = store.conn.execute(
+        "SELECT attack_refs FROM threat WHERE threat_id='T1'"
+    ).fetchone()
+    assert row is not None and row[0], "attack_refs must reach the projection"
+    assert json.loads(row[0]) == ["T1190", "T1078"]
 
 
 def test_threat_exposure_keeps_partially_mitigated_and_marks_evidence(store: Store) -> None:
@@ -940,8 +945,9 @@ def test_threat_exposure_keeps_partially_mitigated_and_marks_evidence(store: Sto
     (45,273 of 82,850), and a threat with no evidence is modelled rather
     than proven -- a different claim from unmitigated.
     """
-    payload, _ = sample("threat-register")
-    store.ingest("threat-register", payload, Binding())
+    _seed_dashboard(store)
+    payload, _ = sample("threat-model")
+    store.ingest("threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
     rows = store.query_threat_exposure(["local"])
     by_status = {row[7]: row[8] for row in rows}
     assert set(by_status) == {"unmitigated", "partially_mitigated"}

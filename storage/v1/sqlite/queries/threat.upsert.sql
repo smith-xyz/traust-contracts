@@ -17,6 +17,7 @@ INSERT INTO threat (
     evidence,
     linddun,
     score,
+    attack_refs,
     isolation_dimensions,
     isolation_boundaries
 )
@@ -39,6 +40,7 @@ VALUES (
     :evidence,
     :linddun,
     :score,
+    :attack_refs,
     :isolation_dimensions,
     :isolation_boundaries
 )

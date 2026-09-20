@@ -17,6 +17,7 @@ INSERT INTO traust_storage.threat (
     evidence,
     linddun,
     score,
+    attack_refs,
     isolation_dimensions,
     isolation_boundaries
 )
@@ -39,6 +40,7 @@ VALUES (
     %(evidence)s,
     %(linddun)s,
     %(score)s,
+    %(attack_refs)s,
     %(isolation_dimensions)s,
     %(isolation_boundaries)s
 )

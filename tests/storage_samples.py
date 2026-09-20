@@ -29,7 +29,7 @@ FAMILIES = [
     "report",
     "risk-rating-methodology",
     "sla-policy",
-    "threat-register",
+    "threat-model",
     "triage",
     "validation",
     "verification",
@@ -47,6 +47,7 @@ RUN_BOUND = {
     "pqc-readiness",
     "remediation",
     "report",
+    "threat-model",
     "triage",
     "validation",
     "verification",
@@ -60,7 +61,7 @@ PROJECTION_TABLES = {
     "corpus-registry": "subject_ownership",
     # Threat MODELS are prose Markdown and cannot be projected; the register
     # is their structured restatement, so the family and its table differ.
-    "threat-register": "threat",
+    "threat-model": "threat",
     "operator-priv-profile": "priv_profile",
 }
 
@@ -84,29 +85,24 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     # Two subjects on purpose: one owned HEAD audit and one external-bu branch
     # re-audit, so the branch-audit exclusion that every denominator depends on
     # is exercised rather than assumed.
-    # Both rows are REAL, trimmed from the live register: one with the PEACH
-    # isolation lens applied and one without, because the two optional arrays
-    # are the only shape variation in 82,850 rows. Authoring these by hand is
-    # how a fixture ends up testing a document the producer never emits.
-    "threat-register": {
-        "meta": {
-            "generated": "2026-01-01",
-            "models": 2,
-            "models_skipped_nonconforming": 0,
-            "threat_count": 2,
-            "scoring": (
-                "rank score = impact weight x likelihood weight; ordering only, not CVSS"
-            ),
+    # A real threat model's shape, trimmed from the live corpus: one
+    # subject, its own threats. NOT the fleet register -- the estate has
+    # 7,476 models belonging to subjects, not one document of 82,075
+    # threats belonging to nothing.
+    "threat-model": {
+        "system": "example-repo",
+        "subject_id": "findings/example/repo",
+        "provenance": {
+            "mode": "bootstrap",
+            "date": "2026-01-01",
+            "target": "https://example.test/repo @ abc1234",
+            "harness_version": "0.1.0-abc1234",
         },
         "threats": [
             {
-                "key": "example/repo:T1",
                 "id": "T1",
-                "model": "findings/example/repo/repo-threat-model.md",
-                "subject_id": "findings/example/repo",
-                "product": "example",
                 "threat": "Cross-tenant data theft via SQL injection in list parameters",
-                "actors": ["remote_auth", "insider"],
+                "actor": ["remote_auth", "insider"],
                 "surface": "list/search query parameters",
                 "asset": "fleet service-log database",
                 "impact": "critical",
@@ -114,32 +110,45 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
                 "status": "unmitigated",
                 "controls": "search values are parameterized, but orderBy is string-built",
                 "evidence": ["EXAMPLE-001", "EXAMPLE-002"],
-                "linddun": False,
-                "score": 128,
+                # Column 11. Present on only 781 of 82,075 threats in the
+                # live corpus despite being default since harness 0.82.0,
+                # so a fixture without it would exercise the common case
+                # and miss the one the ATT&CK rollup depends on.
+                "attack_refs": ["T1190", "T1078"],
                 "isolation_dimensions": ["privilege"],
-                "isolation_boundaries": ["IF-1"],
             },
             {
-                # Same in-model id as above ON PURPOSE: every model numbers
-                # from T1, so this pair is what proves the projection is
-                # keyed on `key` and not on `id`.
-                "key": "example/other:T1",
-                "id": "T1",
-                "model": "findings/example/other/other-threat-model.md",
-                "subject_id": "findings/example/other",
-                "product": "example",
+                "id": "T2",
                 "threat": "Operator service account can read secrets fleet-wide",
-                "actors": ["local_priv"],
+                "actor": ["local_priv"] if False else ["local_admin"],
                 "surface": "controller-manager ClusterRole",
                 "asset": "Cluster secrets",
                 "impact": "high",
                 "likelihood": "possible",
                 "status": "partially_mitigated",
                 "controls": "namespaced in most install modes",
+                # EMPTY on purpose: modelled but not evidenced is a
+                # different claim from unmitigated.
                 "evidence": [],
-                "linddun": False,
-                "score": 16,
             },
+        ],
+        "mitigations": [
+            {
+                "mitigation": "parameterized queries everywhere",
+                "threat_ids": ["T1"],
+                "closes_class": "yes",
+                "effort": "S",
+            }
+        ],
+        "tenant_boundaries": [
+            {
+                "boundary_id": "IF-1",
+                "interface": "service-log list API",
+                "kind": "api",
+                "exposure": "tenant",
+                "complexity": "medium",
+                "threat_ids": ["T1"],
+            }
         ],
     },
     # Trimmed from a real profile: the summary block is what the dashboard

@@ -364,7 +364,7 @@ def storage_profiles() -> dict[str, dict[str, Any]]:
         "triage": "triage_verdict",
         "vuln-findings": "finding",
         "corpus-registry": "subject_ownership",
-        "threat-register": "threat",
+        "threat-model": "threat",
         "operator-priv-profile": "priv_profile",
     }
     for name, profile in profiles.items():
@@ -989,7 +989,7 @@ class Store:
         elif artifact == "cloud-config-findings-current":
             self._project_one_row(artifact, document, digest, binding_id_value)
             self._project_cloud_config_findings(document, digest, binding_id_value)
-        elif artifact == "threat-register":
+        elif artifact == "threat-model":
             self._project_threats(document, digest, binding_id_value)
         elif artifact == "operator-priv-profile":
             self._project_priv_profile(document, digest, binding_id_value)
@@ -1044,23 +1044,30 @@ class Store:
     def _project_threats(
         self, document: dict[str, Any], digest: str, binding_id_value: str
     ) -> None:
-        """Fan the register's threats out of the JSON blob.
+        """Fan a threat model's threats out of the JSON blob.
 
-        Keyed on `key`, never `id`: every threat model numbers its threats
-        from T1, so `id` collides across the whole model set and an
-        id-keyed projection would keep only one threat per number.
+        threat_key is derived as `<subject>:<id>`, NOT taken from the
+        document: an in-model id is unique only within its own model --
+        every model numbers from T1 -- so a projection keyed on it alone
+        would keep one threat per number across the whole estate.
         """
+        subject = self._binding_row(binding_id_value)
+        subject_id = subject[3] if subject else None
+        provenance = document.get("provenance") or {}
         for threat in document.get("threats") or []:
+            threat_id = threat.get("id")
+            if not threat_id:
+                continue
             self._execute(
                 query(self.dialect, "threat.upsert.sql"),
                 {
                     "binding_id": binding_id_value,
                     "artifact_digest": digest,
-                    "threat_key": threat["key"],
-                    "threat_id": threat["id"],
-                    "model": threat["model"],
-                    "subject_id": threat.get("subject_id"),
-                    "product": threat.get("product"),
+                    "threat_key": f"{subject_id or document.get('system')}:{threat_id}",
+                    "threat_id": threat_id,
+                    "model": provenance.get("target") or document.get("system") or "",
+                    "subject_id": subject_id or document.get("subject_id"),
+                    "product": document.get("system"),
                     "statement": threat.get("threat"),
                     "surface": threat.get("surface"),
                     "asset": threat.get("asset"),
@@ -1068,10 +1075,13 @@ class Store:
                     "likelihood": threat.get("likelihood"),
                     "status": threat.get("status"),
                     "controls": threat.get("controls"),
-                    "actors": _json_or_none(threat.get("actors")),
+                    "actors": _json_or_none(threat.get("actor")),
                     "evidence": _json_or_none(threat.get("evidence")),
-                    "linddun": _boolean(threat.get("linddun")),
+                    "linddun": _boolean(
+                        str(threat.get("threat", "")).lower().startswith("linddun:")
+                    ),
                     "score": _integer(threat.get("score")),
+                    "attack_refs": _json_or_none(threat.get("attack_refs")),
                     "isolation_dimensions": _json_or_none(threat.get("isolation_dimensions")),
                     "isolation_boundaries": _json_or_none(threat.get("isolation_boundaries")),
                 },
