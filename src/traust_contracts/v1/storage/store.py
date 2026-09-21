@@ -449,7 +449,7 @@ def _skip_reason(finding: dict[str, Any]) -> str | None:
     that field is empty on every row; what the lane writes is
     `steps[].scope_reason` -- `triage-false-positive`,
     `no-poc-no-adapter`, `wrong-surface:ci-build`. Reading the top-level
-    key returned None on all 183,296 not_attempted and blocked_by_scope
+    key returned None on every not_attempted and blocked_by_scope
     rows, so the column separating "triage already ruled this out" from
     "we have no adapter for this surface" was NULL corpus-wide.
 
@@ -1285,9 +1285,7 @@ class Store:
                     "evidence_grade": finding.get("evidence_grade"),
                     "grade_rationale": finding.get("grade_rationale"),
                     "soundness_flag": finding.get("soundness_flag"),
-                    "severity_validation": _json_or_none(
-                        finding.get("severity_validation")
-                    ),
+                    "severity_validation": _json_or_none(finding.get("severity_validation")),
                     "deviation_from_claim": finding.get("deviation_from_claim"),
                     "rollback_performed": _boolean(finding.get("rollback_performed")),
                     "chain_context": _json_or_none(finding.get("chain_context")),

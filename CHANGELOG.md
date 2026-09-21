@@ -42,7 +42,7 @@ All notable changes to traust-contracts are documented here.
 
   Why it was needed: the block landed in 0.3.0 on the remediation family
   only, and in the estate that measured this, remediation reports are a
-  15-file family while verification reports are a 2,029-file one. Typed
+  small family while verification reports are a large one. Typed
   evidence that only the smaller family can carry reaches almost none of the
   corpus.
 

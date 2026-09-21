@@ -37,9 +37,7 @@ FAN_OUT_VIEWS: dict[str, tuple[str, tuple[str, ...]]] = {
 #: Fields a view deliberately does not carry, each with the reason.
 #: A reason a reviewer can disagree with -- not "not needed yet".
 EXEMPT: dict[tuple[str, str], str] = {
-    ("advisory_exposure", "evidence"): (
-        "the block itself; its members are checked individually"
-    ),
+    ("advisory_exposure", "evidence"): ("the block itself; its members are checked individually"),
     ("validation_current", "steps"): (
         "the per-step execution log, one level below this view's grain. "
         "Its scope_reason is already surfaced as skip_reason on the "
@@ -91,11 +89,7 @@ def test_view_exposes_what_its_contract_declares(view: str) -> None:
     sql = (storage_dir() / "sqlite" / "views" / f"{view}.sql").read_text(encoding="utf-8")
 
     declared = _declared(schema, pointer)
-    missing = {
-        name
-        for name in declared
-        if not re.search(rf"\b{re.escape(name)}\b", sql)
-    }
+    missing = {name for name in declared if not re.search(rf"\b{re.escape(name)}\b", sql)}
     unexplained = sorted(name for name in missing if (view, name) not in EXEMPT)
     assert not unexplained, (
         f"{view} drops {len(unexplained)} field(s) {schema_file} declares: "
@@ -125,14 +119,10 @@ def test_both_dialects_expose_the_same_fields() -> None:
     for view in FAN_OUT_VIEWS:
         names = {}
         for dialect in ("sqlite", "postgres"):
-            sql = (storage_dir() / dialect / "views" / f"{view}.sql").read_text(
-                encoding="utf-8"
-            )
+            sql = (storage_dir() / dialect / "views" / f"{view}.sql").read_text(encoding="utf-8")
             # select-list aliases only: `AS name,` or `AS name` at a line
             # end. `AS entry(value)` is a LATERAL table alias, not a column.
-            names[dialect] = set(
-                re.findall(r"\bAS ([a-z_][a-z0-9_]*)\s*(?:,|$)", sql, re.M)
-            )
+            names[dialect] = set(re.findall(r"\bAS ([a-z_][a-z0-9_]*)\s*(?:,|$)", sql, re.M))
         assert names["sqlite"] == names["postgres"], (
             f"{view}: dialects expose different columns — "
             f"sqlite-only {sorted(names['sqlite'] - names['postgres'])}, "

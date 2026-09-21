@@ -601,9 +601,9 @@ def _cloud_config_with_findings() -> bytes:
 
 
 def test_cloud_config_findings_project_into_queryable_rows(store: Store) -> None:
-    """91 repos carrying 2,592 findings were absent from every storage/v1
-    query while present in findings.db, because this family projected one
-    row and kept its findings in a JSON column."""
+    """A whole class of repos and their findings were absent from every
+    storage/v1 query while present in findings.db, because this family
+    projected one row and kept its findings in a JSON column."""
     payload = _cloud_config_with_findings()
     result = store.ingest("cloud-config-findings-current", payload, run_binding())
 
@@ -826,8 +826,8 @@ def test_reimporting_the_registry_does_not_double_the_numbers(store: Store) -> N
     corpus-registry restates the whole population and carries an `updated`
     timestamp, so each import is new content, a new digest and a new
     binding; subject_ownership keeps a row set per binding. Measured on the
-    live corpus before ownership_current: one re-import took current_finding
-    from 79,855 to 159,710 and the census population from 8,604 to 17,208.
+    live corpus before ownership_current: one re-import DOUBLED both
+    current_finding and the census population.
     Invisible in the suite until now because the store was always fresh.
     """
     _seed_dashboard(store)
@@ -898,8 +898,8 @@ def test_threat_keys_are_scoped_to_their_subject(store: Store) -> None:
     """Every threat model numbers its threats from T1.
 
     The in-model id is unique only within its own model, so a projection
-    keyed on it alone would keep ONE threat per number across 7,476
-    models. The key is derived from the subject, not read from the
+    keyed on it alone would keep ONE threat per number across the whole
+    model set. The key is derived from the subject, not read from the
     document.
     """
     payload, _ = sample("threat-model")
@@ -916,7 +916,7 @@ def test_threat_keys_are_scoped_to_their_subject(store: Store) -> None:
 def test_threat_carries_its_attack_refs(store: Store) -> None:
     """Column 11, and the input to any ATT&CK coverage rollup.
 
-    Present on only 781 of 82,075 threats in the live corpus despite being
+    Present on a small fraction of threats in the live corpus despite being
     default since harness 0.82.0, so it is exactly the field a projection
     drops without anyone noticing -- which is what the first cut of this
     one did.
@@ -932,7 +932,7 @@ def test_threat_exposure_keeps_partially_mitigated_and_marks_evidence(store: Sto
     """Two collapses that would each overstate coverage.
 
     partially_mitigated is the largest status bucket in the real register
-    (45,273 of 82,850), and a threat with no evidence is modelled rather
+    by a wide margin, and a threat with no evidence is modelled rather
     than proven -- a different claim from unmitigated.
     """
     _seed_dashboard(store)
@@ -1138,9 +1138,9 @@ def test_clock_start_applies_to_unclocked_severities_too(store: Store) -> None:
     A severity the profile does not give a threshold is UNCLOCKED, but the
     policy still says where every clock starts. Resolving the clock through
     the per-severity join let those findings fall back to a different clock
-    than their siblings -- measured on the live corpus, 21,322 findings aged
-    from the report date while 22,076 aged from the ledger event, under one
-    policy naming a single clock.
+    than their siblings -- measured on the live corpus, findings split
+    roughly evenly between ageing from the report date and ageing from the
+    ledger event, under one policy naming a single clock.
     """
     _seed_dashboard(store)
     store.ingest("layer", sample("layer")[0], Binding(layer_id="ledger:layer:1"))
@@ -1160,11 +1160,11 @@ def test_clock_start_applies_to_unclocked_severities_too(store: Store) -> None:
 def test_rebaseline_events_project_and_assert_nothing(store: Store) -> None:
     """A rebaseline is a RENAME record, not evidence.
 
-    46,956 of them exist in the live corpus, appended by one migration that
+    They exist in bulk in the live corpus, appended by one migration that
     moved finding aliases out of mutable metadata into the Merkle-covered
     event stream. Because the source type was missing from the enum, every
-    layer carrying one rejected outright -- 1,412 layers, and with them
-    6,257 real validation_report events that storage/v1 never saw.
+    layer carrying one rejected outright, and with them real
+    validation_report events that storage/v1 never saw.
 
     They must project, and they must stay out of validity precedence: an
     empty disposition is the invariant, so a consumer folding events into a
@@ -1287,7 +1287,8 @@ def test_validation_supersession_is_per_environment(store: Store) -> None:
     """A hub run and a spoke run are not re-runs of each other.
 
     Measured on the live corpus: one subject's hub and spoke runs
-    covered the SAME 3,297 findings and disagreed on 290 verdicts, 48 of
+    covered the SAME findings and disagreed on a material share of the
+    verdicts, some of
     them confirmed against one environment and refuted against the
     other. Collapsing on subject alone picked one arbitrarily and
     deleted the disagreement.
@@ -1303,7 +1304,8 @@ def test_validation_supersession_is_per_environment(store: Store) -> None:
             Binding(subject_id="findings/example/repo", run_id=f"run:{environment}"),
         )
     environments = {
-        row[0] for row in store.conn.execute("SELECT DISTINCT target_environment FROM validation_current")
+        row[0]
+        for row in store.conn.execute("SELECT DISTINCT target_environment FROM validation_current")
     }
     assert environments == {"hub", "spoke"}, "both environments stay current"
 
@@ -1328,7 +1330,7 @@ def test_a_re_run_of_one_environment_supersedes_its_predecessor(store: Store) ->
 def test_an_unlabelled_run_is_never_merged_with_another(store: Store) -> None:
     """Absent environment means UNKNOWN, not "same as the others".
 
-    1,231 live artifacts predate the field. Merging them on the
+    Many live artifacts predate the field. Merging them on the
     assumption that they share an environment is exactly the guess that
     produced the 290-verdict conflict, so the partition falls back to
     run_id and every unlabelled run stays distinct. Noisier on purpose.
@@ -1350,7 +1352,7 @@ def test_skip_reason_comes_from_the_step_the_producer_writes(store: Store) -> No
     `validated_findings[]` declares `not_attempted_reason`, and measured
     across the live corpus that field is empty on every row — what the
     lane writes is `steps[].scope_reason`. Reading the declared key alone
-    left skip_reason NULL on all 183,296 not_attempted and
+    left skip_reason NULL on every not_attempted and
     blocked_by_scope rows, so "triage already ruled this out" and "we
     have no adapter for this surface" were indistinguishable.
     """
@@ -1470,12 +1472,19 @@ def test_advisory_exposure_fans_out_and_keeps_evidence_strength(store: Store) ->
     payload, _ = sample("impact-analysis")
     store.ingest("impact-analysis", payload, Binding(scope_id="local"))
     columns = [
-        d[0]
-        for d in store.conn.execute("SELECT * FROM advisory_exposure LIMIT 1").description
+        d[0] for d in store.conn.execute("SELECT * FROM advisory_exposure LIMIT 1").description
     ]
-    for carried in ("classification", "direct", "evidence_level",
-                    "l1_depends_on", "l1_version_in_range", "needs_manual_trace",
-                    "govulncheck", "sbom_scan", "manifest_version"):
+    for carried in (
+        "classification",
+        "direct",
+        "evidence_level",
+        "l1_depends_on",
+        "l1_version_in_range",
+        "needs_manual_trace",
+        "govulncheck",
+        "sbom_scan",
+        "manifest_version",
+    ):
         assert carried in columns, f"{carried} must survive to the view"
     rows = store.query_advisory_exposure(["local"])
     assert rows, "the blast radius must be queryable"

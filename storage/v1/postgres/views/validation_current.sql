@@ -2,7 +2,7 @@
 -- owner of the subject they were validated against.
 --
 -- EVERY FIELD THE CONTRACT DECLARES ON A VALIDATED FINDING IS CARRIED.
--- The first cut exposed 7 of 17 and dropped `evidence_grade` (E0-E3)
+-- The first cut dropped `evidence_grade` (E0-E3)
 -- and `soundness_flag` -- the machine-readable reason a refutation was
 -- un-emittable. Those two say how far a verdict can be trusted, and a
 -- view reporting outcomes without them gives no way to weigh them.
@@ -12,9 +12,10 @@
 --
 -- SUPERSESSION IS PER ENVIRONMENT, NOT PER SUBJECT. A run against a hub
 -- cluster and a run against a spoke are not re-runs of each other. Measured
--- on the live corpus: one subject's hub and spoke runs covered the SAME
--- 3,297 findings and disagreed on 290 verdicts -- 48 confirmed against one
--- and refuted against the other. Collapsing on subject alone silently
+-- measured: one subject's hub and spoke runs covered the SAME findings
+-- and disagreed on a material share of the verdicts, some confirmed
+-- against one target and refuted against the other. Collapsing on
+-- subject alone silently
 -- picked one and deleted the disagreement, which is the single most
 -- interesting thing the evidence lens has to say.
 --
@@ -24,7 +25,7 @@
 -- ABSENT ENVIRONMENT MEANS UNKNOWN, NOT "THE SAME AS THE OTHERS". The
 -- partition falls back to run_id, so every run of an unlabelled subject
 -- stays distinct rather than being merged on an assumption. That is
--- deliberately noisier: 1,231 artifacts predate the field, and merging
+-- deliberately noisier: many artifacts predate the field, and merging
 -- them is exactly the guess that produced the 290-verdict conflict. The
 -- noise is the honest reading and it shrinks as producers adopt the field.
 --
