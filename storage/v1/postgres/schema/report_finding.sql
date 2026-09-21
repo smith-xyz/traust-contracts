@@ -30,6 +30,37 @@ CREATE TABLE IF NOT EXISTS traust_storage.report_finding (
     fp_reassertion_blocked INTEGER,
     refuted_awaiting_signoff INTEGER,
     severity_override JSONB,
+    -- The body of the finding. `description` and `remediation` are
+    -- REQUIRED by report.schema.json and were the two largest strings
+    -- the projection dropped; a finding without them is a title.
+    description TEXT,
+    remediation TEXT,
+    -- The analytical axes. `category` and `cwes` are what an
+    -- insecure-patterns rollup groups by, and neither was reachable:
+    -- the pattern dashboard is the one consumer that cannot be
+    -- expressed on this table without them.
+    category TEXT,
+    cwes JSONB,
+    locations JSONB,
+    asvs_references JSONB,
+    peach_references JSONB,
+    capec JSONB,
+    attack_pattern TEXT,
+    cvss JSONB,
+    evidence JSONB,
+    -- Provenance and downgrade context. `effective_severity` is the
+    -- severity after disposition; reading `severity` alone reports a
+    -- downgraded finding at its original rating.
+    effective_severity TEXT,
+    origin TEXT,
+    source_findings JSONB,
+    passes JSONB,
+    remediation_effort TEXT,
+    pqc_classification TEXT,
+    fingerprint_algo TEXT,
+    isolation_boundary TEXT,
+    isolation_dimensions JSONB,
+    dependency JSONB,
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)

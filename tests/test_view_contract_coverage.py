@@ -26,6 +26,59 @@ import pytest
 
 from traust_contracts.paths import schema_dir, storage_dir
 
+#: A field satisfied by FLATTENED columns rather than one of its own name.
+#: `source` is already split into source_type/source_ref/actor_kind, and
+#: risk_weight follows it -- so the check looks for the parts, not the name.
+#: Listed explicitly: a prefix rule would silently accept a partial split.
+FLATTENED: dict[tuple[str, str], tuple[str, ...]] = {
+    ("layer_event", "source"): ("source_type", "source_ref", "actor_kind", "source_reported_by"),
+    ("layer_event", "disposition"): ("validity", "resolution", "severity", "embargo"),
+    ("layer_event", "risk_weight"): (
+        "risk_lambda",
+        "risk_weights_version",
+        "risk_tenancy_profile",
+        "risk_profile_source",
+    ),
+    ("report_finding", "id"): ("finding_id",),
+    ("report_finding", "disposition"): (
+        "validity",
+        "resolution",
+        "assurance",
+        "last_updated",
+        "conflict",
+        "fp_overridden",
+        "fp_reassertion_blocked",
+        "refuted_awaiting_signoff",
+        "severity_override",
+    ),
+    ("cloud_config_finding", "id"): ("finding_id",),
+    ("threat", "actor"): ("actors",),
+    ("threat", "id"): ("threat_id",),
+    ("cloud_config_finding", "disposition"): (
+        "validity",
+        "resolution",
+        "assurance",
+        "last_updated",
+        "conflict",
+        "fp_overridden",
+        "fp_reassertion_blocked",
+        "refuted_awaiting_signoff",
+        "severity_override",
+    ),
+}
+
+#: projection table -> (schema file, JSON pointer to the ITEM it fans out).
+#: A view can only expose what its table carries, so the table is where the
+#: contract is actually kept or lost -- gating only the views let
+#: report_finding sit at 6 of 27 declared fields unnoticed.
+FAN_OUT_TABLES: dict[str, tuple[str, tuple[str, ...]]] = {
+    "report_finding": ("report.schema.json", ("findings",)),
+    "cloud_config_finding": ("cloud-config-findings-current.schema.json", ("findings",)),
+    "layer_event": ("layer.schema.json", ("events",)),
+    "validation_finding": ("validation.schema.json", ("validated_findings",)),
+    "threat": ("threat-model.schema.json", ("threats",)),
+}
+
 #: view -> (schema file, JSON pointer to the ITEM the view fans out).
 #: A pointer of () means the document root.
 FAN_OUT_VIEWS: dict[str, tuple[str, tuple[str, ...]]] = {
@@ -46,6 +99,21 @@ EXEMPT: dict[tuple[str, str], str] = {
     ("validation_current", "source_report"): (
         "the path of the report validated, which is resolver bookkeeping "
         "rather than an outcome; the binding carries the identity"
+    ),
+    ("validation_finding", "steps"): (
+        "the per-step execution log, one level below this table's grain -- "
+        "one row per step, not per finding. Its scope_reason is already "
+        "surfaced as skip_reason; the rest belongs to a steps table if a "
+        "query ever justifies one"
+    ),
+    ("validation_finding", "source_report"): (
+        "the path of the report validated, which is resolver bookkeeping "
+        "rather than an outcome; the binding carries the identity"
+    ),
+    ("validation_finding", "evidence"): (
+        "flattened already -- its members reach the table individually as "
+        "evidence_grade and grade_rationale, so the block itself would be "
+        "a second copy"
     ),
     ("threat_current", "actor"): "exposed as `actors`, plural, on the projection",
     ("threat_current", "id"): "exposed as `threat_id`; `id` collides across models",
@@ -99,14 +167,75 @@ def test_view_exposes_what_its_contract_declares(view: str) -> None:
     )
 
 
+def _without_comments(sql: str) -> str:
+    """SQL minus its `--` comments.
+
+    The prose in these files names the very fields it explains, so a plain
+    grep over the whole text reports a column as present when only its
+    rationale is. That is not hypothetical: `layer_event` read as carrying
+    `finding` and `disposition` because both words appear in comments,
+    while neither was a column.
+    """
+    return re.sub(r"--[^\n]*", "", sql)
+
+
+@pytest.mark.parametrize("table", sorted(FAN_OUT_TABLES))
+def test_table_carries_what_its_contract_declares(table: str) -> None:
+    schema_file, pointer = FAN_OUT_TABLES[table]
+    schema = json.loads((schema_dir() / schema_file).read_text(encoding="utf-8"))
+    ddl = _without_comments(
+        (storage_dir() / "sqlite" / "schema" / f"{table}.sql").read_text(encoding="utf-8")
+    )
+
+    missing = []
+    for name in sorted(_declared(schema, pointer)):
+        parts = FLATTENED.get((table, name))
+        if parts is not None:
+            if all(re.search(rf"\b{re.escape(p)}\b", ddl) for p in parts):
+                continue
+        elif re.search(rf"\b{re.escape(name)}\b", ddl):
+            continue
+        if (table, name) not in EXEMPT:
+            missing.append(name)
+    assert not missing, (
+        f"{table} drops {len(missing)} field(s) {schema_file} declares: "
+        f"{', '.join(missing)}. Add the column, flatten it and list the parts "
+        f"in FLATTENED, or add an EXEMPT entry with a reason. A view can only "
+        f"expose what its table carries."
+    )
+
+
+def test_both_dialects_declare_the_same_columns() -> None:
+    """A column added to one dialect and not the other is a silent NULL."""
+    drift = []
+    for table in FAN_OUT_TABLES:
+        cols = {}
+        for dialect in ("sqlite", "postgres"):
+            ddl = _without_comments(
+                (storage_dir() / dialect / "schema" / f"{table}.sql").read_text(encoding="utf-8")
+            )
+            body = ddl[ddl.index("(") : ddl.index("PRIMARY KEY")]
+            cols[dialect] = {
+                m.group(1) for m in re.finditer(r"^\s{4}([a-z_][a-z0-9_]*)\s+\S", body, re.M)
+            }
+        if cols["sqlite"] != cols["postgres"]:
+            drift.append(
+                f"{table}: sqlite-only {sorted(cols['sqlite'] - cols['postgres'])}, "
+                f"postgres-only {sorted(cols['postgres'] - cols['sqlite'])}"
+            )
+    assert not drift, f"dialect column drift: {drift}"
+
+
 def test_every_exemption_is_still_needed() -> None:
     """An exemption for a field a view now carries hides the next gap."""
     stale = []
-    for (view, name), _reason in EXEMPT.items():
-        schema_file, pointer = FAN_OUT_VIEWS[view]
+    for (relation, name), _reason in EXEMPT.items():
+        spec = FAN_OUT_VIEWS.get(relation) or FAN_OUT_TABLES.get(relation)
+        assert spec, f"EXEMPT names {relation}, which is neither a gated view nor table"
+        schema_file, pointer = spec
         schema = json.loads((schema_dir() / schema_file).read_text(encoding="utf-8"))
         if name not in _declared(schema, pointer):
-            stale.append(f"{view}:{name} (no longer declared by {schema_file})")
+            stale.append(f"{relation}:{name} (no longer declared by {schema_file})")
     assert not stale, f"stale exemptions: {stale}"
 
 

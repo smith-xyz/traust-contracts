@@ -2,10 +2,10 @@
 --
 -- The cloud-config analogue of report_finding, and needed for the same
 -- reason: cloud-config-findings-current is a ONE-ROW projection, so its
--- findings lived only inside a JSON column. Measured 2026-09-19 -- 91 repos
--- carrying 2,592 findings were absent from every storage/v1 dashboard query
--- while being present in findings.db, which is the entire v_open shortfall
--- attributable to this family.
+-- findings lived only inside a JSON column. Measured 2026-09-19: a whole
+-- class of repos and their findings were absent from every storage/v1
+-- dashboard query while being present in findings.db, and that was the
+-- entire v_open shortfall attributable to this family.
 --
 -- Carries the IaC columns a policy finding is actually cut by: check_id is
 -- what separates two findings on one resource, and framework/provider are
@@ -32,6 +32,20 @@ CREATE TABLE IF NOT EXISTS traust_storage.cloud_config_finding (
     fp_reassertion_blocked INTEGER,
     refuted_awaiting_signoff INTEGER,
     severity_override JSONB,
+    -- The body and the analytical axes, same omission as
+    -- report_finding: a policy finding's `cwe`, `rationale` and
+    -- `control_refs` are what a compliance view cuts by.
+    rationale TEXT,
+    remediation TEXT,
+    cwe TEXT,
+    control_refs JSONB,
+    locations JSONB,
+    fact_ids JSONB,
+    external_correlation JSONB,
+    effective_severity TEXT,
+    fingerprint_algo TEXT,
+    isolation_boundary TEXT,
+    isolation_dimensions JSONB,
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)

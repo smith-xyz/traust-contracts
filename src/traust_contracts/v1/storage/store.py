@@ -1230,6 +1230,7 @@ class Store:
             source = event.get("source") or {}
             actor = source.get("actor") or {}
             disposition = event.get("disposition") or {}
+            risk = event.get("risk_weight") or {}
             self._execute(
                 query(self.dialect, "layer_event.upsert.sql"),
                 {
@@ -1248,6 +1249,25 @@ class Store:
                     "resolution": disposition.get("resolution"),
                     "evidence_grade": event.get("evidence_grade"),
                     "auto_accept_tier": _boolean(event.get("auto_accept_tier")),
+                    # rationale is REQUIRED by layer.schema.json: without it
+                    # the stream records that something changed and never why.
+                    "rationale": event.get("rationale"),
+                    "harness_version": event.get("harness_version"),
+                    "evidence_refs": _json_or_none(event.get("evidence_refs")),
+                    "source_reported_by": source.get("reported_by"),
+                    # disposition asserts a severity and an embargo state too;
+                    # keeping only validity/resolution loses every severity
+                    # change the history recorded.
+                    "severity": disposition.get("severity"),
+                    "embargo": disposition.get("embargo"),
+                    # risk_weight flattened the way source and disposition
+                    # already are -- `lambda` is what a risk index multiplies.
+                    "risk_lambda": risk.get("lambda"),
+                    "risk_weights_version": risk.get("weights_version"),
+                    "risk_tenancy_profile": risk.get("tenancy_profile"),
+                    "risk_profile_source": risk.get("profile_source"),
+                    "alias": _json_or_none(event.get("alias")),
+                    "finding": _json_or_none(event.get("finding")),
                 },
             )
 
@@ -1339,6 +1359,20 @@ class Store:
                         if override is not None
                         else None
                     ),
+                    # The rest of what cloud-config-findings-current declares.
+                    # cwe and control_refs are how a compliance view cuts a
+                    # policy finding; fact_ids is its link back to the scan.
+                    "rationale": finding.get("rationale"),
+                    "remediation": finding.get("remediation"),
+                    "cwe": finding.get("cwe"),
+                    "control_refs": _json_or_none(finding.get("control_refs")),
+                    "locations": _json_or_none(finding.get("locations")),
+                    "fact_ids": _json_or_none(finding.get("fact_ids")),
+                    "external_correlation": _json_or_none(finding.get("external_correlation")),
+                    "effective_severity": finding.get("effective_severity"),
+                    "fingerprint_algo": finding.get("fingerprint_algo"),
+                    "isolation_boundary": finding.get("isolation_boundary"),
+                    "isolation_dimensions": _json_or_none(finding.get("isolation_dimensions")),
                 },
             )
 
@@ -1388,5 +1422,30 @@ class Store:
                         if override is not None
                         else None
                     ),
+                    # The rest of what report.schema.json declares on a
+                    # finding. description and remediation are REQUIRED by
+                    # the contract; category and cwes are the axes the
+                    # pattern rollup groups by and could not reach.
+                    "description": finding.get("description"),
+                    "remediation": finding.get("remediation"),
+                    "category": finding.get("category"),
+                    "cwes": _json_or_none(finding.get("cwes")),
+                    "locations": _json_or_none(finding.get("locations")),
+                    "asvs_references": _json_or_none(finding.get("asvs_references")),
+                    "peach_references": _json_or_none(finding.get("peach_references")),
+                    "capec": _json_or_none(finding.get("capec")),
+                    "attack_pattern": finding.get("attack_pattern"),
+                    "cvss": _json_or_none(finding.get("cvss")),
+                    "evidence": _json_or_none(finding.get("evidence")),
+                    "effective_severity": finding.get("effective_severity"),
+                    "origin": finding.get("origin"),
+                    "source_findings": _json_or_none(finding.get("source_findings")),
+                    "passes": _json_or_none(finding.get("passes")),
+                    "remediation_effort": finding.get("remediation_effort"),
+                    "pqc_classification": finding.get("pqc_classification"),
+                    "fingerprint_algo": finding.get("fingerprint_algo"),
+                    "isolation_boundary": finding.get("isolation_boundary"),
+                    "isolation_dimensions": _json_or_none(finding.get("isolation_dimensions")),
+                    "dependency": _json_or_none(finding.get("dependency")),
                 },
             )

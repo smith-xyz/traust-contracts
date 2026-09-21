@@ -2,6 +2,48 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.6.0]
+
+## Changes
+
+- **The three secondary projections now carry what their schemas declare.**
+  `report_finding` held 6 of the 27 fields `report.schema.json` declares on
+  `findings[]`, `cloud_config_finding` 9 of 22, `layer_event` 11 of 16. The
+  earlier closure was scoped to DISPOSITION — validity, resolution,
+  fingerprint, ownership — which is what the open/hardening/distinct views
+  needed, and never reached the analytical columns.
+
+  So `category`, `cwes`, `cvss`, `description`, `remediation`, `locations`,
+  `effective_severity`, `asvs_references` and the rest were ingested and then
+  invisible to SQL. Exact bytes were always retained in `artifact_evidence`,
+  but a reader of the projection saw a finding as a title and a severity. A
+  pattern rollup grouping by CWE could not be expressed at all.
+
+  `layer_event` additionally flattens `risk_weight` into `risk_lambda` and its
+  three companions, the way `source` and `disposition` were already flattened,
+  and gains `rationale` — which `layer.schema.json` marks REQUIRED and which
+  was dropped entirely, leaving an event stream that recorded that something
+  changed and never why.
+
+  `alias` and `finding` are kept whole rather than flattened: both are
+  optional, both carry their own sub-shape, and no view cuts by them yet.
+
+  `REVISION` 13 → 14, fail-closed. A store on 13 is missing columns, not just
+  rows, and the upsert would simply stop filling them — the same silent shape
+  as revisions 2 and 4.
+
+- **The contract-coverage gate now covers projection TABLES, not only views.**
+  A view can expose only what its table carries, so gating the views alone is
+  what let `report_finding` sit at 6 of 27 unnoticed. `FAN_OUT_TABLES` checks
+  each table's DDL against the schema of the item it fans out, in both
+  dialects, and `FLATTENED` records the fields satisfied by split columns
+  rather than one of their own name.
+
+  The check also strips SQL comments before matching. It was not doing so, and
+  the prose in these files names the very fields it explains: `layer_event`
+  read as carrying `finding` and `disposition` because both words appear in
+  comments, while neither was a column.
+
 ## [0.5.0]
 
 ## Changes

@@ -19,7 +19,18 @@ INSERT INTO cloud_config_finding (
     fp_overridden,
     fp_reassertion_blocked,
     refuted_awaiting_signoff,
-    severity_override
+    severity_override,
+    rationale,
+    remediation,
+    cwe,
+    control_refs,
+    locations,
+    fact_ids,
+    external_correlation,
+    effective_severity,
+    fingerprint_algo,
+    isolation_boundary,
+    isolation_dimensions
 )
 VALUES (
     :binding_id,
@@ -42,6 +53,17 @@ VALUES (
     :fp_overridden,
     :fp_reassertion_blocked,
     :refuted_awaiting_signoff,
-    :severity_override
+    :severity_override,
+    :rationale,
+    :remediation,
+    :cwe,
+    :control_refs,
+    :locations,
+    :fact_ids,
+    :external_correlation,
+    :effective_severity,
+    :fingerprint_algo,
+    :isolation_boundary,
+    :isolation_dimensions
 )
 ON CONFLICT (binding_id, finding_id) DO NOTHING;

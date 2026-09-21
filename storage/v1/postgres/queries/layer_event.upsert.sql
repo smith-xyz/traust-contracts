@@ -13,7 +13,19 @@ INSERT INTO traust_storage.layer_event (
     validity,
     resolution,
     evidence_grade,
-    auto_accept_tier
+    auto_accept_tier,
+    rationale,
+    harness_version,
+    evidence_refs,
+    source_reported_by,
+    severity,
+    embargo,
+    risk_lambda,
+    risk_weights_version,
+    risk_tenancy_profile,
+    risk_profile_source,
+    alias,
+    finding
 )
 VALUES (
     %(binding_id)s,
@@ -30,6 +42,18 @@ VALUES (
     %(validity)s,
     %(resolution)s,
     %(evidence_grade)s,
-    %(auto_accept_tier)s
+    %(auto_accept_tier)s,
+    %(rationale)s,
+    %(harness_version)s,
+    %(evidence_refs)s,
+    %(source_reported_by)s,
+    %(severity)s,
+    %(embargo)s,
+    %(risk_lambda)s,
+    %(risk_weights_version)s,
+    %(risk_tenancy_profile)s,
+    %(risk_profile_source)s,
+    %(alias)s,
+    %(finding)s
 )
 ON CONFLICT (binding_id, event_id) DO NOTHING;

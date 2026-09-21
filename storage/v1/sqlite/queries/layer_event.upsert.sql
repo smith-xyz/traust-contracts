@@ -13,7 +13,19 @@ INSERT INTO layer_event (
     validity,
     resolution,
     evidence_grade,
-    auto_accept_tier
+    auto_accept_tier,
+    rationale,
+    harness_version,
+    evidence_refs,
+    source_reported_by,
+    severity,
+    embargo,
+    risk_lambda,
+    risk_weights_version,
+    risk_tenancy_profile,
+    risk_profile_source,
+    alias,
+    finding
 )
 VALUES (
     :binding_id,
@@ -30,6 +42,18 @@ VALUES (
     :validity,
     :resolution,
     :evidence_grade,
-    :auto_accept_tier
+    :auto_accept_tier,
+    :rationale,
+    :harness_version,
+    :evidence_refs,
+    :source_reported_by,
+    :severity,
+    :embargo,
+    :risk_lambda,
+    :risk_weights_version,
+    :risk_tenancy_profile,
+    :risk_profile_source,
+    :alias,
+    :finding
 )
 ON CONFLICT (binding_id, event_id) DO NOTHING;

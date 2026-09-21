@@ -19,7 +19,18 @@ INSERT INTO traust_storage.cloud_config_finding (
     fp_overridden,
     fp_reassertion_blocked,
     refuted_awaiting_signoff,
-    severity_override
+    severity_override,
+    rationale,
+    remediation,
+    cwe,
+    control_refs,
+    locations,
+    fact_ids,
+    external_correlation,
+    effective_severity,
+    fingerprint_algo,
+    isolation_boundary,
+    isolation_dimensions
 )
 VALUES (
     %(binding_id)s,
@@ -42,6 +53,17 @@ VALUES (
     %(fp_overridden)s,
     %(fp_reassertion_blocked)s,
     %(refuted_awaiting_signoff)s,
-    %(severity_override)s
+    %(severity_override)s,
+    %(rationale)s,
+    %(remediation)s,
+    %(cwe)s,
+    %(control_refs)s,
+    %(locations)s,
+    %(fact_ids)s,
+    %(external_correlation)s,
+    %(effective_severity)s,
+    %(fingerprint_algo)s,
+    %(isolation_boundary)s,
+    %(isolation_dimensions)s
 )
 ON CONFLICT (binding_id, finding_id) DO NOTHING;

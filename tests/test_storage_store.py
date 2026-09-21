@@ -1505,3 +1505,94 @@ def test_a_re_analysed_advisory_supersedes_its_predecessor(store: Store) -> None
     ).fetchone()[0]
     assert bindings == 2, "both analyses retained as evidence"
     assert len(store.query_advisory_exposure(["local"])) == len(document["repos"])
+
+
+def test_widened_projections_round_trip_every_declared_field(store: Store) -> None:
+    """Revision 14: a declared field reaches SQL, or it is unreachable.
+
+    The gate in test_view_contract_coverage asserts the COLUMN exists.
+    This asserts the upsert actually fills it -- the two failures are
+    different, and the second is the one that leaves a correct-looking
+    schema returning NULL for everything.
+
+    Measured on a live corpus after this landed: description, remediation,
+    cwes and locations reached every report finding, cvss and rationale the
+    large majority. A few columns stayed NULL there because that corpus has
+    no instance of them yet, which is a statement about the corpus and not
+    about the projection.
+    """
+    payload = _cloud_config_with_findings()
+    result = store.ingest("cloud-config-findings-current", payload, run_binding())
+    row = store.conn.execute(
+        "SELECT rationale, cwe, control_refs, locations, fact_ids, "
+        "effective_severity FROM cloud_config_finding "
+        "WHERE binding_id = ? ORDER BY finding_id LIMIT 1",
+        (result.binding_id,),
+    ).fetchone()
+    assert row[0] and row[1] == "CWE-284", "prose and cwe reach the column"
+    assert json.loads(row[3])[0]["file_path"].endswith(".bicep"), "locations keep their shape"
+    assert json.loads(row[4]) == ["cca-d26590b3507a"], "fact_ids is a list, not a string"
+    assert row[5], "effective_severity is required by the contract"
+
+    document = json.loads(report_with_findings())
+    finding = document["findings"][0]
+    finding.update(
+        {
+            "category": "injection",
+            "cwes": ["CWE-78"],
+            "asvs_references": ["V5.3.8"],
+            "cvss": {"score": 8.1, "vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"},
+            "effective_severity": "high",
+            "origin": "vuln-scan",
+            "passes": [1, 2],
+            "isolation_dimensions": ["privilege"],
+        }
+    )
+    result = store.ingest(
+        "report", encode(document), Binding(subject_id="s-widened", run_id="r-widened")
+    )
+    row = store.conn.execute(
+        "SELECT description, remediation, category, cwes, asvs_references, cvss, "
+        "effective_severity, origin, passes, isolation_dimensions "
+        "FROM report_finding WHERE binding_id = ? LIMIT 1",
+        (result.binding_id,),
+    ).fetchone()
+    assert row[0] and row[1], "description and remediation are REQUIRED by the contract"
+    assert row[2] == "injection"
+    assert json.loads(row[3]) == ["CWE-78"]
+    assert json.loads(row[4]) == ["V5.3.8"]
+    assert json.loads(row[5])["score"] == 8.1, "cvss keeps score and vector together"
+    assert (row[6], row[7]) == ("high", "vuln-scan")
+    assert json.loads(row[8]) == [1, 2], "passes stays a list of integers"
+    assert json.loads(row[9]) == ["privilege"]
+
+
+def test_layer_event_flattens_risk_weight_and_keeps_rationale(store: Store) -> None:
+    """risk_weight is flattened the way source and disposition already are.
+
+    `lambda` is what a risk index multiplies by; leaving it inside a JSON
+    blob is what kept the trends risk index in Python. rationale is
+    REQUIRED by layer.schema.json and was dropped entirely -- an event
+    stream without it records that something changed and never why.
+    """
+    document = json.loads(sample("layer")[0])
+    event = document["events"][0]
+    event["rationale"] = "confirmed against the running service"
+    event["harness_version"] = "0.8.3"
+    event["risk_weight"] = {
+        "lambda": 0.25,
+        "weights_version": "2026-07",
+        "tenancy_profile": "multi_tenant",
+        "profile_source": "org-parameters",
+    }
+    result = store.ingest("layer", encode(document), Binding(layer_id="ledger:layer:widened"))
+    row = store.conn.execute(
+        "SELECT rationale, harness_version, risk_lambda, risk_weights_version, "
+        "risk_tenancy_profile, risk_profile_source FROM layer_event "
+        "WHERE binding_id = ? LIMIT 1",
+        (result.binding_id,),
+    ).fetchone()
+    assert row[0] == "confirmed against the running service"
+    assert row[1] == "0.8.3"
+    assert row[2] == 0.25, "lambda is a number, queryable without json_extract"
+    assert row[3:] == ("2026-07", "multi_tenant", "org-parameters")

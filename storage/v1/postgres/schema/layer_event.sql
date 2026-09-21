@@ -10,7 +10,7 @@
 --
 -- Same relationship report_finding has to report.findings: the layer blob
 -- stays authoritative and this is a queryable index over it. Measured on
--- the live corpus, ~64,000 events across 7,309 layers.
+-- the live corpus: tens of events for every layer, across every layer.
 --
 -- This is why trending needs no scheduled snapshot. An append-only log of
 -- dated transitions IS a time series; a snapshot is that log folded at one
@@ -39,6 +39,30 @@ CREATE TABLE IF NOT EXISTS traust_storage.layer_event (
     resolution TEXT,
     evidence_grade TEXT,
     auto_accept_tier INTEGER,
+    -- Why the determination was made. REQUIRED by layer.schema.json
+    -- and dropped: an event stream without rationale records that
+    -- something changed and never why.
+    rationale TEXT,
+    harness_version TEXT,
+    evidence_refs JSONB,
+    source_reported_by TEXT,
+    -- The rest of the disposition. An event asserts a severity and an
+    -- embargo state alongside validity/resolution; keeping only the
+    -- latter two loses every severity change in the history.
+    severity TEXT,
+    embargo TEXT,
+    -- risk_weight flattened the way source and disposition already are.
+    -- `lambda` is the number a trend's risk index multiplies by, so
+    -- leaving it inside a blob is what kept that index in Python.
+    risk_lambda DOUBLE PRECISION,
+    risk_weights_version TEXT,
+    risk_tenancy_profile TEXT,
+    risk_profile_source TEXT,
+    -- Kept whole rather than flattened. `alias` is a rename record and
+    -- `finding` is an event-carried finding body -- both optional,
+    -- both with their own sub-shape, and no view cuts by them yet.
+    alias JSONB,
+    finding JSONB,
     PRIMARY KEY (binding_id, event_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)

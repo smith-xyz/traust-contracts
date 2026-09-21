@@ -30,6 +30,37 @@ CREATE TABLE IF NOT EXISTS report_finding (
     fp_reassertion_blocked INTEGER,
     refuted_awaiting_signoff INTEGER,
     severity_override TEXT CHECK (severity_override IS NULL OR json_valid(severity_override)),
+    -- The body of the finding. `description` and `remediation` are
+    -- REQUIRED by report.schema.json and were the two largest strings
+    -- the projection dropped; a finding without them is a title.
+    description TEXT,
+    remediation TEXT,
+    -- The analytical axes. `category` and `cwes` are what an
+    -- insecure-patterns rollup groups by, and neither was reachable:
+    -- the pattern dashboard is the one consumer that cannot be
+    -- expressed on this table without them.
+    category TEXT,
+    cwes TEXT CHECK (cwes IS NULL OR json_valid(cwes)),
+    locations TEXT CHECK (locations IS NULL OR json_valid(locations)),
+    asvs_references TEXT CHECK (asvs_references IS NULL OR json_valid(asvs_references)),
+    peach_references TEXT CHECK (peach_references IS NULL OR json_valid(peach_references)),
+    capec TEXT CHECK (capec IS NULL OR json_valid(capec)),
+    attack_pattern TEXT,
+    cvss TEXT CHECK (cvss IS NULL OR json_valid(cvss)),
+    evidence TEXT CHECK (evidence IS NULL OR json_valid(evidence)),
+    -- Provenance and downgrade context. `effective_severity` is the
+    -- severity after disposition; reading `severity` alone reports a
+    -- downgraded finding at its original rating.
+    effective_severity TEXT,
+    origin TEXT,
+    source_findings TEXT CHECK (source_findings IS NULL OR json_valid(source_findings)),
+    passes TEXT CHECK (passes IS NULL OR json_valid(passes)),
+    remediation_effort TEXT,
+    pqc_classification TEXT,
+    fingerprint_algo TEXT,
+    isolation_boundary TEXT,
+    isolation_dimensions TEXT CHECK (isolation_dimensions IS NULL OR json_valid(isolation_dimensions)),
+    dependency TEXT CHECK (dependency IS NULL OR json_valid(dependency)),
     PRIMARY KEY (binding_id, finding_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES artifact_binding(binding_id, artifact_digest)

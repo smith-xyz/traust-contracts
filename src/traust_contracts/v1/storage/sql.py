@@ -46,7 +46,18 @@ CONTRACT_VERSION = "v1"
 #: validated_findings[] declares, evidence_grade and soundness_flag among
 #: them; advisory_exposure carries all 40 impact-analysis fields. A store
 #: on 12 is missing columns, not just rows.
-REVISION = 13
+#: 14 (2026-09-21): the three secondary projections carry what their
+#: schemas declare. report_finding held 6 of the 27 fields report.findings[]
+#: declares, cloud_config_finding 9 of 22, layer_event 11 of 16 -- the
+#: closure in revision 12/13 was scoped to DISPOSITION (validity,
+#: resolution, fingerprint, ownership), which is what v_open needed, and
+#: never to the analytical columns. category, cwes, locations, cvss,
+#: description, remediation, effective_severity and risk_weight.lambda
+#: among them: every axis a pattern, compliance or risk-index view cuts by.
+#: A store on 13 is missing columns, not rows, and the upsert simply stops
+#: filling them -- the same silent shape as revisions 2 and 4, so the same
+#: refusal.
+REVISION = 14
 
 
 @cache
