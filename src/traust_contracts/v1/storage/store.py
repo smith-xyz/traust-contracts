@@ -436,24 +436,35 @@ def _threat_score(impact: Any, likelihood: Any) -> int | None:
     return left * right
 
 
+#: Verdicts that mean nothing was executed, so a reason is owed. Any other
+#: verdict was ATTEMPTED and has no skip to explain.
+_UNATTEMPTED = frozenset({"not_attempted", "blocked_by_scope"})
+
+
 def _skip_reason(finding: dict[str, Any]) -> str | None:
     """Why nothing was attempted, from wherever the producer records it.
 
     The reason is NOT a top-level property. `validated_findings[]`
     declares `not_attempted_reason`, but measured across the live corpus
-    that field is empty on every row; what the lane actually writes is
+    that field is empty on every row; what the lane writes is
     `steps[].scope_reason` -- `triage-false-positive`,
     `no-poc-no-adapter`, `wrong-surface:ci-build`. Reading the top-level
     key returned None on all 183,296 not_attempted and blocked_by_scope
-    rows, so the column that separates "triage already ruled this out"
-    from "we have no adapter for this surface" was NULL corpus-wide.
+    rows, so the column separating "triage already ruled this out" from
+    "we have no adapter for this surface" was NULL corpus-wide.
+
+    GATED ON THE VERDICT, and the first cut was not. A finding has many
+    steps and some may be scoped out while the finding as a whole is
+    still proven; reading any step's reason put a skip reason on 945
+    CONFIRMED findings, which reads as "we declined to test this" for
+    something that was tested and held. A reason belongs only where
+    nothing ran.
 
     Declared field first, then the step, so a producer that starts
-    honouring the schema wins without another change here. First
-    non-empty step reason: the steps of one skipped finding share a
-    reason, and disagreement is a producer bug rather than something to
-    average away.
+    honouring the schema wins without another change here.
     """
+    if finding.get("verdict") not in _UNATTEMPTED:
+        return None
     declared = finding.get("not_attempted_reason") or finding.get("skip_reason")
     if declared:
         return str(declared)

@@ -1375,3 +1375,48 @@ def test_skip_reason_comes_from_the_step_the_producer_writes(store: Store) -> No
     assert rows["FIND-001"] == "triage-false-positive", "read from the step"
     assert rows["FIND-002"] == "declared-wins", "a declared field still wins"
     assert rows["FIND-003"] is None, "an ATTEMPTED finding has no skip to explain"
+
+
+def test_a_confirmed_finding_never_carries_a_skip_reason(store: Store) -> None:
+    """Some steps of a PROVEN finding are still scoped out.
+
+    The first cut read any step's scope_reason, which put a skip reason
+    on 945 confirmed findings in the live corpus — reading as "we
+    declined to test this" for something that was tested and held.
+    """
+    payload, _ = sample("validation")
+    document = json.loads(payload)
+    document["validated_findings"] = [
+        {
+            "source_id": "p:r/FIND-010",
+            "source_report": "r.json",
+            "technique": "replay",
+            "verdict": "confirmed",
+            "steps": [
+                {
+                    "step_id": "s1",
+                    "adapter": "k8s",
+                    "verb": "noop",
+                    "classification": "safe",
+                    "verdict": "not_attempted",
+                    "scope_reason": "wrong-surface:tooling",
+                },
+                {
+                    "step_id": "s2",
+                    "adapter": "k8s",
+                    "verb": "get",
+                    "classification": "safe",
+                    "verdict": "confirmed",
+                },
+            ],
+        }
+    ]
+    store.ingest(
+        "validation",
+        json.dumps(document).encode(),
+        Binding(subject_id="findings/example/repo", run_id="r1"),
+    )
+    reason = store.conn.execute(
+        "SELECT skip_reason FROM validation_finding WHERE source_finding_id='FIND-010'"
+    ).fetchone()[0]
+    assert reason is None
