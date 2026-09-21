@@ -33,7 +33,10 @@ CONTRACT_VERSION = "v1"
 #: 8 (2026-09-19): pqc_posture and pqc_readiness_rollup.
 #: 9 (2026-09-20): threat-model replaces threat-register as the family;
 #: threat gains attack_refs and threat_current resolves per SUBJECT.
-REVISION = 9
+#: 10 (2026-09-20): validation_current and validation_exposure. The
+#: evidence lens -- what actually happened when a claimed finding was
+#: attempted against a running system -- had a projection and no view.
+REVISION = 10
 
 
 @cache
@@ -52,6 +55,7 @@ VIEW_ORDER: tuple[str, ...] = (
     "ownership_current.sql",
     "current_finding.sql",
     "threat_current.sql",
+    "validation_current.sql",
     "finding_first_seen.sql",
     "finding_timeline.sql",
     "pqc_posture.sql",

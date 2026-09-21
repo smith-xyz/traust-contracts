@@ -97,6 +97,8 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "sla_threshold",
         "threat_current",
         "threat_exposure",
+        "validation_current",
+        "validation_exposure",
     }
     assert conn.execute("PRAGMA foreign_keys").fetchone() == (1,)
     original = conn.execute("SELECT * FROM traust_storage_meta").fetchall()
@@ -1250,3 +1252,57 @@ def test_threat_score_is_null_when_a_rating_is_off_contract() -> None:
     assert _threat_score("high", "sometimes") is None
     assert _threat_score(None, None) is None
     assert _threat_score("low", "very_rare") == 1
+
+
+def test_validation_exposure_keeps_not_attempted_visible(store: Store) -> None:
+    """The lane's own work must not disappear into a filter.
+
+    `not_attempted` dominates the live corpus. A view reporting only
+    attempts would describe a fraction of the lane and read as though
+    everything else had been refuted, so the verdict is carried
+    uncollapsed and `attempted` is DERIVED beside it — a consumer can ask
+    "of what we tried, how much held up" without restating the lane's own
+    definition of an attempt.
+    """
+    _seed_dashboard(store)
+    payload, _ = sample("validation")
+    store.ingest("validation", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
+    rows = store.query_validation_exposure(["local"])
+    assert rows, "the evidence lens must return something"
+    columns = [
+        description[0]
+        for description in store.conn.execute(
+            "SELECT * FROM validation_exposure LIMIT 1"
+        ).description
+    ]
+    assert "attempted" in columns and "skip_reason" in columns
+    # every row classified, none dropped
+    total = store.conn.execute("SELECT COUNT(*) FROM validation_current").fetchone()[0]
+    summed = sum(row[columns.index("findings")] for row in rows)
+    assert summed == total, "every claimed finding is classified exactly once"
+
+
+def test_validation_current_resolves_one_run_per_subject(store: Store) -> None:
+    """A re-validated subject must not count twice.
+
+    Same rule report_current and threat_current apply. Without it the
+    evidence lens double-counts every subject the lane has re-run, which
+    it does continuously.
+    """
+    payload, _ = sample("validation")
+    for run in ("r1", "r2"):
+        store.ingest(
+            "validation",
+            payload,
+            Binding(subject_id="findings/example/repo", run_id=run),
+        )
+    bindings = store.conn.execute(
+        "SELECT COUNT(*) FROM artifact_binding WHERE artifact_name='validation'"
+    ).fetchone()[0]
+    assert bindings == 2, "both runs are retained as evidence"
+    subjects = store.conn.execute(
+        "SELECT COUNT(DISTINCT subject_id) FROM validation_current"
+    ).fetchone()[0]
+    assert subjects == 1
+    runs = store.conn.execute("SELECT COUNT(DISTINCT run_id) FROM validation_current").fetchone()[0]
+    assert runs == 1, "only the most recently bound run is current"

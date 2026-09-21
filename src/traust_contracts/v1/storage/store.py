@@ -852,6 +852,20 @@ class Store:
         """
         return self._query_view("threat_exposure", scope_ids)
 
+    def query_validation_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """What happened when each claimed finding was ATTEMPTED live.
+
+        The evidence lens. A finding confirmed by execution and a finding
+        believed by inspection are different claims; this is the view that
+        separates them.
+
+        `verdict` stays uncollapsed and `attempted` is derived rather than
+        filtered: `not_attempted` dominates the corpus, so reporting only
+        attempts would describe a fraction of the lane's work and read as
+        though the rest had been refuted.
+        """
+        return self._query_view("validation_exposure", scope_ids)
+
     def query_operator_privilege(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Privilege each operator ASKS FOR, parsed from shipped manifests.
 
