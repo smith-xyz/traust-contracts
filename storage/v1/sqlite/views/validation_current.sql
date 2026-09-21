@@ -28,7 +28,7 @@ CREATE VIEW IF NOT EXISTS validation_current AS
 SELECT b.scope_id,
        b.subject_id,
        b.run_id,
-       json_extract(v.metadata, '$.target_environment') AS environment,
+       json_extract(v.metadata, '$.target_environment') AS target_environment,
        vf.source_id,
        vf.source_finding_id,
        vf.title,

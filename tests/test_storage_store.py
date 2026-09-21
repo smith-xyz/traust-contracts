@@ -1302,7 +1302,7 @@ def test_validation_supersession_is_per_environment(store: Store) -> None:
             Binding(subject_id="findings/example/repo", run_id=f"run:{environment}"),
         )
     environments = {
-        row[0] for row in store.conn.execute("SELECT DISTINCT environment FROM validation_current")
+        row[0] for row in store.conn.execute("SELECT DISTINCT target_environment FROM validation_current")
     }
     assert environments == {"hub", "spoke"}, "both environments stay current"
 

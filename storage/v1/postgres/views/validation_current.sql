@@ -28,7 +28,7 @@ CREATE OR REPLACE VIEW traust_storage.validation_current WITH (security_barrier)
 SELECT b.scope_id,
        b.subject_id,
        b.run_id,
-       v.metadata->>'target_environment' AS environment,
+       v.metadata->>'target_environment' AS target_environment,
        vf.source_id,
        vf.source_finding_id,
        vf.title,

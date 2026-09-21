@@ -1,5 +1,5 @@
 SELECT scope_id,
-       environment,
+       target_environment,
        tree,
        ownership,
        business_unit,
@@ -13,4 +13,4 @@ SELECT scope_id,
        distinct_claims
 FROM validation_exposure
 WHERE scope_id IN (SELECT value FROM json_each(:scope_ids))
-ORDER BY scope_id, environment, tree, product, claimed_severity, verdict;
+ORDER BY scope_id, target_environment, tree, product, claimed_severity, verdict;
