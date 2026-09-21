@@ -1282,30 +1282,65 @@ def test_validation_exposure_keeps_not_attempted_visible(store: Store) -> None:
     assert summed == total, "every claimed finding is classified exactly once"
 
 
-def test_validation_current_resolves_one_run_per_subject(store: Store) -> None:
-    """A re-validated subject must not count twice.
+def test_validation_supersession_is_per_environment(store: Store) -> None:
+    """A hub run and a spoke run are not re-runs of each other.
 
-    Same rule report_current and threat_current apply. Without it the
-    evidence lens double-counts every subject the lane has re-run, which
-    it does continuously.
+    Measured on the live corpus: one subject's hub and spoke runs
+    covered the SAME 3,297 findings and disagreed on 290 verdicts, 48 of
+    them confirmed against one environment and refuted against the
+    other. Collapsing on subject alone picked one arbitrarily and
+    deleted the disagreement.
     """
     payload, _ = sample("validation")
-    for run in ("r1", "r2"):
+    base = json.loads(payload)
+    for environment in ("hub", "spoke"):
+        document = json.loads(json.dumps(base))
+        document["metadata"]["environment"] = environment
+        store.ingest(
+            "validation",
+            json.dumps(document).encode(),
+            Binding(subject_id="findings/example/repo", run_id=f"run:{environment}"),
+        )
+    environments = {
+        row[0] for row in store.conn.execute("SELECT DISTINCT environment FROM validation_current")
+    }
+    assert environments == {"hub", "spoke"}, "both environments stay current"
+
+
+def test_a_re_run_of_one_environment_supersedes_its_predecessor(store: Store) -> None:
+    """Within an environment the newest run still wins."""
+    payload, _ = sample("validation")
+    base = json.loads(payload)
+    for run in ("run:1", "run:2"):
+        document = json.loads(json.dumps(base))
+        document["metadata"]["environment"] = "hub"
+        document["metadata"]["date"] = "2026-01-02" if run == "run:1" else "2026-01-03"
+        store.ingest(
+            "validation",
+            json.dumps(document).encode(),
+            Binding(subject_id="findings/example/repo", run_id=run),
+        )
+    runs = {row[0] for row in store.conn.execute("SELECT DISTINCT run_id FROM validation_current")}
+    assert runs == {"run:2"}, "one environment, newest run only"
+
+
+def test_an_unlabelled_run_is_never_merged_with_another(store: Store) -> None:
+    """Absent environment means UNKNOWN, not "same as the others".
+
+    1,231 live artifacts predate the field. Merging them on the
+    assumption that they share an environment is exactly the guess that
+    produced the 290-verdict conflict, so the partition falls back to
+    run_id and every unlabelled run stays distinct. Noisier on purpose.
+    """
+    payload, _ = sample("validation")
+    for run in ("run:a", "run:b"):
         store.ingest(
             "validation",
             payload,
             Binding(subject_id="findings/example/repo", run_id=run),
         )
-    bindings = store.conn.execute(
-        "SELECT COUNT(*) FROM artifact_binding WHERE artifact_name='validation'"
-    ).fetchone()[0]
-    assert bindings == 2, "both runs are retained as evidence"
-    subjects = store.conn.execute(
-        "SELECT COUNT(DISTINCT subject_id) FROM validation_current"
-    ).fetchone()[0]
-    assert subjects == 1
-    runs = store.conn.execute("SELECT COUNT(DISTINCT run_id) FROM validation_current").fetchone()[0]
-    assert runs == 1, "only the most recently bound run is current"
+    runs = {row[0] for row in store.conn.execute("SELECT DISTINCT run_id FROM validation_current")}
+    assert runs == {"run:a", "run:b"}, "unknown environments are not merged"
 
 
 def test_skip_reason_comes_from_the_step_the_producer_writes(store: Store) -> None:

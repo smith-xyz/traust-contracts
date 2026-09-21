@@ -36,7 +36,10 @@ CONTRACT_VERSION = "v1"
 #: 10 (2026-09-20): validation_current and validation_exposure. The
 #: evidence lens -- what actually happened when a claimed finding was
 #: attempted against a running system -- had a projection and no view.
-REVISION = 10
+#: 11 (2026-09-20): validation supersession is per ENVIRONMENT. A hub run
+#: and a spoke run are not re-runs of each other; collapsing on subject
+#: alone deleted a 290-verdict disagreement on one subject alone.
+REVISION = 11
 
 
 @cache

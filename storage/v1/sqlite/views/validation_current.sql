@@ -1,25 +1,34 @@
 -- Current live-validation outcomes, one row per claimed finding, with the
 -- owner of the subject they were validated against.
 --
--- A subject is re-validated as the lane re-runs, and an old run must not
--- count beside the new one. Same rule report_current and threat_current
--- apply: most recently bound wins, binding_id breaking ties so the answer
--- never depends on nothing.
+-- SUPERSESSION IS PER ENVIRONMENT, NOT PER SUBJECT. A run against a hub
+-- cluster and a run against a spoke are not re-runs of each other. Measured
+-- on the live corpus: one subject's hub and spoke runs covered the SAME
+-- 3,297 findings and disagreed on 290 verdicts -- 48 confirmed against one
+-- and refuted against the other. Collapsing on subject alone silently
+-- picked one and deleted the disagreement, which is the single most
+-- interesting thing the evidence lens has to say.
 --
--- `verdict` is carried UNCOLLAPSED, and the reason is not stylistic.
--- `not_attempted` dominates the corpus, so a view that reported only
--- attempts would describe a fraction of the lane's own work and read as
--- though the rest had been refuted. `skip_reason` travels with it: "no
--- adapter for this surface" and "triage already called it a false
--- positive" are different facts about why nothing was tried.
+-- `metadata.environment` is extracted rather than stored a second time,
+-- the way operator_privilege reads its summary counts out of JSON.
 --
--- Ownership is LEFT JOINed: a validation can exist for a subject the
--- corpus registry does not declare. Such a run is still real; it simply
--- has no denominator.
+-- ABSENT ENVIRONMENT MEANS UNKNOWN, NOT "THE SAME AS THE OTHERS". The
+-- partition falls back to run_id, so every run of an unlabelled subject
+-- stays distinct rather than being merged on an assumption. That is
+-- deliberately noisier: 1,231 artifacts predate the field, and merging
+-- them is exactly the guess that produced the 290-verdict conflict. The
+-- noise is the honest reading and it shrinks as producers adopt the field.
+--
+-- Within one environment the newest run wins, binding_id breaking ties --
+-- the rule report_current and threat_current already apply.
+--
+-- Ownership is LEFT JOINed: a validation against a subject the registry
+-- does not declare is still real; it simply has no denominator.
 CREATE VIEW IF NOT EXISTS validation_current AS
 SELECT b.scope_id,
        b.subject_id,
        b.run_id,
+       json_extract(v.metadata, '$.environment') AS environment,
        vf.source_id,
        vf.source_finding_id,
        vf.title,
@@ -37,15 +46,20 @@ SELECT b.scope_id,
 FROM validation_finding vf
 JOIN artifact_binding b
   ON b.binding_id = vf.binding_id
+JOIN validation v
+  ON v.binding_id = vf.binding_id
 LEFT JOIN ownership_current owner
   ON owner.subject_id = b.subject_id
 WHERE b.artifact_name = 'validation'
   AND NOT EXISTS (
       SELECT 1
       FROM artifact_binding rival
+      JOIN validation rv ON rv.binding_id = rival.binding_id
       WHERE rival.artifact_name = 'validation'
         AND rival.scope_id = b.scope_id
         AND rival.subject_id = b.subject_id
+        AND COALESCE(json_extract(rv.metadata, '$.environment'), rival.run_id)
+          = COALESCE(json_extract(v.metadata, '$.environment'), b.run_id)
         AND (rival.bound_at > b.bound_at
              OR (rival.bound_at = b.bound_at AND rival.binding_id > b.binding_id))
   );

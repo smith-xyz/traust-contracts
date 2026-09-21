@@ -161,6 +161,11 @@
             "$ref": "#/$defs/fingerprint"
           }
         },
+        "environment": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What this run was executed AGAINST -- a cluster role, a named cluster, an environment id. Two runs of the same finding set against different environments are not re-runs of each other and neither supersedes the other: measured on the live corpus, a hub run and a spoke run of one subject disagreed on 290 of the same 3,297 findings, 48 of them confirmed against one and refuted against the other. Optional, because artifacts written before this field exist and are still valid -- but ABSENT means UNKNOWN, not 'the same environment as the others', and a consumer must not merge unknowns."
+        },
         "approval": {
           "type": "object",
           "additionalProperties": false,
@@ -591,7 +596,7 @@
               }
             }
           ],
-          "description": "P9 chain amplification: membership in a demonstrated attack chain is severity evidence for the constituent \u2014 cite it in the severity proposal rationale."
+          "description": "P9 chain amplification: membership in a demonstrated attack chain is severity evidence for the constituent — cite it in the severity proposal rationale."
         }
       }
     },
@@ -714,7 +719,7 @@
         },
         "ok": {
           "type": "boolean",
-          "description": "Control behaved as its kind expects \u2014 the assay is proven live."
+          "description": "Control behaved as its kind expects — the assay is proven live."
         }
       },
       "description": "P1 assay-validity control paired with a refutation-capable probe: a same-path action that MUST succeed (or MUST be denied) independent of the finding. A refuted verdict without a passing control is quarantined by the soundness gate (missing-positive-control / failed-positive-control) for reports at/after harness 0.177.0."
@@ -753,7 +758,7 @@
         },
         "discriminated": {
           "type": "boolean",
-          "description": "The two outcomes differed as expected \u2014 the oracle can tell allowed from denied. Identical outcomes = non-discriminating oracle = the refutation is unsound regardless of direction."
+          "description": "The two outcomes differed as expected — the oracle can tell allowed from denied. Identical outcomes = non-discriminating oracle = the refutation is unsound regardless of direction."
         }
       },
       "description": "P3 differential probe for authz claims: probe the claimed action AND a neighbor with a known-different expected outcome in the same session. Enforced by the soundness gate (non-discriminating-oracle)."
@@ -888,7 +893,7 @@
               }
             }
           ],
-          "description": "Machine severity-adjustment PROPOSAL (emitted when |delta| >= 1.0 and the finding's evidence_grade is E0/E1/E2 \u2014 never E3). Routed to the countersign queue; machines never write disposition.severity."
+          "description": "Machine severity-adjustment PROPOSAL (emitted when |delta| >= 1.0 and the finding's evidence_grade is E0/E1/E2 — never E3). Routed to the countersign queue; machines never write disposition.severity."
         }
       },
       "description": "P9: severity validated from live observations. Downgrades are as valuable as upgrades (e.g. exploitation demonstrably required cluster-admin)."
@@ -916,10 +921,10 @@
             "string",
             "null"
           ],
-          "description": "sha256 of the target-attestation.json fingerprint block at probe time \u2014 replay is only meaningful against a matching environment."
+          "description": "sha256 of the target-attestation.json fingerprint block at probe time — replay is only meaningful against a matching environment."
         }
       },
-      "description": "P8: every probe records a replay artifact so a countersign human \u2014 or a later re-adjudication \u2014 can re-run the exact probe instead of trusting the transcript."
+      "description": "P8: every probe records a replay artifact so a countersign human — or a later re-adjudication — can re-run the exact probe instead of trusting the transcript."
     }
   }
 }

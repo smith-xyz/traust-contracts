@@ -13,6 +13,7 @@
 -- hide most of the lane's work.
 CREATE VIEW IF NOT EXISTS validation_exposure AS
 SELECT scope_id,
+       environment,
        tree,
        ownership,
        business_unit,
@@ -26,7 +27,7 @@ SELECT scope_id,
        COUNT(DISTINCT subject_id) AS subjects,
        COUNT(DISTINCT source_finding_id) AS distinct_claims
 FROM validation_current
-GROUP BY scope_id, tree, ownership, business_unit, product,
+GROUP BY scope_id, environment, tree, ownership, business_unit, product,
          claimed_severity, verdict,
          CASE WHEN verdict IN ('confirmed', 'refuted', 'inconclusive')
               THEN 1 ELSE 0 END,
