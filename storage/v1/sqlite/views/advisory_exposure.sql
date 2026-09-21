@@ -6,35 +6,62 @@
 -- question is always "which repos, how strongly", and that is a row per
 -- repo, not a row per advisory.
 --
--- `evidence_level` is the CONTRACT'S OWN tier and the column to rank on:
+-- EVERY FIELD THE CONTRACT DECLARES IS CARRIED. The first cut exposed 14
+-- of 40 and matched the legacy projection exactly on every classification
+-- bucket -- because that projection dropped the same fields. Agreement
+-- between two impoverished projections proves nothing; the SCHEMA is the
+-- reference. tests/test_view_contract_coverage.py now enforces it.
+--
+-- `evidence_level` is the contract's own tier and the column to rank on:
 -- symbol (govulncheck reachability) > binary (ELF) > manifest (lockfile
--- grep). Null on rows the lane could not tier, which is a third of them,
--- and null is not the bottom of the ordering -- it is "not established".
+-- grep). The nineteen evidence flags beside it are how that tier was
+-- reached, and they are the whole point of an impact analysis -- dropping
+-- them leaves a verdict with no way to audit it.
 --
--- EVIDENCE STRENGTH IS CARRIED, NOT COLLAPSED. "the symbol is reachable
--- at a call site" and "the package is named in a manifest" are different
--- claims, and a rollup that blends them cannot be acted on -- it reads as
--- though every hit needed the same urgency. `classification` is the
--- lane's own verdict; the l1_* evidence flags are what it concluded from.
---
--- `direct` separates a first-order dependency from one pulled in
--- transitively: the same advisory is a different remediation job
--- depending on which it is.
+-- Null in an evidence column means NOT ESTABLISHED, never "no". `direct`
+-- separates a first-order dependency from a transitive one: the same
+-- advisory is a different remediation job depending on which.
 CREATE VIEW IF NOT EXISTS advisory_exposure AS
 SELECT b.scope_id,
        json_extract(ia.metadata, '$.cve') AS advisory,
        json_extract(ia.metadata, '$.ecosystem') AS ecosystem,
        json_extract(ia.metadata, '$.module') AS module,
        json_extract(ia.metadata, '$.fixed_version') AS fixed_version,
+       json_extract(ia.metadata, '$.vulnerable_range') AS vulnerable_range,
+       json_extract(ia.metadata, '$.generated_at') AS generated_at,
+       json_extract(ia.metadata, '$.tiers_executed') AS tiers_executed,
+       json_extract(ia.metadata, '$.vulnerable_symbols') AS vulnerable_symbols,
+       json_extract(ia.metadata, '$.vulnerable_packages') AS vulnerable_packages,
+       json_extract(ia.metadata, '$.advisory_sources') AS advisory_sources,
+       json_extract(ia.metadata, '$.feature_description') AS feature_description,
+       json_extract(ia.metadata, '$.harness_version') AS harness_version,
+       json_extract(ia.metadata, '$.options') AS options,
+       json_extract(ia.metadata, '$.portfolio_graph_db') AS portfolio_graph_db,
+       json_extract(ia.metadata, '$.portfolio_graph_version') AS portfolio_graph_version,
        json_extract(entry.value, '$.repo') AS repo,
        json_extract(entry.value, '$.classification') AS classification,
        json_extract(entry.value, '$.version') AS version,
        json_extract(entry.value, '$.direct') AS direct,
+       json_extract(entry.value, '$.products') AS products,
+       json_extract(entry.value, '$.evidence.binary_linked_library') AS binary_linked_library,
+       json_extract(entry.value, '$.evidence.binary_string_scan') AS binary_string_scan,
+       json_extract(entry.value, '$.evidence.binary_symbol_scan') AS binary_symbol_scan,
        json_extract(entry.value, '$.evidence.evidence_level') AS evidence_level,
-       json_extract(entry.value, '$.evidence.l1_depends_on') AS depends_on,
-       json_extract(entry.value, '$.evidence.l1_version_in_range') AS version_in_range,
+       json_extract(entry.value, '$.evidence.feature_pattern_matches') AS feature_pattern_matches,
+       json_extract(entry.value, '$.evidence.govulncheck') AS govulncheck,
+       json_extract(entry.value, '$.evidence.govulncheck_trace') AS govulncheck_trace,
+       json_extract(entry.value, '$.evidence.l1_depends_on') AS l1_depends_on,
+       json_extract(entry.value, '$.evidence.l1_version_in_range') AS l1_version_in_range,
+       json_extract(entry.value, '$.evidence.l4_package_imported') AS l4_package_imported,
+       json_extract(entry.value, '$.evidence.l4_packages_found') AS l4_packages_found,
+       json_extract(entry.value, '$.evidence.manifest_scan') AS manifest_scan,
+       json_extract(entry.value, '$.evidence.manifest_version') AS manifest_version,
        json_extract(entry.value, '$.evidence.needs_manual_trace') AS needs_manual_trace,
-       json_extract(entry.value, '$.products') AS products
+       json_extract(entry.value, '$.evidence.notes') AS notes,
+       json_extract(entry.value, '$.evidence.sbom_scan') AS sbom_scan,
+       json_extract(entry.value, '$.evidence.sbom_shipped_version') AS sbom_shipped_version,
+       json_extract(entry.value, '$.evidence.source_import_scan') AS source_import_scan,
+       json_extract(entry.value, '$.evidence.symbol_usage_scan') AS symbol_usage_scan
 FROM impact_analysis ia
 JOIN artifact_binding b
   ON b.binding_id = ia.binding_id

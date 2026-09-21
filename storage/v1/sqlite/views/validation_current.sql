@@ -1,6 +1,15 @@
 -- Current live-validation outcomes, one row per claimed finding, with the
 -- owner of the subject they were validated against.
 --
+-- EVERY FIELD THE CONTRACT DECLARES ON A VALIDATED FINDING IS CARRIED.
+-- The first cut exposed 7 of 17 and dropped `evidence_grade` (E0-E3)
+-- and `soundness_flag` -- the machine-readable reason a refutation was
+-- un-emittable. Those two say how far a verdict can be trusted, and a
+-- view reporting outcomes without them gives no way to weigh them.
+-- Projected as columns, never joined out of the blob: matching
+-- source_id against every entry of the same array is quadratic per
+-- artifact. tests/test_view_contract_coverage.py enforces the coverage.
+--
 -- SUPERSESSION IS PER ENVIRONMENT, NOT PER SUBJECT. A run against a hub
 -- cluster and a run against a spoke are not re-runs of each other. Measured
 -- on the live corpus: one subject's hub and spoke runs covered the SAME
@@ -38,6 +47,14 @@ SELECT b.scope_id,
        vf.skip_reason,
        vf.technique,
        vf.observed_impact,
+       vf.evidence_grade,
+       vf.grade_rationale,
+       vf.soundness_flag,
+       vf.severity_validation,
+       vf.deviation_from_claim,
+       vf.rollback_performed,
+       vf.chain_context,
+       vf.not_attempted_reason,
        owner.ownership,
        owner.business_unit,
        owner.tree,

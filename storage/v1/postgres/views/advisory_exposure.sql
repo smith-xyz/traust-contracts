@@ -6,35 +6,62 @@
 -- question is always "which repos, how strongly", and that is a row per
 -- repo, not a row per advisory.
 --
--- `evidence_level` is the CONTRACT'S OWN tier and the column to rank on:
+-- EVERY FIELD THE CONTRACT DECLARES IS CARRIED. The first cut exposed 14
+-- of 40 and matched the legacy projection exactly on every classification
+-- bucket -- because that projection dropped the same fields. Agreement
+-- between two impoverished projections proves nothing; the SCHEMA is the
+-- reference. tests/test_view_contract_coverage.py now enforces it.
+--
+-- `evidence_level` is the contract's own tier and the column to rank on:
 -- symbol (govulncheck reachability) > binary (ELF) > manifest (lockfile
--- grep). Null on rows the lane could not tier, which is a third of them,
--- and null is not the bottom of the ordering -- it is "not established".
+-- grep). The nineteen evidence flags beside it are how that tier was
+-- reached, and they are the whole point of an impact analysis -- dropping
+-- them leaves a verdict with no way to audit it.
 --
--- EVIDENCE STRENGTH IS CARRIED, NOT COLLAPSED. "the symbol is reachable
--- at a call site" and "the package is named in a manifest" are different
--- claims, and a rollup that blends them cannot be acted on -- it reads as
--- though every hit needed the same urgency. `classification` is the
--- lane's own verdict; the l1_* evidence flags are what it concluded from.
---
--- `direct` separates a first-order dependency from one pulled in
--- transitively: the same advisory is a different remediation job
--- depending on which it is.
+-- Null in an evidence column means NOT ESTABLISHED, never "no". `direct`
+-- separates a first-order dependency from a transitive one: the same
+-- advisory is a different remediation job depending on which.
 CREATE OR REPLACE VIEW traust_storage.advisory_exposure WITH (security_barrier) AS
 SELECT b.scope_id,
        ia.metadata->>'cve' AS advisory,
        ia.metadata->>'ecosystem' AS ecosystem,
        ia.metadata->>'module' AS module,
        ia.metadata->>'fixed_version' AS fixed_version,
+       ia.metadata->>'vulnerable_range' AS vulnerable_range,
+       ia.metadata->>'generated_at' AS generated_at,
+       ia.metadata->>'tiers_executed' AS tiers_executed,
+       ia.metadata->>'vulnerable_symbols' AS vulnerable_symbols,
+       ia.metadata->>'vulnerable_packages' AS vulnerable_packages,
+       ia.metadata->>'advisory_sources' AS advisory_sources,
+       ia.metadata->>'feature_description' AS feature_description,
+       ia.metadata->>'harness_version' AS harness_version,
+       ia.metadata->>'options' AS options,
+       ia.metadata->>'portfolio_graph_db' AS portfolio_graph_db,
+       ia.metadata->>'portfolio_graph_version' AS portfolio_graph_version,
        entry.value->>'repo' AS repo,
        entry.value->>'classification' AS classification,
        entry.value->>'version' AS version,
        entry.value->>'direct' AS direct,
+       entry.value->>'products' AS products,
+       entry.value->'evidence'->>'binary_linked_library' AS binary_linked_library,
+       entry.value->'evidence'->>'binary_string_scan' AS binary_string_scan,
+       entry.value->'evidence'->>'binary_symbol_scan' AS binary_symbol_scan,
        entry.value->'evidence'->>'evidence_level' AS evidence_level,
-       entry.value->'evidence'->>'l1_depends_on' AS depends_on,
-       entry.value->'evidence'->>'l1_version_in_range' AS version_in_range,
+       entry.value->'evidence'->>'feature_pattern_matches' AS feature_pattern_matches,
+       entry.value->'evidence'->>'govulncheck' AS govulncheck,
+       entry.value->'evidence'->>'govulncheck_trace' AS govulncheck_trace,
+       entry.value->'evidence'->>'l1_depends_on' AS l1_depends_on,
+       entry.value->'evidence'->>'l1_version_in_range' AS l1_version_in_range,
+       entry.value->'evidence'->>'l4_package_imported' AS l4_package_imported,
+       entry.value->'evidence'->>'l4_packages_found' AS l4_packages_found,
+       entry.value->'evidence'->>'manifest_scan' AS manifest_scan,
+       entry.value->'evidence'->>'manifest_version' AS manifest_version,
        entry.value->'evidence'->>'needs_manual_trace' AS needs_manual_trace,
-       entry.value->>'products' AS products
+       entry.value->'evidence'->>'notes' AS notes,
+       entry.value->'evidence'->>'sbom_scan' AS sbom_scan,
+       entry.value->'evidence'->>'sbom_shipped_version' AS sbom_shipped_version,
+       entry.value->'evidence'->>'source_import_scan' AS source_import_scan,
+       entry.value->'evidence'->>'symbol_usage_scan' AS symbol_usage_scan
 FROM traust_storage.impact_analysis ia
 JOIN traust_storage.artifact_binding b
   ON b.binding_id = ia.binding_id

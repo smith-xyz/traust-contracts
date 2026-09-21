@@ -1473,8 +1473,9 @@ def test_advisory_exposure_fans_out_and_keeps_evidence_strength(store: Store) ->
         d[0]
         for d in store.conn.execute("SELECT * FROM advisory_exposure LIMIT 1").description
     ]
-    for carried in ("classification", "direct", "depends_on", "version_in_range",
-                    "needs_manual_trace"):
+    for carried in ("classification", "direct", "evidence_level",
+                    "l1_depends_on", "l1_version_in_range", "needs_manual_trace",
+                    "govulncheck", "sbom_scan", "manifest_version"):
         assert carried in columns, f"{carried} must survive to the view"
     rows = store.query_advisory_exposure(["local"])
     assert rows, "the blast radius must be queryable"

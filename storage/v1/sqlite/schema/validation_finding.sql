@@ -30,6 +30,24 @@ CREATE TABLE IF NOT EXISTS validation_finding (
     skip_reason TEXT,
     technique TEXT,
     observed_impact TEXT,
+    -- The rest of what validated_findings[] declares. Projected as
+    -- COLUMNS rather than joined out of the blob at query time: the
+    -- join is source_id against every entry of the same array, which
+    -- is quadratic per artifact and unusable at corpus scale. Same
+    -- reason report_finding and threat are projections, not views.
+    --
+    -- evidence_grade (E0-E3) and soundness_flag are the two that say
+    -- how far a verdict can be trusted -- soundness_flag is the
+    -- machine-readable reason a refutation was un-emittable. A view
+    -- without them reports outcomes with no way to weigh them.
+    evidence_grade TEXT,
+    grade_rationale TEXT,
+    soundness_flag TEXT,
+    severity_validation TEXT,
+    deviation_from_claim TEXT,
+    rollback_performed INTEGER,
+    chain_context TEXT,
+    not_attempted_reason TEXT,
     PRIMARY KEY (binding_id, source_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES artifact_binding(binding_id, artifact_digest)

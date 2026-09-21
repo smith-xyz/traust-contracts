@@ -9,7 +9,15 @@ INSERT INTO validation_finding (
     verdict,
     skip_reason,
     technique,
-    observed_impact
+    observed_impact,
+    evidence_grade,
+    grade_rationale,
+    soundness_flag,
+    severity_validation,
+    deviation_from_claim,
+    rollback_performed,
+    chain_context,
+    not_attempted_reason
 )
 VALUES (
     :binding_id,
@@ -22,6 +30,14 @@ VALUES (
     :verdict,
     :skip_reason,
     :technique,
-    :observed_impact
+    :observed_impact,
+    :evidence_grade,
+    :grade_rationale,
+    :soundness_flag,
+    :severity_validation,
+    :deviation_from_claim,
+    :rollback_performed,
+    :chain_context,
+    :not_attempted_reason
 )
 ON CONFLICT (binding_id, source_id) DO NOTHING;

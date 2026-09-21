@@ -9,7 +9,15 @@ INSERT INTO traust_storage.validation_finding (
     verdict,
     skip_reason,
     technique,
-    observed_impact
+    observed_impact,
+    evidence_grade,
+    grade_rationale,
+    soundness_flag,
+    severity_validation,
+    deviation_from_claim,
+    rollback_performed,
+    chain_context,
+    not_attempted_reason
 )
 VALUES (
     %(binding_id)s,
@@ -22,6 +30,14 @@ VALUES (
     %(verdict)s,
     %(skip_reason)s,
     %(technique)s,
-    %(observed_impact)s
+    %(observed_impact)s,
+    %(evidence_grade)s,
+    %(grade_rationale)s,
+    %(soundness_flag)s,
+    %(severity_validation)s,
+    %(deviation_from_claim)s,
+    %(rollback_performed)s,
+    %(chain_context)s,
+    %(not_attempted_reason)s
 )
 ON CONFLICT (binding_id, source_id) DO NOTHING;

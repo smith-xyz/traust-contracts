@@ -42,7 +42,11 @@ CONTRACT_VERSION = "v1"
 #: 12 (2026-09-21): advisory_exposure. Blast radius fanned out of the
 #: impact-analysis blob, one row per repo an advisory reaches, with the
 #: evidence strength carried rather than collapsed.
-REVISION = 12
+#: 13 (2026-09-21): validation_finding gains the eight remaining fields
+#: validated_findings[] declares, evidence_grade and soundness_flag among
+#: them; advisory_exposure carries all 40 impact-analysis fields. A store
+#: on 12 is missing columns, not just rows.
+REVISION = 13
 
 
 @cache
@@ -55,6 +59,12 @@ def query(dialect: Dialect, filename: str) -> str:
 #: before `report_current` but selects from it, and PostgreSQL resolves a
 #: view's references at CREATE time, so the glob order alone fails there
 #: while silently succeeding on SQLite.
+#: THE SCHEMA IS THE REFERENCE FOR WHAT A VIEW MUST CARRY. A view is not
+#: correct because its numbers match another projection -- two projections
+#: dropping the same fields agree perfectly and are both wrong. Check it
+#: against the artifact's JSON Schema, and let
+#: tests/test_view_contract_coverage.py fail you if a declared field never
+#: reaches SQL. See storage/v1/README.md, "The schema is the reference".
 VIEW_ORDER: tuple[str, ...] = (
     "binding_current.sql",
     "report_current.sql",

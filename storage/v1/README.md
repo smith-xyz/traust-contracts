@@ -69,6 +69,33 @@ layer_id        = absent
 binding_id      = 90933ec74bd66618428c4def90f4af4cb9a2ab60bc9bd24a20b64814ca2dba56
 ```
 
+## The schema is the reference
+
+A projection or a view is correct when it carries what the **JSON Schema
+declares**, not when its numbers agree with some other projection of the
+same artifact. Two projections that drop the same fields agree perfectly
+and are both wrong: `advisory_exposure` reconciled exactly with a legacy
+SQLite projection on every classification bucket while both were dropping
+26 of the 40 fields `impact-analysis.schema.json` declares — every piece
+of evidence explaining HOW a classification was reached.
+
+So, when adding or reviewing a view:
+
+1. Open the schema for the artifact it reads. Not another database, not a
+   dashboard, not a prior projection.
+2. Every field the contract declares on the item being fanned out reaches
+   SQL, or is listed in `tests/test_view_contract_coverage.py::EXEMPT`
+   with a reason a reviewer can disagree with. "Not needed yet" is not a
+   reason — an unexposed field is unreachable no matter what is loaded.
+3. Per-item fields are projected as COLUMNS, never joined out of the blob
+   at query time. Matching an id against every entry of the same array is
+   quadratic per artifact.
+4. Row counts in one store say nothing about schema completeness. An
+   empty table is not an argument against declaring a view.
+
+`test_view_contract_coverage.py` enforces 1–2 mechanically, in both
+dialects.
+
 ## Storage profiles
 
 [`profiles.json`](profiles.json) is the hand-authored context/projection policy.

@@ -1279,6 +1279,19 @@ class Store:
                     "skip_reason": _skip_reason(finding),
                     "technique": finding.get("technique"),
                     "observed_impact": finding.get("observed_impact"),
+                    # The rest of what validated_findings[] declares.
+                    # evidence_grade (E0-E3) and soundness_flag are the
+                    # two that say how far a verdict can be trusted.
+                    "evidence_grade": finding.get("evidence_grade"),
+                    "grade_rationale": finding.get("grade_rationale"),
+                    "soundness_flag": finding.get("soundness_flag"),
+                    "severity_validation": _json_or_none(
+                        finding.get("severity_validation")
+                    ),
+                    "deviation_from_claim": finding.get("deviation_from_claim"),
+                    "rollback_performed": _boolean(finding.get("rollback_performed")),
+                    "chain_context": _json_or_none(finding.get("chain_context")),
+                    "not_attempted_reason": finding.get("not_attempted_reason"),
                 },
             )
 
