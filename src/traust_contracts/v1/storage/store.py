@@ -436,6 +436,33 @@ def _threat_score(impact: Any, likelihood: Any) -> int | None:
     return left * right
 
 
+def _skip_reason(finding: dict[str, Any]) -> str | None:
+    """Why nothing was attempted, from wherever the producer records it.
+
+    The reason is NOT a top-level property. `validated_findings[]`
+    declares `not_attempted_reason`, but measured across the live corpus
+    that field is empty on every row; what the lane actually writes is
+    `steps[].scope_reason` -- `triage-false-positive`,
+    `no-poc-no-adapter`, `wrong-surface:ci-build`. Reading the top-level
+    key returned None on all 183,296 not_attempted and blocked_by_scope
+    rows, so the column that separates "triage already ruled this out"
+    from "we have no adapter for this surface" was NULL corpus-wide.
+
+    Declared field first, then the step, so a producer that starts
+    honouring the schema wins without another change here. First
+    non-empty step reason: the steps of one skipped finding share a
+    reason, and disagreement is a producer bug rather than something to
+    average away.
+    """
+    declared = finding.get("not_attempted_reason") or finding.get("skip_reason")
+    if declared:
+        return str(declared)
+    for step in finding.get("steps") or []:
+        if isinstance(step, dict) and step.get("scope_reason"):
+            return str(step["scope_reason"])
+    return None
+
+
 def _json_or_none(value: Any) -> str | None:
     """Encode a nested block for a JSON column, canonically. None stays None."""
     if value is None:
@@ -1226,7 +1253,7 @@ class Store:
                     "claimed_severity": finding.get("claimed_severity"),
                     "surface": finding.get("surface"),
                     "verdict": finding.get("verdict"),
-                    "skip_reason": finding.get("skip_reason"),
+                    "skip_reason": _skip_reason(finding),
                     "technique": finding.get("technique"),
                     "observed_impact": finding.get("observed_impact"),
                 },

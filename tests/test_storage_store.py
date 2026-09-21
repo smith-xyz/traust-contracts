@@ -1306,3 +1306,72 @@ def test_validation_current_resolves_one_run_per_subject(store: Store) -> None:
     assert subjects == 1
     runs = store.conn.execute("SELECT COUNT(DISTINCT run_id) FROM validation_current").fetchone()[0]
     assert runs == 1, "only the most recently bound run is current"
+
+
+def test_skip_reason_comes_from_the_step_the_producer_writes(store: Store) -> None:
+    """The reason is not where the schema says it is.
+
+    `validated_findings[]` declares `not_attempted_reason`, and measured
+    across the live corpus that field is empty on every row — what the
+    lane writes is `steps[].scope_reason`. Reading the declared key alone
+    left skip_reason NULL on all 183,296 not_attempted and
+    blocked_by_scope rows, so "triage already ruled this out" and "we
+    have no adapter for this surface" were indistinguishable.
+    """
+    payload, _ = sample("validation")
+    document = json.loads(payload)
+    document["validated_findings"] = [
+        {
+            "source_id": "p:r/FIND-001",
+            "source_report": "r.json",
+            "technique": "skip",
+            "verdict": "not_attempted",
+            "steps": [
+                {
+                    "step_id": "s1",
+                    "adapter": "k8s",
+                    "verb": "noop",
+                    "classification": "safe",
+                    "verdict": "not_attempted",
+                    "scope_reason": "triage-false-positive",
+                }
+            ],
+        },
+        {
+            "source_id": "p:r/FIND-002",
+            "source_report": "r.json",
+            "technique": "skip",
+            "verdict": "not_attempted",
+            "not_attempted_reason": "declared-wins",
+            "steps": [
+                {
+                    "step_id": "s2",
+                    "adapter": "k8s",
+                    "verb": "noop",
+                    "classification": "safe",
+                    "verdict": "not_attempted",
+                    "scope_reason": "no-poc-no-adapter",
+                }
+            ],
+        },
+        {
+            "source_id": "p:r/FIND-003",
+            "source_report": "r.json",
+            "technique": "replay",
+            "verdict": "confirmed",
+            "steps": [],
+        },
+    ]
+    store.ingest(
+        "validation",
+        json.dumps(document).encode(),
+        Binding(subject_id="findings/example/repo", run_id="r1"),
+    )
+    rows = dict(
+        store.conn.execute(
+            "SELECT source_finding_id, skip_reason FROM validation_finding"
+        ).fetchall()
+    )
+    assert rows["FIND-001"] == "triage-false-positive", "read from the step"
+    assert rows["FIND-002"] == "declared-wins", "a declared field still wins"
+    assert rows["FIND-003"] is None, "an ATTEMPTED finding has no skip to explain"
