@@ -1295,7 +1295,7 @@ def test_validation_supersession_is_per_environment(store: Store) -> None:
     base = json.loads(payload)
     for environment in ("hub", "spoke"):
         document = json.loads(json.dumps(base))
-        document["metadata"]["environment"] = environment
+        document["metadata"]["target_environment"] = environment
         store.ingest(
             "validation",
             json.dumps(document).encode(),
@@ -1313,7 +1313,7 @@ def test_a_re_run_of_one_environment_supersedes_its_predecessor(store: Store) ->
     base = json.loads(payload)
     for run in ("run:1", "run:2"):
         document = json.loads(json.dumps(base))
-        document["metadata"]["environment"] = "hub"
+        document["metadata"]["target_environment"] = "hub"
         document["metadata"]["date"] = "2026-01-02" if run == "run:1" else "2026-01-03"
         store.ingest(
             "validation",

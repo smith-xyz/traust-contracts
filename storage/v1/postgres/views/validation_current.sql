@@ -28,7 +28,7 @@ CREATE OR REPLACE VIEW traust_storage.validation_current WITH (security_barrier)
 SELECT b.scope_id,
        b.subject_id,
        b.run_id,
-       v.metadata->>'environment' AS environment,
+       v.metadata->>'target_environment' AS environment,
        vf.source_id,
        vf.source_finding_id,
        vf.title,
@@ -58,8 +58,8 @@ WHERE b.artifact_name = 'validation'
       WHERE rival.artifact_name = 'validation'
         AND rival.scope_id = b.scope_id
         AND rival.subject_id = b.subject_id
-        AND COALESCE(rv.metadata->>'environment', rival.run_id)
-          = COALESCE(v.metadata->>'environment', b.run_id)
+        AND COALESCE(rv.metadata->>'target_environment', rival.run_id)
+          = COALESCE(v.metadata->>'target_environment', b.run_id)
         AND (rival.bound_at > b.bound_at
              OR (rival.bound_at = b.bound_at AND rival.binding_id > b.binding_id))
   );

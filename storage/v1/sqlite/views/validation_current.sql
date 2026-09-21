@@ -28,7 +28,7 @@ CREATE VIEW IF NOT EXISTS validation_current AS
 SELECT b.scope_id,
        b.subject_id,
        b.run_id,
-       json_extract(v.metadata, '$.environment') AS environment,
+       json_extract(v.metadata, '$.target_environment') AS environment,
        vf.source_id,
        vf.source_finding_id,
        vf.title,
@@ -58,8 +58,8 @@ WHERE b.artifact_name = 'validation'
       WHERE rival.artifact_name = 'validation'
         AND rival.scope_id = b.scope_id
         AND rival.subject_id = b.subject_id
-        AND COALESCE(json_extract(rv.metadata, '$.environment'), rival.run_id)
-          = COALESCE(json_extract(v.metadata, '$.environment'), b.run_id)
+        AND COALESCE(json_extract(rv.metadata, '$.target_environment'), rival.run_id)
+          = COALESCE(json_extract(v.metadata, '$.target_environment'), b.run_id)
         AND (rival.bound_at > b.bound_at
              OR (rival.bound_at = b.bound_at AND rival.binding_id > b.binding_id))
   );
