@@ -39,7 +39,10 @@ CONTRACT_VERSION = "v1"
 #: 11 (2026-09-20): validation supersession is per ENVIRONMENT. A hub run
 #: and a spoke run are not re-runs of each other; collapsing on subject
 #: alone deleted a 290-verdict disagreement on one subject alone.
-REVISION = 11
+#: 12 (2026-09-21): advisory_exposure. Blast radius fanned out of the
+#: impact-analysis blob, one row per repo an advisory reaches, with the
+#: evidence strength carried rather than collapsed.
+REVISION = 12
 
 
 @cache

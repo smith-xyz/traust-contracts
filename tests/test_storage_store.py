@@ -76,6 +76,7 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
     assert names == {*TABLES, "traust_storage_meta"}
     views = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")}
     assert views == {
+        "advisory_exposure",
         "census_exposure",
         "census_population",
         "current_binding",
@@ -1455,3 +1456,42 @@ def test_a_confirmed_finding_never_carries_a_skip_reason(store: Store) -> None:
         "SELECT skip_reason FROM validation_finding WHERE source_finding_id='FIND-010'"
     ).fetchone()[0]
     assert reason is None
+
+
+def test_advisory_exposure_fans_out_and_keeps_evidence_strength(store: Store) -> None:
+    """One advisory, many repos, and the evidence is not collapsed.
+
+    "reachable at a call site" and "named in a manifest" are different
+    claims. A rollup that blends them reads as though every hit needed
+    the same urgency, and `direct` likewise separates a first-order
+    dependency from a transitive one — the same advisory is a different
+    remediation job depending on which.
+    """
+    payload, _ = sample("impact-analysis")
+    store.ingest("impact-analysis", payload, Binding(scope_id="local"))
+    columns = [
+        d[0]
+        for d in store.conn.execute("SELECT * FROM advisory_exposure LIMIT 1").description
+    ]
+    for carried in ("classification", "direct", "depends_on", "version_in_range",
+                    "needs_manual_trace"):
+        assert carried in columns, f"{carried} must survive to the view"
+    rows = store.query_advisory_exposure(["local"])
+    assert rows, "the blast radius must be queryable"
+    # one row per repo the advisory names, not one row per advisory
+    named = len(json.loads(payload)["repos"])
+    assert len(rows) == named, f"{named} repos named, {len(rows)} rows"
+
+
+def test_a_re_analysed_advisory_supersedes_its_predecessor(store: Store) -> None:
+    """Re-running an advisory must not double its blast radius."""
+    payload, _ = sample("impact-analysis")
+    document = json.loads(payload)
+    for generated in ("2026-01-02T00:00:00Z", "2026-01-03T00:00:00Z"):
+        document["metadata"]["generated_at"] = generated
+        store.ingest("impact-analysis", json.dumps(document).encode(), Binding(scope_id="local"))
+    bindings = store.conn.execute(
+        "SELECT COUNT(*) FROM artifact_binding WHERE artifact_name='impact-analysis'"
+    ).fetchone()[0]
+    assert bindings == 2, "both analyses retained as evidence"
+    assert len(store.query_advisory_exposure(["local"])) == len(document["repos"])

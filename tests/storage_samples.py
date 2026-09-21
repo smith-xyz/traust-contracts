@@ -260,7 +260,34 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
             "not_imported": 0,
             "inconclusive": 0,
         },
-        "repos": [],
+        "repos": [
+            {
+                "repo": "repo:example.test/org/service",
+                "classification": "affected",
+                "version": "1.2.3",
+                "direct": True,
+                "products": ["Example Platform"],
+                # symbol-tier: reachability proven, not merely imported
+                "evidence": {
+                    "evidence_level": "symbol",
+                    "l1_depends_on": True,
+                    "l1_version_in_range": True,
+                    "needs_manual_trace": False,
+                },
+            },
+            {
+                "repo": "repo:example.test/org/tool",
+                "classification": "version_not_in_range",
+                "version": "9.9.9",
+                "direct": False,
+                "evidence": {
+                    "evidence_level": "manifest",
+                    "l1_depends_on": True,
+                    "l1_version_in_range": False,
+                    "needs_manual_trace": False,
+                },
+            },
+        ],
     },
     "report": {
         "title": "Security audit",

@@ -132,6 +132,7 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
     for dialect in DIALECTS:
         names = set(_declared_views(dialect))
         assert names == {
+            "advisory_exposure",
             "census_exposure",
             "census_population",
             "current_binding",
@@ -327,6 +328,7 @@ def test_storage_package_resources() -> None:
             assert (root / dialect / "queries" / f"{entity}.upsert.sql").is_file()
         assert {path.stem for path in (root / dialect / "views").glob("*.sql")} == {
             "binding_current",
+            "advisory_exposure",
             "census_exposure",
             "census_population",
             "current_finding",

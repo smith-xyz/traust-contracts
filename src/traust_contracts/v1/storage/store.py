@@ -890,6 +890,18 @@ class Store:
         """
         return self._query_view("threat_exposure", scope_ids)
 
+    def query_advisory_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Which repositories one advisory reaches, and on what evidence.
+
+        EVIDENCE STRENGTH IS CARRIED, NOT COLLAPSED. "the symbol is
+        reachable at a call site" and "the package is named in a
+        manifest" are different claims; a rollup that blends them reads
+        as though every hit needed the same urgency. `direct` likewise
+        separates a first-order dependency from a transitive one -- the
+        same advisory is a different remediation job depending on which.
+        """
+        return self._query_view("advisory_exposure", scope_ids)
+
     def query_validation_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """What happened when each claimed finding was ATTEMPTED live.
 
