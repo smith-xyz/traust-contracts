@@ -203,9 +203,9 @@ def test_every_findings_schema_declares_the_identity_fields():
     describes is invalid against it.
 
     This has now bitten twice. report.schema.json omitted fingerprint_algo
-    while the producer emitted it, leaving 6,218 audit reports invalid for
+    while the producer emitted it, leaving thousands of audit reports invalid for
     16 days. cloud-config-findings-current.schema.json declared NEITHER, so
-    stamping 2,592 policy findings turned 89 of 91 valid reports invalid in
+    stamping the policy findings turned nearly every valid report invalid in
     one command.
     """
     import json

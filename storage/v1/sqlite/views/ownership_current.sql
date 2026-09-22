@@ -9,7 +9,7 @@
 -- Every view above this joins ownership on subject_id, so without this the
 -- second import fans each finding out across N registry generations.
 -- Measured on the live corpus: one re-import took current_finding from
--- 79,855 to 159,710 and the census population from 8,604 to 17,208. It
+-- DOUBLED both the finding count and the census population. It
 -- stayed invisible because the store was always rebuilt from empty.
 --
 -- Most recently bound wins, with binding_id breaking ties, matching the

@@ -421,7 +421,7 @@
         "fingerprint": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Deterministic cross-scan identity (identity module fingerprint). Optional here -- no artifact of this kind carries one today -- but DECLARED, because additionalProperties is false and an undeclared identity field makes every stamped artifact invalid the moment a producer starts emitting it. That has happened twice: report.schema.json omitted fingerprint_algo for 16 days, and the cloud-config schema declared neither, so stamping 2,592 policy findings invalidated 89 of 91 reports in one command."
+          "description": "Deterministic cross-scan identity (identity module fingerprint). Optional here -- no artifact of this kind carries one today -- but DECLARED, because additionalProperties is false and an undeclared identity field makes every stamped artifact invalid the moment a producer starts emitting it. That has happened twice: report.schema.json omitted fingerprint_algo for 16 days, and the cloud-config schema declared neither, so stamping the policy findings invalidated nearly every report in one command."
         },
         "fingerprint_algo": {
           "type": "string",

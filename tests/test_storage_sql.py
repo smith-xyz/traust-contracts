@@ -395,7 +395,7 @@ def test_dashboard_view_filters_match_the_contract_enums() -> None:
 
 def test_the_spine_unions_both_finding_families() -> None:
     """A view reading only report_finding omits every policy finding --
-    2,592 of them in the corpus, and silently."""
+    Thousands of them in a corpus, and silently."""
     for dialect in DIALECTS:
         sql = (storage_dir() / dialect / "views" / "current_finding.sql").read_text()
         assert "report_finding" in sql and "cloud_config_finding" in sql

@@ -2,7 +2,7 @@
 --
 -- The census equivalent for the threat lens. `status` is carried through
 -- UNCOLLAPSED -- partially_mitigated is the largest bucket in practice
--- (45,273 of 82,850 measured), so folding it into mitigated is the single
+-- (the largest bucket by far), so folding it into mitigated is the single
 -- biggest way to overstate threat coverage.
 --
 -- `evidenced` separates a threat backed by a finding or validation from one

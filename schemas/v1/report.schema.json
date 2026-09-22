@@ -521,7 +521,7 @@
         "fingerprint_algo": {
           "type": "string",
           "pattern": "^v\\d+$",
-          "description": "Algorithm version of `fingerprint` (the identity module ALGO_VERSION). Mirrors layer.schema.json's event field of the same name, and for the same reason: stamps outlive recipes, so matching fingerprints across an epoch boundary means comparing this field too. Absent on the 25,515 findings stamped before 2026-09-18 -- those predate the field rather than declaring an unknown version, and were separable only because exactly two recipes existed to try."
+          "description": "Algorithm version of `fingerprint` (the identity module ALGO_VERSION). Mirrors layer.schema.json's event field of the same name, and for the same reason: stamps outlive recipes, so matching fingerprints across an epoch boundary means comparing this field too. Absent on findings stamped before 2026-09-18 -- those predate the field rather than declaring an unknown version, and were separable only because exactly two recipes existed to try."
         },
         "effective_severity": {
           "type": "string",

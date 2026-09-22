@@ -3,8 +3,8 @@
 -- Separate from sla_threshold ON PURPOSE. clock_start is a property of
 -- the POLICY, not of a severity, and resolving it through the per-severity
 -- join meant a severity the profile does not clock fell back to a
--- different clock than its siblings. Measured on the live corpus: 21,322
--- findings aged from the report date while 22,076 aged from the ledger
+-- different clock than its siblings. Measured on a live corpus, findings
+-- split roughly evenly between ageing from the report date and the ledger
 -- event, under one policy that names a single clock.
 --
 -- A severity may legitimately have no threshold (unclocked) while the

@@ -3,7 +3,7 @@
 -- The birth half of the time dimension. The ledger's earliest event is a
 -- triage verdict, which is when a finding was first ADJUDICATED, not when
 -- it was first seen -- and only 60% of findings have any event at all
--- (measured: 48,019 of 79,998). Using the ledger alone as the clock start
+-- (measured: well over half). Using the ledger alone as the clock start
 -- therefore undercounts the population and overstates how fast things move.
 --
 -- report_finding keeps a row per report BINDING, including superseded

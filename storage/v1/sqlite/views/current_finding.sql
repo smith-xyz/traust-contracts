@@ -5,7 +5,7 @@
 --
 --   1. BOTH finding families. Code findings project to report_finding and
 --      policy findings to cloud_config_finding. A query that reads only the
---      first silently omits 2,592 cloud-config findings.
+--      first silently omits every cloud-config finding.
 --   2. ONE report per subject. A repo's findings are restated across a plain
 --      audit and a disposition-aware findings-current report, and both are
 --      legitimately current -- counting report_finding directly inflates by

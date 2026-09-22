@@ -6,7 +6,7 @@
 -- relationship report_finding has to report.findings.
 --
 -- `threat_key` is the identity, not `threat_id`: every model numbers its
--- threats from T1, so threat_id alone collides across all ~7,500 models.
+-- threats from T1, so threat_id alone collides across every model.
 CREATE TABLE IF NOT EXISTS traust_storage.threat (
     binding_id TEXT NOT NULL,
     artifact_digest TEXT NOT NULL,

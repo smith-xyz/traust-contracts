@@ -3,7 +3,7 @@
 -- validation.validated_findings is an opaque JSON column holding the
 -- ACTUAL OUTCOME of attempting each claimed finding against a running
 -- system: confirmed, refuted, inconclusive, blocked by scope, or not
--- attempted and why. 208,346 of them across the live corpus, and none of
+-- attempted and why. Hundreds of thousands across a live corpus, none of
 -- it was queryable.
 --
 -- Same relationship report_finding has to report.findings: the blob stays
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS traust_storage.validation_finding (
     claimed_severity TEXT,
     surface TEXT,
     -- confirmed | refuted | inconclusive | blocked_by_scope | not_attempted.
-    -- not_attempted DOMINATES in practice (184,148 of 208,346) and carries
+    -- not_attempted DOMINATES in practice, by a wide margin, and carries
     -- its reason separately: a validation lane that reported only attempts
     -- would describe 12% of its own work.
     verdict TEXT,

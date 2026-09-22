@@ -87,7 +87,7 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     # is exercised rather than assumed.
     # A real threat model's shape, trimmed from the live corpus: one
     # subject, its own threats. NOT the fleet register -- the estate has
-    # 7,476 models belonging to subjects, not one document of 82,075
+    # many models belonging to subjects, not one document of all
     # threats belonging to nothing.
     "threat-model": {
         "system": "example-repo",
@@ -110,7 +110,7 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
                 "status": "unmitigated",
                 "controls": "search values are parameterized, but orderBy is string-built",
                 "evidence": ["EXAMPLE-001", "EXAMPLE-002"],
-                # Column 11. Present on only 781 of 82,075 threats in the
+                # Column 11. Present on only a small fraction of threats in the
                 # live corpus despite being default since harness 0.82.0,
                 # so a fixture without it would exercise the common case
                 # and miss the one the ATT&CK rollup depends on.
@@ -318,8 +318,8 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
         "remediation_roadmap": [{"priority": "x", "action": "xxxxxxxxxx", "addresses": ["x"]}],
     },
     # Real outcome shapes, trimmed from the live corpus: the three verdicts
-    # that behave differently. not_attempted dominates in practice (184,148
-    # of 208,346), so a fixture with only attempted findings would describe
+    # that behave differently. not_attempted dominates in practice by a
+    # wide margin, so a fixture with only attempted findings would describe
     # 12% of what this lane records.
     #
     # WHY it was not attempted is deliberately absent: that is run detail
