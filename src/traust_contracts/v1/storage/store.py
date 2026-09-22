@@ -927,6 +927,70 @@ class Store:
         """
         return self._query_view("validation_current", scope_ids)
 
+    def query_attack_coverage(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """ATT&CK techniques with the strongest evidence the estate has.
+
+        `evidence_tier` separates a technique somebody WROTE DOWN from one
+        somebody PROVED: 3 a chain confirmed end to end, 2 a chain
+        attempted and not confirmed, 1 modelled only. A Navigator layer
+        coloured from the union of the two overstates coverage exactly
+        where it matters most.
+        """
+        return self._query_view("attack_coverage", scope_ids)
+
+    def query_verification_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Did each fix hold, per re-audited finding of the current run.
+
+        `verdict` keeps all seven contract values; `held` is the derived
+        binary beside it and is deliberately narrow -- only `resolved`.
+        A false_positive means the finding was never real and
+        risk_accepted means nobody fixed it; neither is evidence a fix
+        worked, which is the one question `held` answers.
+        """
+        return self._query_view("verification_current", scope_ids)
+
+    def query_verification_regression_current(
+        self, scope_ids: Sequence[str]
+    ) -> list[tuple[Any, ...]]:
+        """What each fix BROKE. New findings, not restatements.
+
+        Separate from verification_current on purpose: folding the two
+        makes "how many findings did this verification touch" ambiguous,
+        and this is the half a remediation review must not miss.
+        """
+        return self._query_view("verification_regression_current", scope_ids)
+
+    def query_remediation_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """The findings each current remediation set out to fix.
+
+        `validation_verdict` is the state AT REMEDIATION TIME, not now --
+        the finding's current disposition is on current_finding.
+        """
+        return self._query_view("remediation_current", scope_ids)
+
+    def query_compliance_posture(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Control verdicts of the current assessment, with their owner.
+
+        One row per control per framework, never a percentage: a posture
+        that reports a satisfied ratio and cannot name the unsatisfied
+        controls is not an assessment. `verdict_source` stays uncollapsed
+        and `assurance_tier` orders it, so satisfied-by-check and
+        satisfied-by-human-override never read as the same claim.
+        """
+        return self._query_view("compliance_posture", scope_ids)
+
+    def query_pattern_exposure(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Recurring weakness patterns, one row per CWE per cut.
+
+        Fanned out of `cwes[]`, so a finding declaring two weaknesses counts
+        under both. The dashboard this replaces grouped by the FIRST entry
+        of the list and understated every weakness that was not listed
+        first. `occurrences` therefore sums to more than the finding count,
+        which is the correct reading of "how many findings involve this
+        weakness" and the reason it is not named `findings`.
+        """
+        return self._query_view("pattern_exposure", scope_ids)
+
     def query_operator_privilege(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Privilege each operator ASKS FOR, parsed from shipped manifests.
 
@@ -1123,6 +1187,12 @@ class Store:
                 self._project_report_findings(document, digest, binding_id_value)
             elif artifact == "validation":
                 self._project_validation_findings(document, digest, binding_id_value)
+            elif artifact == "compliance-assessment":
+                self._project_compliance_results(document, digest, binding_id_value)
+            elif artifact == "verification":
+                self._project_verification(document, digest, binding_id_value)
+            elif artifact == "remediation":
+                self._project_remediation_sources(document, digest, binding_id_value)
 
     def _project_one_row(
         self, artifact: str, document: dict[str, Any], digest: str, binding_id_value: str
@@ -1292,6 +1362,25 @@ class Store:
         here turns "was this ever proven against a running system" into a
         join instead of a separate spreadsheet.
         """
+        for chain in document.get("attack_chains") or []:
+            chain_id = chain.get("chain_id")
+            if not chain_id:
+                continue
+            self._execute(
+                query(self.dialect, "attack_chain.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "chain_id": chain_id,
+                    "name": chain.get("name"),
+                    "entry_point": chain.get("entry_point"),
+                    "terminal_asset": chain.get("terminal_asset"),
+                    "mitre_attack_refs": _json_or_none(chain.get("mitre_attack_refs")),
+                    "steps": _json_or_none(chain.get("steps")),
+                    "verdict": chain.get("verdict"),
+                    "narrative": chain.get("narrative"),
+                },
+            )
         for finding in document.get("validated_findings") or []:
             source_id = finding.get("source_id")
             if not source_id:
@@ -1321,6 +1410,142 @@ class Store:
                     "rollback_performed": _boolean(finding.get("rollback_performed")),
                     "chain_context": _json_or_none(finding.get("chain_context")),
                     "not_attempted_reason": finding.get("not_attempted_reason"),
+                },
+            )
+
+    def _project_verification(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a verification out: did each fix hold, and what did it break.
+
+        Two tables, not one. A regression is a NEW finding the fix
+        introduced, not a restatement of the one it closed, and folding
+        them would make "how many findings did this verification touch"
+        ambiguous. The regressions are the half a remediation review must
+        not miss.
+        """
+        for finding in document.get("verified_findings") or []:
+            original_id = finding.get("original_id")
+            if not original_id:
+                continue
+            evidence = finding.get("evidence") or {}
+            self._execute(
+                query(self.dialect, "verification_finding.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "original_id": original_id,
+                    "original_title": finding.get("original_title"),
+                    "original_severity": finding.get("original_severity"),
+                    "verdict": finding.get("verdict"),
+                    "remediation_commits": _json_or_none(finding.get("remediation_commits")),
+                    # Evidence ABOUT the evidence: a fix nobody could tie to
+                    # a commit. Dropping it lets an unexplained pass read
+                    # exactly like a demonstrated one.
+                    "unattributed": _boolean(finding.get("unattributed")),
+                    # Flattened, not stored whole: a nested evidence block is
+                    # exactly where declared fields go missing unnoticed.
+                    "evidence_explanation": evidence.get("explanation"),
+                    "evidence_framework_reference": evidence.get("framework_reference"),
+                    "evidence_original_code": evidence.get("original_code"),
+                    "evidence_patched_code": evidence.get("patched_code"),
+                    "disposition_rationale": finding.get("disposition_rationale"),
+                    "residual_risk": finding.get("residual_risk"),
+                    "residual_severity": finding.get("residual_severity"),
+                    "cross_repo": _json_or_none(finding.get("cross_repo")),
+                },
+            )
+        for regression in document.get("regressions") or []:
+            regression_id = regression.get("id")
+            if not regression_id:
+                continue
+            self._execute(
+                query(self.dialect, "verification_regression.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "regression_id": regression_id,
+                    "title": regression.get("title"),
+                    "severity": regression.get("severity"),
+                    "cwes": _json_or_none(regression.get("cwes")),
+                    "cvss": _json_or_none(regression.get("cvss")),
+                    "locations": _json_or_none(regression.get("locations")),
+                    "description": regression.get("description"),
+                    "remediation": regression.get("remediation"),
+                    "evidence": _json_or_none(regression.get("evidence")),
+                    "attack_pattern": regression.get("attack_pattern"),
+                    "category": regression.get("category"),
+                    "introduced_by": regression.get("introduced_by"),
+                    "routed_id": regression.get("routed_id"),
+                    "fingerprint": regression.get("fingerprint"),
+                    "fingerprint_algo": regression.get("fingerprint_algo"),
+                },
+            )
+
+    def _project_remediation_sources(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a remediation out to the findings that justified it.
+
+        `validation_verdict` is the state AT REMEDIATION TIME. It says why
+        the work was started and must not be read as the finding's current
+        disposition, which lives on current_finding.
+        """
+        for source in document.get("source_findings") or []:
+            finding_ref = source.get("finding_ref")
+            if not finding_ref:
+                continue
+            self._execute(
+                query(self.dialect, "remediation_source.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "finding_ref": finding_ref,
+                    "title": source.get("title"),
+                    "severity": source.get("severity"),
+                    "cwes": _json_or_none(source.get("cwes")),
+                    "locations": _json_or_none(source.get("locations")),
+                    "triage_confidence": source.get("triage_confidence"),
+                    "validation_verdict": source.get("validation_verdict"),
+                    "audit_report_path": source.get("audit_report_path"),
+                    "triage_report_path": source.get("triage_report_path"),
+                    "validation_report_path": source.get("validation_report_path"),
+                },
+            )
+
+    def _project_compliance_results(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan an assessment out to one row per control per framework.
+
+        `verdict_source` travels with the verdict. A control satisfied by a
+        deterministic check, by an agent reading evidence, and by a human
+        override are three different claims about assurance, and a posture
+        reporting only the verdict erases the distinction an auditor is
+        there to examine.
+        """
+        for result in document.get("results") or []:
+            framework = result.get("framework")
+            control_id = result.get("control_id")
+            if not framework or not control_id:
+                continue
+            self._execute(
+                query(self.dialect, "compliance_result.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "framework": framework,
+                    "control_id": control_id,
+                    "title": result.get("title"),
+                    "classification": result.get("classification"),
+                    "verdict": result.get("verdict"),
+                    "verdict_source": result.get("verdict_source"),
+                    "check_id": result.get("check_id"),
+                    "reason": result.get("reason"),
+                    "narrative": result.get("narrative"),
+                    "evidence": _json_or_none(result.get("evidence")),
+                    "override": _json_or_none(result.get("override")),
+                    "n_pass_agreement": _json_or_none(result.get("n_pass_agreement")),
                 },
             )
 

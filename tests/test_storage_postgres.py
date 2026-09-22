@@ -17,10 +17,10 @@ from conftest import (
     seed_findings_summary,
 )
 from storage_samples import (
+    ALL_SECONDARY_PROJECTION_TABLES,
     FAMILIES,
     PROJECTION_TABLES,
     RUN_BOUND,
-    SECONDARY_PROJECTION_TABLES,
     encode,
     sample,
 )
@@ -33,7 +33,7 @@ TABLES = {
     "artifact_evidence",
     "traust_storage_meta",
     *PROJECTION_TABLES.values(),
-    *SECONDARY_PROJECTION_TABLES.values(),
+    *ALL_SECONDARY_PROJECTION_TABLES,
 }
 
 

@@ -18,10 +18,10 @@ from conftest import (
     seed_findings_summary,
 )
 from storage_samples import (
+    ALL_SECONDARY_PROJECTION_TABLES,
     FAMILIES,
     PROJECTION_TABLES,
     RUN_BOUND,
-    SECONDARY_PROJECTION_TABLES,
     encode,
     sample,
 )
@@ -33,7 +33,7 @@ from traust_contracts.v1.storage.store import _threat_score
 TABLES = [
     "artifact_binding",
     "artifact_evidence",
-    *sorted(set(PROJECTION_TABLES.values()) | set(SECONDARY_PROJECTION_TABLES.values())),
+    *sorted(set(PROJECTION_TABLES.values()) | ALL_SECONDARY_PROJECTION_TABLES),
 ]
 
 
@@ -76,6 +76,12 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
     assert names == {*TABLES, "traust_storage_meta"}
     views = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='view'")}
     assert views == {
+        "attack_coverage",
+        "compliance_posture",
+        "pattern_exposure",
+        "remediation_current",
+        "verification_current",
+        "verification_regression_current",
         "advisory_exposure",
         "census_exposure",
         "census_population",

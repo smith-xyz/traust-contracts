@@ -69,15 +69,35 @@ PROJECTION_TABLES = {
 # `report` keeps its one-row row (findings stay a faithful JSON column) and
 # additionally fans each finding into report_finding so disposition and
 # fingerprint are queryable.
-SECONDARY_PROJECTION_TABLES = {
-    "report": "report_finding",
-    "cloud-config-findings-current": "cloud_config_finding",
+#: family -> the fan-out tables it projects into. A tuple because a family
+#: can fan out along more than one axis: a verification says both what held
+#: and what it broke, and those are different rows about different findings.
+SECONDARY_PROJECTION_TABLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
+    "report": ("report_finding",),
+    "cloud-config-findings-current": ("cloud_config_finding",),
     # The ledger's dated transitions -- the time dimension. layer_metadata
     # keeps the merkle root; this keeps the history.
-    "layer": "layer_event",
+    "layer": ("layer_event",),
     # The live-validation outcome per claimed finding: confirmed, refuted,
-    # inconclusive, blocked by scope, or not attempted and why.
-    "validation": "validation_finding",
+    # inconclusive, blocked by scope, or not attempted and why -- plus the
+    # multi-step chains, whose verdict is about the PATH, not a finding.
+    "validation": ("validation_finding", "attack_chain"),
+    # One row per control per framework, with where the verdict came from.
+    "compliance-assessment": ("compliance_result",),
+    # Did the fix hold, and what did it break. Two tables on purpose.
+    "verification": ("verification_finding", "verification_regression"),
+    # The findings a fix set out to close.
+    "remediation": ("remediation_source",),
+}
+
+#: Flat family -> first table, kept for callers that only need one name.
+SECONDARY_PROJECTION_TABLES = {
+    family: tables[0] for family, tables in SECONDARY_PROJECTION_TABLES_BY_FAMILY.items()
+}
+
+#: Every fan-out table, which is what a table inventory actually wants.
+ALL_SECONDARY_PROJECTION_TABLES = {
+    table for tables in SECONDARY_PROJECTION_TABLES_BY_FAMILY.values() for table in tables
 }
 
 

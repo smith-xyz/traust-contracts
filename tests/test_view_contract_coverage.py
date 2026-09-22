@@ -52,6 +52,19 @@ FLATTENED: dict[tuple[str, str], tuple[str, ...]] = {
         "severity_override",
     ),
     ("cloud_config_finding", "id"): ("finding_id",),
+    # _declared flattens an evidence block into its members, so the mapping
+    # is per MEMBER: the block is prefixed, not kept whole.
+    ("verification_finding", "evidence"): (
+        "evidence_explanation",
+        "evidence_framework_reference",
+        "evidence_original_code",
+        "evidence_patched_code",
+    ),
+    ("verification_finding", "explanation"): ("evidence_explanation",),
+    ("verification_finding", "framework_reference"): ("evidence_framework_reference",),
+    ("verification_finding", "original_code"): ("evidence_original_code",),
+    ("verification_finding", "patched_code"): ("evidence_patched_code",),
+    ("verification_regression", "id"): ("regression_id",),
     ("threat", "actor"): ("actors",),
     ("threat", "id"): ("threat_id",),
     ("cloud_config_finding", "disposition"): (
@@ -77,6 +90,11 @@ FAN_OUT_TABLES: dict[str, tuple[str, tuple[str, ...]]] = {
     "layer_event": ("layer.schema.json", ("events",)),
     "validation_finding": ("validation.schema.json", ("validated_findings",)),
     "threat": ("threat-model.schema.json", ("threats",)),
+    "compliance_result": ("compliance-assessment.schema.json", ("results",)),
+    "verification_finding": ("verification.schema.json", ("verified_findings",)),
+    "verification_regression": ("verification.schema.json", ("regressions",)),
+    "remediation_source": ("remediation.schema.json", ("source_findings",)),
+    "attack_chain": ("validation.schema.json", ("attack_chains",)),
 }
 
 #: view -> (schema file, JSON pointer to the ITEM the view fans out).

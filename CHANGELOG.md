@@ -2,6 +2,52 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.8.0]
+
+## Changes
+
+- **The five dashboards with no view now have six.** `pattern_exposure`,
+  `compliance_posture`, `verification_current`,
+  `verification_regression_current`, `remediation_current` and
+  `attack_coverage`, over five new fan-out tables: `compliance_result`,
+  `verification_finding`, `verification_regression`, `remediation_source`
+  and `attack_chain`.
+
+  Six rather than five because a verification fans out along TWO axes — what
+  held and what it broke. Folding them would make "how many findings did this
+  verification touch" ambiguous, and the regressions are the half a
+  remediation review must not miss.
+
+  Three judgements the views encode deliberately:
+
+  - `pattern_exposure` fans `cwes[]` out rather than grouping by a *primary*
+    CWE. A finding declaring two weaknesses is an instance of both, so
+    `occurrences` sums to more than the finding count — which is why it is
+    not named `findings`.
+  - `compliance_posture` keeps `verdict_source` uncollapsed with an
+    `assurance_tier` ordering it. Satisfied-by-check, satisfied-by-agent and
+    satisfied-by-human-override are three different assurance claims.
+  - `attack_coverage` RANKS evidence instead of unioning it: a chain
+    confirmed end to end, a chain attempted, and a technique merely modelled
+    are tiers 3, 2 and 1. Colouring a coverage map from the union of the
+    three overstates the estate's evidence everywhere it matters most.
+
+  `current_finding` gains `category`, `cwes` and `effective_severity` so a
+  pattern rollup does not re-join the finding tables. A policy finding
+  declares a single `cwe` rather than a list, so it is wrapped into a
+  one-element array: one column, one meaning, whichever family the row
+  came from.
+
+  `verification_finding.evidence` is flattened into its four declared members
+  rather than stored whole. The coverage gate required it, and correctly: a
+  nested evidence block is exactly where declared fields go missing.
+
+  `REVISION` 14 → 15. A store on 14 has neither the tables nor the views.
+
+- **A family can now declare several fan-out tables.** The registry mapped
+  one table per family, which could express neither validation's
+  `attack_chain` beside `validation_finding` nor verification's two.
+
 ## [0.7.0]
 
 ## Changes

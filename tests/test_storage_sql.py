@@ -7,10 +7,10 @@ import tomllib
 from pathlib import Path
 
 from storage_samples import (
+    ALL_SECONDARY_PROJECTION_TABLES,
     FAMILIES,
     PROJECTION_TABLES,
     RUN_BOUND,
-    SECONDARY_PROJECTION_TABLES,
 )
 
 from traust_contracts.paths import storage_dir
@@ -21,11 +21,17 @@ TABLES = {
     "artifact_binding",
     "traust_storage_meta",
     *PROJECTION_TABLES.values(),
-    *SECONDARY_PROJECTION_TABLES.values(),
+    *ALL_SECONDARY_PROJECTION_TABLES,
 }
 POSTGRES_SCHEMA = "traust_storage"
 POSTGRES_RELATIONS = {
     *TABLES,
+    "attack_coverage",
+    "compliance_posture",
+    "pattern_exposure",
+    "remediation_current",
+    "verification_current",
+    "verification_regression_current",
     "census_exposure",
     "census_population",
     "current_binding",
@@ -132,6 +138,12 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
     for dialect in DIALECTS:
         names = set(_declared_views(dialect))
         assert names == {
+            "attack_coverage",
+            "compliance_posture",
+            "pattern_exposure",
+            "remediation_current",
+            "verification_current",
+            "verification_regression_current",
             "advisory_exposure",
             "census_exposure",
             "census_population",
@@ -328,6 +340,12 @@ def test_storage_package_resources() -> None:
             assert (root / dialect / "queries" / f"{entity}.upsert.sql").is_file()
         assert {path.stem for path in (root / dialect / "views").glob("*.sql")} == {
             "binding_current",
+            "attack_coverage",
+            "compliance_posture",
+            "pattern_exposure",
+            "remediation_current",
+            "verification_current",
+            "verification_regression_current",
             "advisory_exposure",
             "census_exposure",
             "census_population",

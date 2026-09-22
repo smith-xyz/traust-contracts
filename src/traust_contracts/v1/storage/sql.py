@@ -57,7 +57,16 @@ CONTRACT_VERSION = "v1"
 #: A store on 13 is missing columns, not rows, and the upsert simply stops
 #: filling them -- the same silent shape as revisions 2 and 4, so the same
 #: refusal.
-REVISION = 14
+#: 15 (2026-09-21): the five dashboards that had no view now have one.
+#: compliance_result, verification_finding, verification_regression,
+#: remediation_source and attack_chain are new fan-out tables; the views
+#: over them are compliance_posture, verification_current,
+#: verification_regression_current, remediation_current and attack_coverage,
+#: plus pattern_exposure over the columns revision 14 added. current_finding
+#: gains category, cwes and effective_severity so a pattern rollup does not
+#: re-join the finding tables. A store on 14 has neither the tables nor the
+#: views, so every one of those consumers returns nothing.
+REVISION = 15
 
 
 @cache
@@ -88,6 +97,10 @@ VIEW_ORDER: tuple[str, ...] = (
     "pqc_posture.sql",
     "sla_clock.sql",
     "sla_threshold.sql",
+    # Reads current_finding, so it must follow it.
+    "pattern_exposure.sql",
+    # Reads threat_current and current_binding.
+    "attack_coverage.sql",
 )
 
 

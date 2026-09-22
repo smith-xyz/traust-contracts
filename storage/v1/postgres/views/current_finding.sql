@@ -13,6 +13,14 @@
 --   3. OWNERSHIP. The denominator every cut divides by, and it lives in
 --      neither finding table.
 --
+--
+-- category, cwes and effective_severity ride the spine as of REVISION 15.
+-- They are the axes a pattern rollup groups by, and a view above this one
+-- should not have to re-join the finding tables to reach them. A policy
+-- finding declares a single `cwe` rather than a list, so it is wrapped into
+-- a one-element array: one column, one meaning, whichever family a row came
+-- from. effective_severity is the severity AFTER disposition -- reading
+-- `severity` alone reports a downgraded finding at its original rating.
 -- Deliberately UNFILTERED on disposition: open/hardening are policy and
 -- belong in the views above, not in the spine.
 CREATE OR REPLACE VIEW traust_storage.current_finding AS
@@ -26,6 +34,9 @@ SELECT binding.scope_id,
        f.validity,
        f.resolution,
        f.assurance,
+       f.category,
+       f.cwes,
+       f.effective_severity,
        'code' AS family,
        owner.ownership,
        owner.business_unit,
@@ -49,6 +60,9 @@ SELECT binding.scope_id,
        f.validity,
        f.resolution,
        f.assurance,
+       NULL AS category,
+       CASE WHEN f.cwe IS NULL THEN NULL ELSE jsonb_build_array(f.cwe) END AS cwes,
+       f.effective_severity,
        'policy' AS family,
        owner.ownership,
        owner.business_unit,
