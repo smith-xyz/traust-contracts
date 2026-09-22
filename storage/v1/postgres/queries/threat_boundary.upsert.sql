@@ -1,0 +1,39 @@
+INSERT INTO traust_storage.threat_boundary (
+    binding_id,
+    artifact_digest,
+    boundary_key,
+    boundary_id,
+    subject_id,
+    product,
+    interface,
+    kind,
+    exposure,
+    complexity,
+    privilege,
+    encryption,
+    authentication,
+    connectivity,
+    hygiene,
+    threat_ids,
+    isolation_review_ref
+)
+VALUES (
+    %(binding_id)s,
+    %(artifact_digest)s,
+    %(boundary_key)s,
+    %(boundary_id)s,
+    %(subject_id)s,
+    %(product)s,
+    %(interface)s,
+    %(kind)s,
+    %(exposure)s,
+    %(complexity)s,
+    %(privilege)s,
+    %(encryption)s,
+    %(authentication)s,
+    %(connectivity)s,
+    %(hygiene)s,
+    %(threat_ids)s,
+    %(isolation_review_ref)s
+)
+ON CONFLICT (binding_id, boundary_key) DO NOTHING;

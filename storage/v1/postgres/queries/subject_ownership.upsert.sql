@@ -10,7 +10,8 @@ INSERT INTO traust_storage.subject_ownership (
     repo_url,
     ref,
     ref_kind,
-    is_branch_audit
+    is_branch_audit,
+    report_kind
 )
 VALUES (
     %(binding_id)s,
@@ -24,6 +25,7 @@ VALUES (
     %(repo_url)s,
     %(ref)s,
     %(ref_kind)s,
-    %(is_branch_audit)s
+    %(is_branch_audit)s,
+    %(report_kind)s
 )
 ON CONFLICT (binding_id, subject_id) DO NOTHING;

@@ -70,6 +70,11 @@
         "is_branch_audit": {
           "type": "boolean",
           "description": "Whether this subject is a re-audit of a non-default ref. Load-bearing for every count: a large share of audits are branch re-audits of the same code, so a denominator that does not exclude them overstates coverage and double-counts exposure."
+        },
+        "report_kind": {
+          "type": "string",
+          "minLength": 1,
+          "description": "What kind of report this subject carries -- the UNIT its findings are counted in. The harness emits code-audit, cloud-config (declared-layer IaC) and container-audit; a census never blends units, and until this field existed the distinction lived only in the harness's private projection, so no contract consumer could separate them."
         }
       }
     }

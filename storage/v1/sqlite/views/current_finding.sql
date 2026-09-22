@@ -21,6 +21,11 @@
 -- a one-element array: one column, one meaning, whichever family a row came
 -- from. effective_severity is the severity AFTER disposition -- reading
 -- `severity` alone reports a downgraded finding at its original rating.
+-- report_kind and cvss_score ride the spine as of REVISION 16. report_kind
+-- is the unit a census must never blend (code, declared-layer IaC,
+-- container image), and it lived only in the harness's own table.
+-- cvss_score is the number an SLA policy's CVSS floor reads; the cvss block
+-- is kept whole on report_finding and this is its one scalar member.
 -- Deliberately UNFILTERED on disposition: open/hardening are policy and
 -- belong in the views above, not in the spine.
 CREATE VIEW IF NOT EXISTS current_finding AS
@@ -41,7 +46,9 @@ SELECT binding.scope_id,
        owner.ownership,
        owner.business_unit,
        owner.tree,
-       owner.is_branch_audit
+       owner.is_branch_audit,
+       owner.report_kind,
+       json_extract(f.cvss, '$.score') AS cvss_score
 FROM report_finding f
 JOIN report_current current_report
   ON current_report.binding_id = f.binding_id
@@ -67,9 +74,13 @@ SELECT binding.scope_id,
        owner.ownership,
        owner.business_unit,
        owner.tree,
-       owner.is_branch_audit
+       owner.is_branch_audit,
+       owner.report_kind,
+       NULL AS cvss_score
 FROM cloud_config_finding f
-JOIN current_binding binding
+JOIN policy_report_current current_report
+  ON current_report.binding_id = f.binding_id
+JOIN artifact_binding binding
   ON binding.binding_id = f.binding_id
 LEFT JOIN ownership_current owner
   ON owner.subject_id = binding.subject_id;

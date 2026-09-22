@@ -35,6 +35,19 @@ CREATE TABLE IF NOT EXISTS traust_storage.layer_event (
     source_type TEXT,
     source_ref TEXT,
     actor_kind TEXT,
+    -- The rest of source.actor. layer.schema.json declares nine actor
+    -- fields and only `kind` reached SQL: the coverage gate treated
+    -- `source` as satisfied by its four split columns and never looked
+    -- inside `actor`. Identity is what a two-person rule and a countersign
+    -- audit ask about -- WHO decided -- and it was unreachable.
+    actor_identity TEXT,
+    actor_ldap_verified INTEGER,
+    actor_identity_verified INTEGER,
+    actor_identity_provider TEXT,
+    actor_identity_issuer TEXT,
+    actor_identity_subject TEXT,
+    actor_employee_status TEXT,
+    actor_display_name TEXT,
     validity TEXT,
     resolution TEXT,
     evidence_grade TEXT,

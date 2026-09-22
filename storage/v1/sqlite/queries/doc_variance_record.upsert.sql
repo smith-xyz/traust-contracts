@@ -1,0 +1,39 @@
+INSERT INTO doc_variance_record (
+    binding_id,
+    artifact_digest,
+    record_id,
+    source_product_slug,
+    source_version,
+    source_guide,
+    source_url,
+    source_quote,
+    claim,
+    code_evidence,
+    variance,
+    verified_at,
+    verified_against,
+    disposition,
+    disposition_note,
+    finding_refs,
+    threat_refs
+)
+VALUES (
+    :binding_id,
+    :artifact_digest,
+    :record_id,
+    :source_product_slug,
+    :source_version,
+    :source_guide,
+    :source_url,
+    :source_quote,
+    :claim,
+    :code_evidence,
+    :variance,
+    :verified_at,
+    :verified_against,
+    :disposition,
+    :disposition_note,
+    :finding_refs,
+    :threat_refs
+)
+ON CONFLICT (binding_id, record_id) DO NOTHING;

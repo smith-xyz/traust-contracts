@@ -1,0 +1,25 @@
+SELECT scope_id,
+       boundary_key,
+       boundary_id,
+       subject_id,
+       product,
+       interface,
+       kind,
+       exposure,
+       complexity,
+       privilege,
+       encryption,
+       authentication,
+       connectivity,
+       hygiene,
+       threat_ids,
+       isolation_review_ref,
+       weakness,
+       open_threats,
+       ownership,
+       business_unit,
+       tree,
+       is_branch_audit
+FROM boundary_current
+WHERE scope_id IN (SELECT value FROM json_each(:scope_ids))
+ORDER BY scope_id, boundary_key;

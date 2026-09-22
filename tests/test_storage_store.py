@@ -26,6 +26,7 @@ from storage_samples import (
     sample,
 )
 
+from traust_contracts.paths import storage_dir
 from traust_contracts.v1.storage import Binding, IngestError, Store, binding_id
 from traust_contracts.v1.storage.sql import CONTRACT_VERSION, REVISION
 from traust_contracts.v1.storage.store import _threat_score
@@ -106,6 +107,11 @@ def test_init_revision_and_dependency_shape(store: Store) -> None:
         "threat_exposure",
         "validation_current",
         "validation_exposure",
+        "policy_report_current",
+        "census_distinct",
+        "census_branch",
+        "boundary_current",
+        "doc_variance_current",
     }
     assert conn.execute("PRAGMA foreign_keys").fetchone() == (1,)
     original = conn.execute("SELECT * FROM traust_storage_meta").fetchall()
@@ -663,6 +669,7 @@ def _registry(subject: str, *, ownership: str = "owned", branch: bool = False) -
                     "ownership": ownership,
                     "business_unit": "Platform Group",
                     "is_branch_audit": branch,
+                    "report_kind": "code-audit",
                 }
             ],
         }
@@ -1602,3 +1609,318 @@ def test_layer_event_flattens_risk_weight_and_keeps_rationale(store: Store) -> N
     assert row[1] == "0.8.3"
     assert row[2] == 0.25, "lambda is a number, queryable without json_extract"
     assert row[3:] == ("2026-07", "multi_tenant", "org-parameters")
+
+
+# ---------------------------------------------------------------------------
+# Revision 16: the census and the register are computable from the contract.
+# ---------------------------------------------------------------------------
+
+
+def _uncommented(sql: str) -> str:
+    return "\n".join(line.split("--")[0] for line in sql.splitlines())
+
+
+def test_layer_event_carries_every_actor_field(store: Store) -> None:
+    """layer.schema.json declares nine actor fields; `kind` alone reached SQL.
+
+    WHO decided is what a countersign audit and a two-person rule ask. The
+    gate missed it because `source` was satisfied by four split columns and
+    nothing looked inside `actor`; it now descends into both.
+    """
+    payload, _ = sample("layer")
+    result = store.ingest("layer", payload, Binding(layer_id="ledger:layer:actors"))
+    row = store.conn.execute(
+        "SELECT actor_kind, actor_identity, actor_identity_verified, actor_identity_provider, "
+        "actor_identity_issuer, actor_identity_subject, actor_employee_status, "
+        "actor_display_name, actor_ldap_verified FROM layer_event "
+        "WHERE binding_id = ? AND event_id = ?",
+        (result.binding_id, "b" * 64),
+    ).fetchone()
+    assert row == (
+        "human",
+        "engineer@example.test",
+        1,
+        "oidc",
+        "https://sso.example.test",
+        "sub-0001",
+        "active",
+        "Example Engineer",
+        None,
+    ), "absent stays NULL; present flags are 0/1, never a Python bool"
+
+
+def test_impact_repos_fan_out_and_the_view_reads_the_table(store: Store) -> None:
+    """README rule 3: per-item fields are COLUMNS, never json_each at read time.
+
+    The view's output is unchanged; what changed is where the rows come
+    from. Evidence flags keep NULL as NOT ESTABLISHED.
+    """
+    payload, _ = sample("impact-analysis")
+    result = store.ingest("impact-analysis", payload, Binding(scope_id="local"))
+    rows = store.conn.execute(
+        "SELECT repo, classification, direct, evidence_level, l1_depends_on, "
+        "l1_version_in_range, needs_manual_trace, govulncheck FROM impact_repo "
+        "WHERE binding_id = ? ORDER BY repo",
+        (result.binding_id,),
+    ).fetchall()
+    assert rows == [
+        ("repo:example.test/org/service", "affected", 1, "symbol", 1, 1, 0, None),
+        ("repo:example.test/org/tool", "version_not_in_range", 0, "manifest", 1, 0, 0, None),
+    ]
+    sql = (storage_dir() / "sqlite" / "views" / "advisory_exposure.sql").read_text()
+    assert "json_each" not in _uncommented(sql), "the blast radius is read from impact_repo"
+    view = store.query_advisory_exposure(["local"])
+    assert [(r[16], r[17], r[24]) for r in view] == [
+        ("repo:example.test/org/service", "affected", "symbol"),
+        ("repo:example.test/org/tool", "version_not_in_range", "manifest"),
+    ], "repo, classification and evidence_level at their unchanged positions"
+
+
+def test_tenant_boundaries_project_and_the_register_can_order_them(store: Store) -> None:
+    """tenant_boundaries[] had no projection at all; the register parsed prose.
+
+    weakness sums failed (2) and partial (1) dimensions; open_threats counts
+    the SAME MODEL's unmitigated or partially mitigated threats tagged to
+    the boundary, joined through boundary_threat rather than matched against
+    the threat_ids array.
+    """
+    payload, _ = sample("threat-model")
+    store.ingest("threat-model", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
+    registry, _ = sample("corpus-registry")
+    store.ingest("corpus-registry", registry, Binding())
+    rows = store.query_boundary_current(["local"])
+    assert len(rows) == 1
+    row = rows[0]
+    assert row[1] == "findings/example/repo:IF-1", "boundary_key is subject-scoped"
+    assert row[7] == "tenant" and row[6] == "api"
+    weakness, open_threats = row[16], row[17]
+    assert weakness == 3, "partial privilege (1) + failed authentication (2)"
+    assert open_threats == 1, "T1 is unmitigated and tagged; T2 is not tagged"
+    assert row[18:21] == ("owned", "Platform Group", "findings"), "the owner joins"
+    junction = store.conn.execute("SELECT threat_id FROM boundary_threat").fetchall()
+    assert junction == [("T1",)]
+
+
+def test_doc_variance_records_project_with_their_source(store: Store) -> None:
+    """`source` is flattened: the doc version joins a claim to its release."""
+    payload, _ = sample("doc-variance")
+    store.ingest("doc-variance", payload, Binding(subject_id="findings/example/repo", run_id="r1"))
+    registry, _ = sample("corpus-registry")
+    store.ingest("corpus-registry", registry, Binding())
+    rows = store.query_doc_variance_current(["local"])
+    assert len(rows) == 1
+    row = rows[0]
+    assert row[2] == "https://example.test/value", "repository from the register's metadata"
+    assert row[3] == "dv-001"
+    assert (row[4], row[5]) == ("example-product", "1.0"), "source flattened"
+    assert (row[11], row[14]) == ("overclaim", "open"), "variance and disposition uncollapsed"
+    assert row[18:21] == ("owned", "Platform Group", "findings")
+
+
+def test_report_kind_reaches_the_spine_and_the_census(store: Store) -> None:
+    """The unit a finding is counted in lived only in the harness's own table."""
+    _seed_dashboard(store)
+    kinds = set(store.conn.execute("SELECT DISTINCT report_kind FROM current_finding"))
+    assert kinds == {("code-audit",)}
+    population = store.query_census_population(["local"])
+    assert population and all(row[-1] == "code-audit" for row in population), (
+        "census_population carries report_kind as its trailing column"
+    )
+    exposure = store.query_census_exposure(["local"])
+    assert exposure and all(row[-1] == "code-audit" for row in exposure)
+
+
+def test_the_spine_carries_cvss_score(store: Store) -> None:
+    """The SLA CVSS floor reads a number, not a JSON blob."""
+    document = json.loads(report_with_findings())
+    document["findings"][0]["cvss"] = {"score": 8.1, "vector": "CVSS:3.1/AV:N"}
+    store.ingest("report", encode(document), Binding(subject_id="s", run_id="r"))
+    scores = dict(
+        store.conn.execute("SELECT finding_id, cvss_score FROM current_finding ORDER BY 1")
+    )
+    assert scores["FIND-001"] == 8.1
+    assert scores["FIND-002"] is None, "no cvss block, no score -- never a zero"
+
+
+def test_policy_audit_and_current_restatement_count_once(store: Store) -> None:
+    """The policy family's report_current.
+
+    A cloud-config subject carries a plain audit and its disposition-aware
+    restatement; both fan into cloud_config_finding now. Counting the table
+    directly double-counts; the spine reads policy_report_current and
+    prefers the disposition-aware artifact regardless of ingest order.
+    """
+    current = _cloud_config_with_findings()
+    audit_document = json.loads(sample("cloud-config-audit")[0])
+    audit_document["findings"] = [
+        {
+            k: v
+            for k, v in finding.items()
+            if k not in ("disposition", "effective_severity", "validation_status")
+        }
+        for finding in json.loads(current)["findings"]
+    ]
+    store.ingest("cloud-config-findings-current", current, run_binding(run="r:current"))
+    store.ingest("cloud-config-audit", encode(audit_document), run_binding(run="r:audit"))
+    naive = store.conn.execute("SELECT count(*) FROM cloud_config_finding").fetchone()[0]
+    assert naive == 4, "both restatements are projected"
+    chosen = store.conn.execute(
+        "SELECT run_id, disposition_aware FROM policy_report_current"
+    ).fetchall()
+    assert chosen == [("r:current", 1)]
+    spine = store.conn.execute(
+        "SELECT count(*) FROM current_finding WHERE family = 'policy'"
+    ).fetchone()[0]
+    assert spine == 2, "each policy finding once"
+
+
+def test_policy_audit_alone_still_reaches_the_spine(store: Store) -> None:
+    """A cloud-config repo with no findings-current yet has findings too."""
+    audit_document = json.loads(sample("cloud-config-audit")[0])
+    audit_document["findings"] = [
+        {
+            k: v
+            for k, v in finding.items()
+            if k not in ("disposition", "effective_severity", "validation_status")
+        }
+        for finding in json.loads(_cloud_config_with_findings())["findings"]
+    ]
+    store.ingest("cloud-config-audit", encode(audit_document), run_binding())
+    rows = store.conn.execute(
+        "SELECT finding_id, validity FROM current_finding WHERE family='policy' ORDER BY 1"
+    ).fetchall()
+    assert rows == [("CCA-ARO-HCP-001", None), ("CCA-ARO-HCP-002", None)], (
+        "an undispositioned audit finding projects with NULL disposition"
+    )
+
+
+def _seed_census(store: Store) -> None:
+    """Two owned HEAD subjects sharing one fingerprint at two severities, a
+    hardening finding, a false positive, and a branch re-audit that restates
+    one HEAD finding and adds one of its own."""
+    registry = json.loads(sample("corpus-registry")[0])
+    registry["subjects"] = [
+        {
+            "subject_id": s,
+            "tree": "findings",
+            "ownership": "owned",
+            "business_unit": "BU",
+            "is_branch_audit": branch,
+            "report_kind": "code-audit",
+        }
+        for s, branch in (("repo/a", False), ("repo/b", False), ("repo/a@rel", True))
+    ]
+    store.ingest("corpus-registry", encode(registry), Binding())
+
+    def report(findings):
+        document = json.loads(report_with_findings())
+        document["findings"] = [
+            {
+                "id": fid,
+                "title": "Census fixture finding",
+                "severity": severity,
+                "description": "d" * 50,
+                "remediation": "r" * 20,
+                "cwes": ["CWE-79"],
+                "locations": [{"path": "a.go"}],
+                "fingerprint": fp,
+                **(
+                    {
+                        "disposition": {
+                            "validity": validity,
+                            "resolution": resolution,
+                            "last_updated": "2026-01-01T00:00:00Z",
+                            "events": [],
+                        }
+                    }
+                    if validity
+                    else {}
+                ),
+            }
+            for fid, severity, fp, validity, resolution in findings
+        ]
+        return encode(document)
+
+    shared, hard, fp_only, branch_only = "1" * 64, "2" * 64, "3" * 64, "4" * 64
+    store.ingest(
+        "report",
+        report(
+            [
+                ("F1", "high", shared, "confirmed", "open"),
+                ("F2", "medium", hard, "hardening", "open"),
+                ("F3", "low", fp_only, "false_positive", "open"),
+            ]
+        ),
+        Binding(subject_id="repo/a", run_id="a"),
+    )
+    store.ingest(
+        "report",
+        report([("F1", "critical", shared, "confirmed", "resolved")]),
+        Binding(subject_id="repo/b", run_id="b"),
+    )
+    store.ingest(
+        "report",
+        report(
+            [
+                ("F1", "high", shared, "confirmed", "open"),
+                ("F9", "low", branch_only, "confirmed", "open"),
+            ]
+        ),
+        Binding(subject_id="repo/a@rel", run_id="rel"),
+    )
+
+
+def test_census_distinct_ranks_severity_and_keeps_hardening_apart(store: Store) -> None:
+    """One row per identity per cut; severity is the highest BY RANK.
+
+    The shared fingerprint is high in one repo and critical in another and
+    still open in one of them: one row, critical, open. Hardening is its own
+    class; the false positive is gone; the branch re-audit is excluded.
+    """
+    _seed_census(store)
+    rows = store.query_census_distinct(["local"])
+    by_fp = {row[3]: row for row in rows}
+    assert set(by_fp) == {"1" * 64, "2" * 64}
+    shared = by_fp["1" * 64]
+    assert (shared[1], shared[2], shared[4], shared[5], shared[6], shared[7]) == (
+        "owned",
+        "code-audit",
+        0,
+        "critical",
+        1,
+        2,
+    )
+    hardening = by_fp["2" * 64]
+    assert (hardening[4], hardening[5]) == (1, "medium")
+
+
+def test_census_branch_separates_confirmations_from_branch_only(store: Store) -> None:
+    _seed_census(store)
+    rows = store.query_census_branch(["local"])
+    assert rows == [("local", "findings", "code-audit", 2, 1, 1)], (
+        "two branch findings: one confirms HEAD, one is branch-only"
+    )
+
+
+def test_distinct_exposure_severity_example_is_the_highest_by_rank(store: Store) -> None:
+    """MAX over the text ranked 'medium' above 'critical'."""
+    _seed_census(store)
+    rows = {row[1]: row for row in store.query_distinct_exposure(["local"])}
+    assert rows["1" * 64][3] == "high", (
+        "distinct_exposure is OPEN exposure: the critical occurrence is resolved, "
+        "so the highest open severity is high -- census_distinct sees the critical"
+    )
+    # Reopen the critical occurrence. Text MAX over {'critical', 'high'} says
+    # 'high'; the rank says 'critical'.
+    store.conn.execute("UPDATE report_finding SET resolution='open' WHERE severity='critical'")
+    store.conn.commit()
+    rows = {row[1]: row for row in store.query_distinct_exposure(["local"])}
+    assert rows["1" * 64][3] == "critical"
+    from traust_contracts.v1.enums import Severity
+
+    for dialect in ("sqlite", "postgres"):
+        sql = _uncommented(
+            (storage_dir() / dialect / "views" / "distinct_exposure.sql").read_text()
+        )
+        for member in Severity:
+            assert f"'{member.value}'" in sql, f"{dialect}: {member.value} is not ranked"

@@ -31,7 +31,83 @@ from traust_contracts.paths import schema_dir, storage_dir
 #: risk_weight follows it -- so the check looks for the parts, not the name.
 #: Listed explicitly: a prefix rule would silently accept a partial split.
 FLATTENED: dict[tuple[str, str], tuple[str, ...]] = {
-    ("layer_event", "source"): ("source_type", "source_ref", "actor_kind", "source_reported_by"),
+    ("layer_event", "source"): (
+        "source_type",
+        "source_ref",
+        "source_reported_by",
+        "actor_kind",
+        "actor_identity",
+        "actor_ldap_verified",
+        "actor_identity_verified",
+        "actor_identity_provider",
+        "actor_identity_issuer",
+        "actor_identity_subject",
+        "actor_employee_status",
+        "actor_display_name",
+    ),
+    # _declared descends into `source` and then into `actor`, so each member
+    # is checked by name. `kind` alone reaching SQL is the gap this closed:
+    # the block was satisfied by four columns and nobody asked about the
+    # eight fields inside actor.
+    ("layer_event", "type"): ("source_type",),
+    ("layer_event", "ref"): ("source_ref",),
+    ("layer_event", "reported_by"): ("source_reported_by",),
+    ("layer_event", "actor"): (
+        "actor_kind",
+        "actor_identity",
+        "actor_ldap_verified",
+        "actor_identity_verified",
+        "actor_identity_provider",
+        "actor_identity_issuer",
+        "actor_identity_subject",
+        "actor_employee_status",
+        "actor_display_name",
+    ),
+    ("layer_event", "kind"): ("actor_kind",),
+    ("layer_event", "identity"): ("actor_identity",),
+    ("layer_event", "ldap_verified"): ("actor_ldap_verified",),
+    ("layer_event", "identity_verified"): ("actor_identity_verified",),
+    ("layer_event", "identity_provider"): ("actor_identity_provider",),
+    ("layer_event", "identity_issuer"): ("actor_identity_issuer",),
+    ("layer_event", "identity_subject"): ("actor_identity_subject",),
+    ("layer_event", "employee_status"): ("actor_employee_status",),
+    ("layer_event", "display_name"): ("actor_display_name",),
+    # impact_repo flattens evidence into its members, one column each.
+    ("impact_repo", "evidence"): (
+        "evidence_level",
+        "l1_depends_on",
+        "l1_version_in_range",
+        "l4_package_imported",
+        "l4_packages_found",
+        "govulncheck",
+        "govulncheck_trace",
+        "feature_pattern_matches",
+        "binary_string_scan",
+        "binary_symbol_scan",
+        "binary_linked_library",
+        "symbol_usage_scan",
+        "source_import_scan",
+        "manifest_scan",
+        "manifest_version",
+        "sbom_scan",
+        "sbom_shipped_version",
+        "needs_manual_trace",
+        "notes",
+    ),
+    # doc_variance_record flattens `source` -- which document made the claim.
+    ("doc_variance_record", "id"): ("record_id",),
+    ("doc_variance_record", "source"): (
+        "source_product_slug",
+        "source_version",
+        "source_guide",
+        "source_url",
+        "source_quote",
+    ),
+    ("doc_variance_record", "product_slug"): ("source_product_slug",),
+    ("doc_variance_record", "version"): ("source_version",),
+    ("doc_variance_record", "guide"): ("source_guide",),
+    ("doc_variance_record", "url"): ("source_url",),
+    ("doc_variance_record", "quote"): ("source_quote",),
     ("layer_event", "disposition"): ("validity", "resolution", "severity", "embargo"),
     ("layer_event", "risk_weight"): (
         "risk_lambda",
@@ -95,6 +171,10 @@ FAN_OUT_TABLES: dict[str, tuple[str, tuple[str, ...]]] = {
     "verification_regression": ("verification.schema.json", ("regressions",)),
     "remediation_source": ("remediation.schema.json", ("source_findings",)),
     "attack_chain": ("validation.schema.json", ("attack_chains",)),
+    # Revision 16: the arrays the step-10 gate never asked about.
+    "impact_repo": ("impact-analysis.schema.json", ("repos",)),
+    "threat_boundary": ("threat-model.schema.json", ("tenant_boundaries",)),
+    "doc_variance_record": ("doc-variance.schema.json", ("records",)),
 }
 
 #: view -> (schema file, JSON pointer to the ITEM the view fans out).
@@ -160,11 +240,22 @@ def _declared(schema: dict, pointer: tuple[str, ...]) -> set[str]:
     missing without anyone noticing.
     """
     props = _item_properties(schema, pointer)
+    return _flatten(schema, props)
+
+
+#: Nested blocks whose members are checked individually. `source` is where
+#: `actor` hides, and `actor` is where eight identity fields hid behind
+#: `kind` for as long as the gate stopped at the block.
+NESTED_BLOCKS = ("evidence", "source", "actor")
+
+
+def _flatten(schema: dict, props: dict) -> set[str]:
     names = set(props)
-    for nested in ("evidence",):
+    for nested in NESTED_BLOCKS:
         block = props.get(nested)
         if isinstance(block, dict):
-            names |= set(_deref(schema, block).get("properties", {}))
+            inner = _deref(schema, block).get("properties", {})
+            names |= _flatten(schema, inner)
     return names
 
 
@@ -288,6 +379,7 @@ INTERMEDIATE_VIEWS = {
     "ownership_current": "the owner join, composed into every scoped view",
     "finding_first_seen": "the open-clock, composed into finding_timeline",
     "sla_clock": "the policy clock, composed into finding_sla",
+    "policy_report_current": "one policy report per subject, composed into current_finding",
 }
 
 

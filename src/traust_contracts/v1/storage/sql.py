@@ -66,7 +66,24 @@ CONTRACT_VERSION = "v1"
 #: gains category, cwes and effective_severity so a pattern rollup does not
 #: re-join the finding tables. A store on 14 has neither the tables nor the
 #: views, so every one of those consumers returns nothing.
-REVISION = 15
+#: 16 (2026-09-21): the census and the register are computable from the
+#: contract alone. impact_repo fans impact-analysis.repos[] out so
+#: advisory_exposure stops joining json_each over the blob at query time
+#: (README rule 3). threat_boundary + boundary_threat project
+#: tenant_boundaries[] and doc_variance_record projects doc-variance
+#: records[], read through boundary_current and doc_variance_current --
+#: the two root arrays the step-10 gate never asked about. layer_event
+#: carries all nine actor fields the layer schema declares, not `kind`
+#: alone. subject_ownership carries report_kind so a census separates
+#: code, IaC and container units without the harness's private table;
+#: the spine, census_population and census_exposure expose it, and the
+#: spine gains cvss_score. census_distinct and census_branch replace the
+#: last two in-Python census aggregates. cloud-config-audit findings now
+#: fan into cloud_config_finding behind policy_report_current, the
+#: policy family's report_current. distinct_exposure ranks its severity
+#: example instead of sorting the text. A store on 15 lacks the tables
+#: and the columns; the upserts would silently stop filling them.
+REVISION = 16
 
 
 @cache
@@ -88,8 +105,13 @@ def query(dialect: Dialect, filename: str) -> str:
 VIEW_ORDER: tuple[str, ...] = (
     "binding_current.sql",
     "report_current.sql",
+    # The policy family's report_current; current_finding reads it.
+    "policy_report_current.sql",
     "ownership_current.sql",
     "current_finding.sql",
+    # Both read current_finding and sort before it alphabetically.
+    "census_distinct.sql",
+    "census_branch.sql",
     "threat_current.sql",
     "validation_current.sql",
     "finding_first_seen.sql",

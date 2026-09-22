@@ -1009,6 +1009,33 @@ class Store:
         """
         return self._query_view("census_exposure", scope_ids)
 
+    def query_census_distinct(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Distinct finding identities at HEAD per ownership cut, hardening apart.
+
+        The census's per-cut distinct count with the highest severity any
+        occurrence carried and whether any is still open. What distinct_exposure
+        answers for the owned open cut only, this answers for every cut.
+        """
+        return self._query_view("census_distinct", scope_ids)
+
+    def query_census_branch(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Branch re-audit findings per tree, split into HEAD confirmations and
+        branch-only identities -- the census's second duplication vector."""
+        return self._query_view("census_branch", scope_ids)
+
+    def query_boundary_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Current tenant boundaries with their owner, weakness ordering and the
+        count of open threats tagged to each."""
+        return self._query_view("boundary_current", scope_ids)
+
+    def query_doc_variance_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """Current doc-vs-code discrepancies, one row per record, with owner.
+
+        `disposition` is uncollapsed: only 'open' is exposure, and the other
+        four outcomes are different claims about how the discrepancy closed.
+        """
+        return self._query_view("doc_variance_current", scope_ids)
+
     def _validate_binding(self, artifact: str, binding: Binding) -> None:
         if not isinstance(binding, Binding):
             raise IngestError("binding: expected Binding")
@@ -1158,8 +1185,15 @@ class Store:
         elif artifact == "cloud-config-findings-current":
             self._project_one_row(artifact, document, digest, binding_id_value)
             self._project_cloud_config_findings(document, digest, binding_id_value)
+        elif artifact == "cloud-config-audit":
+            # The plain policy audit fans into the SAME table as its
+            # disposition-aware restatement; policy_report_current picks
+            # one per subject, the way report_current does for code.
+            self._project_one_row(artifact, document, digest, binding_id_value)
+            self._project_cloud_config_findings(document, digest, binding_id_value)
         elif artifact == "threat-model":
             self._project_threats(document, digest, binding_id_value)
+            self._project_threat_boundaries(document, digest, binding_id_value)
         elif artifact == "operator-priv-profile":
             self._project_priv_profile(document, digest, binding_id_value)
         elif artifact == "corpus-registry":
@@ -1179,12 +1213,17 @@ class Store:
                         "ref": subject.get("ref"),
                         "ref_kind": subject.get("ref_kind"),
                         "is_branch_audit": _boolean(subject.get("is_branch_audit")),
+                        "report_kind": subject.get("report_kind"),
                     },
                 )
         else:
             self._project_one_row(artifact, document, digest, binding_id_value)
             if artifact == "report":
                 self._project_report_findings(document, digest, binding_id_value)
+            elif artifact == "impact-analysis":
+                self._project_impact_repos(document, digest, binding_id_value)
+            elif artifact == "doc-variance":
+                self._project_doc_variance_records(document, digest, binding_id_value)
             elif artifact == "validation":
                 self._project_validation_findings(document, digest, binding_id_value)
             elif artifact == "compliance-assessment":
@@ -1262,6 +1301,144 @@ class Store:
                 },
             )
 
+    def _project_threat_boundaries(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a model's tenant boundaries out, and the threats tagged to each.
+
+        boundary_key is `<subject>:<boundary_id>` for the reason threat_key
+        is. threat_ids is kept whole on the row AND fanned into
+        boundary_threat: the register counts the open threats behind a
+        boundary, and matching an id against every entry of the array at
+        query time is what README rule 3 forbids.
+        """
+        subject = self._binding_row(binding_id_value)
+        subject_id = subject[3] if subject else None
+        prefix = subject_id or document.get("subject_id") or document.get("system")
+        for boundary in document.get("tenant_boundaries") or []:
+            boundary_id = boundary.get("boundary_id")
+            if not boundary_id:
+                continue
+            key = f"{prefix}:{boundary_id}"
+            self._execute(
+                query(self.dialect, "threat_boundary.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "boundary_key": key,
+                    "boundary_id": boundary_id,
+                    "subject_id": subject_id or document.get("subject_id"),
+                    "product": document.get("system"),
+                    "interface": boundary.get("interface"),
+                    "kind": boundary.get("kind"),
+                    "exposure": boundary.get("exposure"),
+                    "complexity": boundary.get("complexity"),
+                    "privilege": boundary.get("privilege"),
+                    "encryption": boundary.get("encryption"),
+                    "authentication": boundary.get("authentication"),
+                    "connectivity": boundary.get("connectivity"),
+                    "hygiene": boundary.get("hygiene"),
+                    "threat_ids": _json_or_none(boundary.get("threat_ids")),
+                    "isolation_review_ref": boundary.get("isolation_review_ref"),
+                },
+            )
+            for threat_id in boundary.get("threat_ids") or []:
+                if not threat_id:
+                    continue
+                self._execute(
+                    query(self.dialect, "boundary_threat.upsert.sql"),
+                    {
+                        "binding_id": binding_id_value,
+                        "artifact_digest": digest,
+                        "boundary_key": key,
+                        "threat_id": threat_id,
+                    },
+                )
+
+    def _project_impact_repos(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan an advisory's blast radius out, one row per repository.
+
+        advisory_exposure read these through json_each over the blob until
+        revision 16. `evidence` is flattened into its declared members: null
+        means NOT ESTABLISHED, and the projector must not turn an absent
+        flag into a zero.
+        """
+        for entry in document.get("repos") or []:
+            repo = entry.get("repo")
+            if not repo:
+                continue
+            evidence = entry.get("evidence") or {}
+            self._execute(
+                query(self.dialect, "impact_repo.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "repo": repo,
+                    "classification": entry.get("classification"),
+                    "version": entry.get("version"),
+                    "direct": _boolean(entry.get("direct")),
+                    "products": _json_or_none(entry.get("products")),
+                    "evidence_level": evidence.get("evidence_level"),
+                    "l1_depends_on": _boolean(evidence.get("l1_depends_on")),
+                    "l1_version_in_range": _boolean(evidence.get("l1_version_in_range")),
+                    "l4_package_imported": _boolean(evidence.get("l4_package_imported")),
+                    "l4_packages_found": _json_or_none(evidence.get("l4_packages_found")),
+                    "govulncheck": evidence.get("govulncheck"),
+                    "govulncheck_trace": _json_or_none(evidence.get("govulncheck_trace")),
+                    "feature_pattern_matches": _integer(evidence.get("feature_pattern_matches")),
+                    "binary_string_scan": evidence.get("binary_string_scan"),
+                    "binary_symbol_scan": evidence.get("binary_symbol_scan"),
+                    "binary_linked_library": evidence.get("binary_linked_library"),
+                    "symbol_usage_scan": evidence.get("symbol_usage_scan"),
+                    "source_import_scan": evidence.get("source_import_scan"),
+                    "manifest_scan": evidence.get("manifest_scan"),
+                    "manifest_version": evidence.get("manifest_version"),
+                    "sbom_scan": evidence.get("sbom_scan"),
+                    "sbom_shipped_version": evidence.get("sbom_shipped_version"),
+                    "needs_manual_trace": _boolean(evidence.get("needs_manual_trace")),
+                    "notes": evidence.get("notes"),
+                },
+            )
+
+    def _project_doc_variance_records(
+        self, document: dict[str, Any], digest: str, binding_id_value: str
+    ) -> None:
+        """Fan a doc-variance register out, one row per discrepancy.
+
+        `source` -- which official document made the claim -- is flattened
+        into its declared members; the doc version is what joins a claim
+        to the release branch it describes and it was inside the block.
+        """
+        for record in document.get("records") or []:
+            record_id = record.get("id")
+            if not record_id:
+                continue
+            source = record.get("source") or {}
+            self._execute(
+                query(self.dialect, "doc_variance_record.upsert.sql"),
+                {
+                    "binding_id": binding_id_value,
+                    "artifact_digest": digest,
+                    "record_id": record_id,
+                    "source_product_slug": source.get("product_slug"),
+                    "source_version": source.get("version"),
+                    "source_guide": source.get("guide"),
+                    "source_url": source.get("url"),
+                    "source_quote": source.get("quote"),
+                    "claim": record.get("claim"),
+                    "code_evidence": _json_or_none(record.get("code_evidence")),
+                    "variance": record.get("variance"),
+                    "verified_at": record.get("verified_at"),
+                    "verified_against": record.get("verified_against"),
+                    "disposition": record.get("disposition"),
+                    "disposition_note": record.get("disposition_note"),
+                    "finding_refs": _json_or_none(record.get("finding_refs")),
+                    "threat_refs": _json_or_none(record.get("threat_refs")),
+                },
+            )
+
     def _project_priv_profile(
         self, document: dict[str, Any], digest: str, binding_id_value: str
     ) -> None:
@@ -1326,6 +1503,17 @@ class Store:
                     "source_type": source.get("type"),
                     "source_ref": source.get("ref"),
                     "actor_kind": actor.get("kind"),
+                    # The other eight actor fields the layer schema declares.
+                    # WHO decided is what a countersign audit and a
+                    # two-person rule ask, and only `kind` reached SQL.
+                    "actor_identity": actor.get("identity"),
+                    "actor_ldap_verified": _boolean(actor.get("ldap_verified")),
+                    "actor_identity_verified": _boolean(actor.get("identity_verified")),
+                    "actor_identity_provider": actor.get("identity_provider"),
+                    "actor_identity_issuer": actor.get("identity_issuer"),
+                    "actor_identity_subject": actor.get("identity_subject"),
+                    "actor_employee_status": actor.get("employee_status"),
+                    "actor_display_name": actor.get("display_name"),
                     "validity": disposition.get("validity"),
                     "resolution": disposition.get("resolution"),
                     "evidence_grade": event.get("evidence_grade"),

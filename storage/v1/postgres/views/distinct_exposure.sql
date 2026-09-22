@@ -15,7 +15,12 @@ CREATE OR REPLACE VIEW traust_storage.distinct_exposure AS
 SELECT scope_id,
        fingerprint,
        COUNT(*) AS occurrences,
-       MAX(severity) AS severity_example,
+       -- Highest by RANK, not alphabetically: MAX over the text ranked
+       -- 'medium' above 'critical'. Every Severity enum member is listed.
+       CASE MAX(CASE severity WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3
+                     WHEN 'low' THEN 2 WHEN 'informational' THEN 1 ELSE 0 END)
+            WHEN 5 THEN 'critical' WHEN 4 THEN 'high' WHEN 3 THEN 'medium'
+            WHEN 2 THEN 'low' WHEN 1 THEN 'informational' END AS severity_example,
        MIN(business_unit) AS business_unit_example,
        MIN(subject_id) AS first_subject
 FROM traust_storage.current_finding

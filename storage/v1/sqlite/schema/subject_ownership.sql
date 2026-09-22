@@ -21,6 +21,11 @@ CREATE TABLE IF NOT EXISTS subject_ownership (
     -- Load-bearing: a large share of audits are branch re-audits of the same
     -- code, so a denominator that does not exclude them overstates coverage.
     is_branch_audit INTEGER,
+    -- What KIND of report this subject carries: a source-code audit, a
+    -- declared-layer IaC audit, or a container-image audit. Different
+    -- units that a census must never blend -- the harness kept this in
+    -- its own `repos` table, so no contract consumer could separate them.
+    report_kind TEXT,
     PRIMARY KEY (binding_id, subject_id),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES artifact_binding(binding_id, artifact_digest)
