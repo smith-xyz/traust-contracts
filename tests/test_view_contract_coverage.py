@@ -257,3 +257,44 @@ def test_both_dialects_expose_the_same_fields() -> None:
             f"sqlite-only {sorted(names['sqlite'] - names['postgres'])}, "
             f"postgres-only {sorted(names['postgres'] - names['sqlite'])}"
         )
+
+
+#: Views that exist to be composed by other views, not read directly.
+#: An intermediate with no reader is correct; a CONSUMPTION view with no
+#: reader is authored, gated and unreachable -- which is what
+#: validation_current was until revision 14.
+INTERMEDIATE_VIEWS = {
+    "binding_current": "the latest-binding filter every other view joins",
+    "current_finding": "the spine open/hardening/distinct/census all read",
+    "report_current": "one report per subject, composed into current_finding",
+    "ownership_current": "the owner join, composed into every scoped view",
+    "finding_first_seen": "the open-clock, composed into finding_timeline",
+    "sla_clock": "the policy clock, composed into finding_sla",
+}
+
+
+def test_every_consumption_view_has_a_query_and_a_reader() -> None:
+    """A view nothing can call is not a consumption surface.
+
+    Catches the gap in both directions: a view added without its
+    `.list.sql`, and a `.list.sql` added without the `Store.query_*`
+    method that makes it reachable from Python.
+    """
+    from traust_contracts.v1.storage import Store
+
+    views = {p.stem for p in (storage_dir() / "sqlite" / "views").glob("*.sql")}
+    unknown = INTERMEDIATE_VIEWS.keys() - views
+    assert not unknown, f"INTERMEDIATE_VIEWS names views that do not exist: {sorted(unknown)}"
+
+    problems = []
+    for view in sorted(views - INTERMEDIATE_VIEWS.keys()):
+        for dialect in ("sqlite", "postgres"):
+            if not (storage_dir() / dialect / "queries" / f"{view}.list.sql").is_file():
+                problems.append(f"{view}: no {dialect} .list.sql")
+        if not hasattr(Store, f"query_{view}"):
+            problems.append(f"{view}: no Store.query_{view}")
+    assert not problems, (
+        "consumption views that cannot be read: "
+        + "; ".join(problems)
+        + ". Add the query and the reader, or declare it in INTERMEDIATE_VIEWS."
+    )

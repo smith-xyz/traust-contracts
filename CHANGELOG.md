@@ -2,6 +2,24 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.7.0]
+
+## Changes
+
+- **`validation_current` is reachable.** The view was authored in 0.25.0 and
+  gated by the contract-coverage test from the start, and had no `.list.sql`
+  in either dialect and no `Store.query_*` method — authored, enforced, and
+  unreachable. `validation_exposure` aggregates it; a consumer asking what
+  happened to one claimed finding needs the row, not the count.
+
+- **A gate for it.** `test_every_consumption_view_has_a_query_and_a_reader`
+  walks the view directory and requires a `.list.sql` in both dialects and a
+  `Store.query_*` for every view not declared an intermediate. The six
+  intermediates — `binding_current`, `current_finding`, `report_current`,
+  `ownership_current`, `finding_first_seen`, `sla_clock` — are listed with
+  the view each is composed into, so "no reader" is a recorded decision
+  rather than an omission.
+
 ## [0.6.0]
 
 ## Changes

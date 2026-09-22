@@ -916,6 +916,17 @@ class Store:
         """
         return self._query_view("validation_exposure", scope_ids)
 
+    def query_validation_current(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
+        """One row per claimed finding, at the grain the evidence lens works.
+
+        `validation_exposure` aggregates this; a consumer asking "what
+        happened to THIS finding when it was attempted" needs the row, not
+        the count. The view existed and was gated by the coverage test from
+        the start, and had no query and no read method in either language --
+        authored, enforced, and unreachable.
+        """
+        return self._query_view("validation_current", scope_ids)
+
     def query_operator_privilege(self, scope_ids: Sequence[str]) -> list[tuple[Any, ...]]:
         """Privilege each operator ASKS FOR, parsed from shipped manifests.
 
