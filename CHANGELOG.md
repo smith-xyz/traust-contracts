@@ -2,6 +2,15 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.9.0]
+
+## Changes
+
+- **Reverted the storage REVISION 16 changes that shipped as 0.34.0.** The
+  storage contract is exactly the 0.33.0 definition again (REVISION 15):
+  the same tables, views, readers and schemas. 0.34.0 remains tagged but
+  should not be pinned.
+
 ## [0.8.0]
 
 ## Changes
