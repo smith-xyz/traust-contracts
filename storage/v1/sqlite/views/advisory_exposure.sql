@@ -6,10 +6,6 @@
 -- question is always "which repos, how strongly", and that is a row per
 -- repo, not a row per advisory.
 --
--- Per-repo fields come from impact_repo, the fan-out table, never from
--- json_each over the blob at query time (README rule 3). The output
--- columns and their order are unchanged from the blob-reading version.
---
 -- EVERY FIELD THE CONTRACT DECLARES IS CARRIED. The first cut exposed 14
 -- of 40 and matched the legacy projection exactly on every classification
 -- bucket -- because that projection dropped the same fields. Agreement
@@ -42,35 +38,34 @@ SELECT b.scope_id,
        json_extract(ia.metadata, '$.options') AS options,
        json_extract(ia.metadata, '$.portfolio_graph_db') AS portfolio_graph_db,
        json_extract(ia.metadata, '$.portfolio_graph_version') AS portfolio_graph_version,
-       ir.repo AS repo,
-       ir.classification AS classification,
-       ir.version AS version,
-       ir.direct AS direct,
-       ir.products AS products,
-       ir.binary_linked_library AS binary_linked_library,
-       ir.binary_string_scan AS binary_string_scan,
-       ir.binary_symbol_scan AS binary_symbol_scan,
-       ir.evidence_level AS evidence_level,
-       ir.feature_pattern_matches AS feature_pattern_matches,
-       ir.govulncheck AS govulncheck,
-       ir.govulncheck_trace AS govulncheck_trace,
-       ir.l1_depends_on AS l1_depends_on,
-       ir.l1_version_in_range AS l1_version_in_range,
-       ir.l4_package_imported AS l4_package_imported,
-       ir.l4_packages_found AS l4_packages_found,
-       ir.manifest_scan AS manifest_scan,
-       ir.manifest_version AS manifest_version,
-       ir.needs_manual_trace AS needs_manual_trace,
-       ir.notes AS notes,
-       ir.sbom_scan AS sbom_scan,
-       ir.sbom_shipped_version AS sbom_shipped_version,
-       ir.source_import_scan AS source_import_scan,
-       ir.symbol_usage_scan AS symbol_usage_scan
+       json_extract(entry.value, '$.repo') AS repo,
+       json_extract(entry.value, '$.classification') AS classification,
+       json_extract(entry.value, '$.version') AS version,
+       json_extract(entry.value, '$.direct') AS direct,
+       json_extract(entry.value, '$.products') AS products,
+       json_extract(entry.value, '$.evidence.binary_linked_library') AS binary_linked_library,
+       json_extract(entry.value, '$.evidence.binary_string_scan') AS binary_string_scan,
+       json_extract(entry.value, '$.evidence.binary_symbol_scan') AS binary_symbol_scan,
+       json_extract(entry.value, '$.evidence.evidence_level') AS evidence_level,
+       json_extract(entry.value, '$.evidence.feature_pattern_matches') AS feature_pattern_matches,
+       json_extract(entry.value, '$.evidence.govulncheck') AS govulncheck,
+       json_extract(entry.value, '$.evidence.govulncheck_trace') AS govulncheck_trace,
+       json_extract(entry.value, '$.evidence.l1_depends_on') AS l1_depends_on,
+       json_extract(entry.value, '$.evidence.l1_version_in_range') AS l1_version_in_range,
+       json_extract(entry.value, '$.evidence.l4_package_imported') AS l4_package_imported,
+       json_extract(entry.value, '$.evidence.l4_packages_found') AS l4_packages_found,
+       json_extract(entry.value, '$.evidence.manifest_scan') AS manifest_scan,
+       json_extract(entry.value, '$.evidence.manifest_version') AS manifest_version,
+       json_extract(entry.value, '$.evidence.needs_manual_trace') AS needs_manual_trace,
+       json_extract(entry.value, '$.evidence.notes') AS notes,
+       json_extract(entry.value, '$.evidence.sbom_scan') AS sbom_scan,
+       json_extract(entry.value, '$.evidence.sbom_shipped_version') AS sbom_shipped_version,
+       json_extract(entry.value, '$.evidence.source_import_scan') AS source_import_scan,
+       json_extract(entry.value, '$.evidence.symbol_usage_scan') AS symbol_usage_scan
 FROM impact_analysis ia
 JOIN artifact_binding b
   ON b.binding_id = ia.binding_id
-JOIN impact_repo ir
-  ON ir.binding_id = ia.binding_id
+JOIN json_each(ia.repos) entry
 WHERE b.artifact_name = 'impact-analysis'
   AND NOT EXISTS (
       SELECT 1

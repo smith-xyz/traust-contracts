@@ -2,47 +2,6 @@
 
 All notable changes to traust-contracts are documented here.
 
-## [0.9.0]
-
-## Changes
-
-- **The census and the threat register are computable from the contract
-  alone.** Storage `REVISION` 15 → 16, fail-closed.
-
-  - `impact_repo` fans `impact-analysis.repos[]` out, one row per repository.
-    `advisory_exposure` now selects from it instead of joining `json_each`
-    over the blob at query time, which `storage/v1/README.md` rule 3 forbids;
-    its output columns are unchanged. Evidence flags are INTEGER columns with
-    NULL meaning *not established*.
-  - `threat_boundary` and the `boundary_threat` junction project
-    `tenant_boundaries[]`; `doc_variance_record` projects `doc-variance`
-    `records[]` with `source` flattened. Both root arrays were declared by
-    their schemas and reached no table — the step-10 gate checked only the
-    `threats[]` item. Read through `boundary_current` (with the register's
-    `weakness` and `open_threats` orderings) and `doc_variance_current`.
-  - `layer_event` carries all nine `source.actor` fields, not `kind` alone.
-    The coverage gate now descends into `source` and `actor` instead of
-    accepting the block as satisfied by its four split columns.
-  - `corpus-registry` subjects declare `report_kind`; `subject_ownership`,
-    `ownership_current`, `current_finding`, `census_population` and
-    `census_exposure` expose it (trailing column on the two census readers).
-    A census separates code, IaC and container units without a private table.
-  - `current_finding` gains `cvss_score`, the one scalar an SLA CVSS floor reads.
-  - `census_distinct` (one row per identity per ownership cut, hardening
-    apart, severity by rank) and `census_branch` (HEAD confirmations versus
-    branch-only) replace the last two aggregates the census computed in Python.
-  - `cloud-config-audit` findings fan into `cloud_config_finding` behind
-    `policy_report_current`, the policy family's `report_current`: a plain
-    audit and its disposition-aware restatement count once.
-  - `distinct_exposure.severity_example` is the highest severity **by rank**;
-    `MAX` over the text ranked `medium` above `critical`.
-
-### Breaking
-
-`corpus-registry` is additive (an optional field). Consumers of the Go
-`CensusPopulationRow` / `CensusExposureRow` structs gain a trailing
-`ReportKind` field; `AdvisoryExposureRow` evidence flags become integers.
-
 ## [0.8.0]
 
 ## Changes

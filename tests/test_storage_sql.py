@@ -41,14 +41,6 @@ POSTGRES_RELATIONS = {
     "hardening_findings",
     "open_findings",
     "report_current",
-    "policy_report_current",
-    "census_distinct",
-    "census_branch",
-    "boundary_current",
-    "doc_variance_current",
-    "ownership_current",
-    "threat_current",
-    "advisory_exposure",
 }
 POSTGRES_RELATION_REFERENCE = re.compile(
     r"(?:CREATE TABLE IF NOT EXISTS|CREATE OR REPLACE VIEW|INSERT INTO|REFERENCES|FROM|JOIN|"
@@ -176,11 +168,6 @@ def test_view_names_are_read_from_the_sql_not_the_filename() -> None:
             "threat_exposure",
             "validation_current",
             "validation_exposure",
-            "policy_report_current",
-            "census_distinct",
-            "census_branch",
-            "boundary_current",
-            "doc_variance_current",
         }, dialect
         assert "binding_current" in {
             path.stem for path in (storage_dir() / dialect / "views").glob("*.sql")
@@ -382,11 +369,6 @@ def test_storage_package_resources() -> None:
             "threat_exposure",
             "validation_current",
             "validation_exposure",
-            "policy_report_current",
-            "census_distinct",
-            "census_branch",
-            "boundary_current",
-            "doc_variance_current",
         }
     project = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     targets = project["tool"]["hatch"]["build"]["targets"]
@@ -468,12 +450,6 @@ def test_views_are_created_in_dependency_order() -> None:
         assert names.index("report_current.sql") < names.index("current_finding.sql")
         assert names.index("binding_current.sql") < names.index("report_current.sql")
         for dependent in ("open_findings.sql", "hardening_findings.sql", "distinct_exposure.sql"):
-            assert names.index("current_finding.sql") < names.index(dependent)
-        # Revision 16: the policy family's report_current feeds the spine,
-        # and the two census views sort before the spine they read.
-        assert names.index("binding_current.sql") < names.index("policy_report_current.sql")
-        assert names.index("policy_report_current.sql") < names.index("current_finding.sql")
-        for dependent in ("census_distinct.sql", "census_branch.sql"):
             assert names.index("current_finding.sql") < names.index(dependent)
 
 

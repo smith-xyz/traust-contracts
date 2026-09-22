@@ -26,8 +26,7 @@ SELECT b.scope_id,
        o.repo_url,
        o.ref,
        o.ref_kind,
-       o.is_branch_audit,
-       o.report_kind
+       o.is_branch_audit
 FROM subject_ownership o
 JOIN artifact_binding b
   ON b.binding_id = o.binding_id

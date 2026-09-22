@@ -88,17 +88,6 @@ SECONDARY_PROJECTION_TABLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
     "verification": ("verification_finding", "verification_regression"),
     # The findings a fix set out to close.
     "remediation": ("remediation_source",),
-    # Revision 16. The blast radius, one row per repository, so
-    # advisory_exposure stops reading the blob at query time.
-    "impact-analysis": ("impact_repo",),
-    # A model's tenant boundaries and the junction to the threats behind
-    # each. `threat` stays the primary table.
-    "threat-model": ("threat_boundary", "boundary_threat"),
-    # Doc-vs-code discrepancies, one row per record.
-    "doc-variance": ("doc_variance_record",),
-    # The plain policy audit fans into the same table as its
-    # disposition-aware restatement; policy_report_current picks one.
-    "cloud-config-audit": ("cloud_config_finding",),
 }
 
 #: Flat family -> first table, kept for callers that only need one name.
@@ -178,11 +167,6 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
                 "kind": "api",
                 "exposure": "tenant",
                 "complexity": "medium",
-                "privilege": "partial",
-                "encryption": "yes",
-                "authentication": "no",
-                "connectivity": "na",
-                "hygiene": "yes",
                 "threat_ids": ["T1"],
             }
         ],
@@ -264,7 +248,6 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
                 "product": "example-product",
                 "repo_url": "https://example.test/repo",
                 "is_branch_audit": False,
-                "report_kind": "code-audit",
             },
             {
                 "subject_id": "other/example/repo@release-1.0",
@@ -824,25 +807,7 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
             "created": "2026-01-01T00:00:00Z",
             "harness_version": "x",
         },
-        # One open overclaim, so the fan-out and doc_variance_current are
-        # exercised rather than assumed on an empty register.
-        "records": [
-            {
-                "id": "dv-001",
-                "source": {
-                    "product_slug": "example-product",
-                    "version": "1.0",
-                    "guide": "Security guide",
-                    "url": "https://docs.redhat.com/en/documentation/example/1.0/guide#claim",
-                    "quote": "All traffic is encrypted in transit.",
-                },
-                "claim": "All traffic is encrypted in transit.",
-                "code_evidence": [{"repo": "example/repo", "path": "pkg/net/dial.go"}],
-                "variance": "overclaim",
-                "verified_at": "2026-01-02T00:00:00Z",
-                "disposition": "open",
-            }
-        ],
+        "records": [],
     },
 }
 
@@ -887,16 +852,7 @@ def sample(name: str) -> tuple[bytes, dict[str, str]]:
                     "source": {
                         "type": "jira",
                         "ref": "EXAMPLE-1",
-                        "actor": {
-                            "kind": "human",
-                            "identity": "engineer@example.test",
-                            "identity_verified": True,
-                            "identity_provider": "oidc",
-                            "identity_issuer": "https://sso.example.test",
-                            "identity_subject": "sub-0001",
-                            "employee_status": "active",
-                            "display_name": "Example Engineer",
-                        },
+                        "actor": {"kind": "human", "identity": "engineer@example.test"},
                     },
                     "disposition": {"resolution": "resolved"},
                     "rationale": "Fix merged upstream.",

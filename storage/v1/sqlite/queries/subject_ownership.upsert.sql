@@ -10,8 +10,7 @@ INSERT INTO subject_ownership (
     repo_url,
     ref,
     ref_kind,
-    is_branch_audit,
-    report_kind
+    is_branch_audit
 )
 VALUES (
     :binding_id,
@@ -25,7 +24,6 @@ VALUES (
     :repo_url,
     :ref,
     :ref_kind,
-    :is_branch_audit,
-    :report_kind
+    :is_branch_audit
 )
 ON CONFLICT (binding_id, subject_id) DO NOTHING;

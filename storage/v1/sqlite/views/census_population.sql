@@ -12,7 +12,6 @@ SELECT owner.scope_id,
        owner.tree,
        owner.ownership,
        owner.business_unit,
-       owner.report_kind,
        COUNT(*) AS subjects,
        SUM(CASE WHEN owner.is_branch_audit = 1 THEN 1 ELSE 0 END) AS branch_reaudits,
        SUM(CASE WHEN reported.subject_id IS NULL THEN 0 ELSE 1 END) AS with_report
@@ -22,5 +21,4 @@ LEFT JOIN (
 ) reported
   ON reported.scope_id = owner.scope_id
  AND reported.subject_id = owner.subject_id
-GROUP BY owner.scope_id, owner.tree, owner.ownership, owner.business_unit,
-         owner.report_kind;
+GROUP BY owner.scope_id, owner.tree, owner.ownership, owner.business_unit;

@@ -18,7 +18,6 @@ SELECT scope_id,
        ownership,
        business_unit,
        is_branch_audit,
-       report_kind,
        family,
        severity,
        CASE
@@ -30,8 +29,7 @@ SELECT scope_id,
        COUNT(*) AS occurrences,
        COUNT(DISTINCT fingerprint) AS distinct_fingerprints
 FROM current_finding
-GROUP BY scope_id, tree, ownership, business_unit, is_branch_audit, report_kind,
-         family,
+GROUP BY scope_id, tree, ownership, business_unit, is_branch_audit, family,
          severity,
          CASE
              WHEN COALESCE(validity, 'confirmed') = 'false_positive' THEN 'false_positive'
