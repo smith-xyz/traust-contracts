@@ -598,6 +598,10 @@
           "minLength": 1,
           "description": "Username of the original author (may be unverified \u2014 that can be why it was queued)."
         },
+        "submitted_by": {
+          "$ref": "#/$defs/actor",
+          "description": "Optional provenance identifying the actor that submitted this review item; distinct from the original author."
+        },
         "suggested_finding_ref": {
           "type": "string"
         },

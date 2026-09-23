@@ -26,6 +26,7 @@ FAMILIES = [
     "pqc-facts",
     "pqc-readiness",
     "remediation",
+    "refuted-register",
     "report",
     "risk-rating-methodology",
     "sla-policy",
@@ -46,6 +47,7 @@ RUN_BOUND = {
     "pqc-facts",
     "pqc-readiness",
     "remediation",
+    "refuted-register",
     "report",
     "threat-model",
     "triage",
@@ -800,6 +802,20 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
         },
         "checks": [{"name": "x", "command": "x", "outcome": "pass"}],
         "summary": {"status": "candidate", "checks_passed": 0, "checks_total": 1},
+    },
+    "refuted-register": {
+        "source": "repo-triage.json",
+        "generated_at": "2026-01-01T00:00:00Z",
+        "entries": [{
+            "finding_ref": "FIND-001",
+            "title": "Refuted claim",
+            "refute_reasons": ["misread_code"],
+            "tier": "countersign",
+            "evidence_refs": ["src/main.py:1"],
+            "asserted_at": "2026-01-01T00:00:00Z",
+            "asserted_by": "triage/1.0.0",
+            "note": "Execution evidence overrides."
+        }]
     },
     "doc-variance": {
         "metadata": {

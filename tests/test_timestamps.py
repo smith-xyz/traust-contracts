@@ -136,6 +136,12 @@ class TestModelGate:
         assert out["recorded_at"] == value
         assert out["occurred_at"] == value
 
+    def test_review_submitter_is_optional_and_preserved(self) -> None:
+        data = _review_item(RFC3339[0])
+        assert "submitted_by" not in ReviewItem.model_validate(data).to_dict()
+        data["submitted_by"] = {"kind": "machine", "identity": "fixture-submitter"}
+        assert ReviewItem.model_validate(data).to_dict()["submitted_by"] == data["submitted_by"]
+
     def test_review_item_recorded_at_is_gated(self) -> None:
         assert ReviewItem.model_validate(_review_item(RFC3339[0])).recorded_at == RFC3339[0]
         with pytest.raises(ValidationError):

@@ -1602,3 +1602,18 @@ def test_layer_event_flattens_risk_weight_and_keeps_rationale(store: Store) -> N
     assert row[1] == "0.8.3"
     assert row[2] == 0.25, "lambda is a number, queryable without json_extract"
     assert row[3:] == ("2026-07", "multi_tenant", "org-parameters")
+
+
+def test_layer_event_escapes_nul_only_in_query_projection(store: Store) -> None:
+    document = json.loads(sample("layer")[0])
+    document["events"][0]["rationale"] = "argv\x00--flag=value"
+    payload = encode(document)
+
+    result = store.ingest("layer", payload, Binding(layer_id="ledger:layer:nul-rationale"))
+
+    rationale = store.conn.execute(
+        "SELECT rationale FROM layer_event WHERE binding_id = ? LIMIT 1",
+        (result.binding_id,),
+    ).fetchone()[0]
+    assert rationale == r"argv\u0000--flag=value"
+    assert store.get("layer", result.binding_id) == payload

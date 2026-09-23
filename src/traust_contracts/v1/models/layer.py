@@ -88,6 +88,7 @@ class ReviewItem(ContractModel):
     status: str
     recorded_at: IsoTimestamp
     source: LayerSource
+    submitted_by: LayerActor | None = None
     disposition: LayerDisposition | None = None
     resolution_note: str | None = None
     rationale: str | None = None

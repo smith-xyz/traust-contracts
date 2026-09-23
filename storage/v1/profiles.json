@@ -135,6 +135,14 @@
       ],
       "projection": "pqc_readiness"
     },
+    "refuted-register": {
+      "class": "run-bound",
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "projection": "refuted_register"
+    },
     "remediation": {
       "class": "run-bound",
       "required": [

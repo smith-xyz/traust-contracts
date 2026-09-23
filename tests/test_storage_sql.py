@@ -14,7 +14,7 @@ from storage_samples import (
 )
 
 from traust_contracts.paths import storage_dir
-from traust_contracts.v1.storage.sql import bootstrap_files, bootstrap_statements
+from traust_contracts.v1.storage.sql import REVISION, bootstrap_files, bootstrap_statements
 
 TABLES = {
     "artifact_evidence",
@@ -24,6 +24,12 @@ TABLES = {
     *ALL_SECONDARY_PROJECTION_TABLES,
 }
 POSTGRES_SCHEMA = "traust_storage"
+
+
+def test_storage_revision_is_initial_migration_baseline() -> None:
+    assert REVISION == 1
+
+
 POSTGRES_RELATIONS = {
     *TABLES,
     "attack_coverage",

@@ -208,6 +208,15 @@ ONE_ROW_PROJECTIONS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
             ("footer", "scalar"),
         ),
     ),
+    "refuted-register": (
+        "refuted_register",
+        (
+            ("source", "scalar"),
+            ("sources", "json"),
+            ("generated_at", "scalar"),
+            ("entries", "json"),
+        ),
+    ),
     "report": (
         "report",
         (
@@ -384,6 +393,15 @@ def _integer(value: int | float | None) -> int | None:
     if type(value) is int or (type(value) is float and value.is_integer()):
         return int(value)
     raise ValueError(f"expected int, got {type(value).__name__}")
+
+
+def _projected_text(value: str | None) -> str | None:
+    """Escape JSON NULs that PostgreSQL TEXT cannot represent.
+
+    Exact bytes remain in artifact_evidence; this only makes the rebuildable
+    query projection portable across SQLite and PostgreSQL.
+    """
+    return value.replace("\x00", "\\u0000") if value is not None else None
 
 
 def _boolean(value: bool | None) -> int | None:
@@ -1332,7 +1350,7 @@ class Store:
                     "auto_accept_tier": _boolean(event.get("auto_accept_tier")),
                     # rationale is REQUIRED by layer.schema.json: without it
                     # the stream records that something changed and never why.
-                    "rationale": event.get("rationale"),
+                    "rationale": _projected_text(event.get("rationale")),
                     "harness_version": event.get("harness_version"),
                     "evidence_refs": _json_or_none(event.get("evidence_refs")),
                     "source_reported_by": source.get("reported_by"),

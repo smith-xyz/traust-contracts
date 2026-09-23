@@ -10,63 +10,9 @@ from traust_contracts.paths import storage_dir
 
 Dialect = Literal["postgres", "sqlite"]
 CONTRACT_VERSION = "v1"
-#: 3 (2026-09-19): ownership_current. Views are CREATE ... IF NOT EXISTS,
-#: so an existing store keeps the definitions it was built with -- and the
-#: pre-3 ones join subject_ownership raw, which double-counts every finding
-#: once per corpus-registry import. Failing closed here is deliberate: a
-#: store on the old revision may ALREADY be serving inflated numbers.
-#: 4 (2026-09-19): threat + priv_profile tables and their views. Revision 3
-#: covered an intermediate priv_profile shape that carried the summary counts
-#: as columns; 0.18.2 moved them into operator_privilege. Tables and views are
-#: CREATE ... IF NOT EXISTS, so a store built on that shape keeps it and reads
-#: the lifted columns as NULL -- silently, since the upsert simply stops
-#: filling them. Same failure mode as revision 2, so the same refusal.
-#: 5 (2026-09-19): layer_event -- the TIME DIMENSION. The ledger's dated
-#: transition stream was ingested and discarded (layer_metadata kept only
-#: repo/created/merkle_root), so a store on revision 4 has no history table
-#: at all and every trend, MTTR and SLA view over it returns nothing.
-#: 6 (2026-09-19): sla_threshold, and finding_sla now honours the policy.
-#: A store on 5 has a finding_sla with no threshold and no breach column.
-#: 7 (2026-09-19): sla_clock. The policy-level clock was resolved through
-#: the per-severity join, so an unclocked severity aged from a different
-#: timestamp than its siblings under one policy.
-#: 8 (2026-09-19): pqc_posture and pqc_readiness_rollup.
-#: 9 (2026-09-20): threat-model replaces threat-register as the family;
-#: threat gains attack_refs and threat_current resolves per SUBJECT.
-#: 10 (2026-09-20): validation_current and validation_exposure. The
-#: evidence lens -- what actually happened when a claimed finding was
-#: attempted against a running system -- had a projection and no view.
-#: 11 (2026-09-20): validation supersession is per ENVIRONMENT. A hub run
-#: and a spoke run are not re-runs of each other; collapsing on subject
-#: alone deleted a 290-verdict disagreement on one subject alone.
-#: 12 (2026-09-21): advisory_exposure. Blast radius fanned out of the
-#: impact-analysis blob, one row per repo an advisory reaches, with the
-#: evidence strength carried rather than collapsed.
-#: 13 (2026-09-21): validation_finding gains the eight remaining fields
-#: validated_findings[] declares, evidence_grade and soundness_flag among
-#: them; advisory_exposure carries all 40 impact-analysis fields. A store
-#: on 12 is missing columns, not just rows.
-#: 14 (2026-09-21): the three secondary projections carry what their
-#: schemas declare. report_finding held 6 of the 27 fields report.findings[]
-#: declares, cloud_config_finding 9 of 22, layer_event 11 of 16 -- the
-#: closure in revision 12/13 was scoped to DISPOSITION (validity,
-#: resolution, fingerprint, ownership), which is what v_open needed, and
-#: never to the analytical columns. category, cwes, locations, cvss,
-#: description, remediation, effective_severity and risk_weight.lambda
-#: among them: every axis a pattern, compliance or risk-index view cuts by.
-#: A store on 13 is missing columns, not rows, and the upsert simply stops
-#: filling them -- the same silent shape as revisions 2 and 4, so the same
-#: refusal.
-#: 15 (2026-09-21): the five dashboards that had no view now have one.
-#: compliance_result, verification_finding, verification_regression,
-#: remediation_source and attack_chain are new fan-out tables; the views
-#: over them are compliance_posture, verification_current,
-#: verification_regression_current, remediation_current and attack_coverage,
-#: plus pattern_exposure over the columns revision 14 added. current_finding
-#: gains category, cwes and effective_severity so a pattern rollup does not
-#: re-join the finding tables. A store on 14 has neither the tables nor the
-#: views, so every one of those consumers returns nothing.
-REVISION = 15
+#: Storage migration revision. This remains 1 until the first explicit
+#: migration of a deployed storage/v1 database.
+REVISION = 1
 
 
 @cache
