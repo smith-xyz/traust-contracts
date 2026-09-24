@@ -806,16 +806,18 @@ AUTHORED_SAMPLES: dict[str, dict[str, Any]] = {
     "refuted-register": {
         "source": "repo-triage.json",
         "generated_at": "2026-01-01T00:00:00Z",
-        "entries": [{
-            "finding_ref": "FIND-001",
-            "title": "Refuted claim",
-            "refute_reasons": ["misread_code"],
-            "tier": "countersign",
-            "evidence_refs": ["src/main.py:1"],
-            "asserted_at": "2026-01-01T00:00:00Z",
-            "asserted_by": "triage/1.0.0",
-            "note": "Execution evidence overrides."
-        }]
+        "entries": [
+            {
+                "finding_ref": "FIND-001",
+                "title": "Refuted claim",
+                "refute_reasons": ["misread_code"],
+                "tier": "countersign",
+                "evidence_refs": ["src/main.py:1"],
+                "asserted_at": "2026-01-01T00:00:00Z",
+                "asserted_by": "triage/1.0.0",
+                "note": "Execution evidence overrides.",
+            }
+        ],
     },
     "doc-variance": {
         "metadata": {

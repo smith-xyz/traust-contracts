@@ -18,22 +18,24 @@ def register() -> dict[str, object]:
         "source": "repo-triage.json",
         "sources": ["repo-triage.json", "validations/repo-validation.json"],
         "generated_at": "2026-07-23T17:00:10+00:00",
-        "entries": [{
-            "finding_ref": "FIND-007",
-            "triage_id": "f007",
-            "title": "Refuted claim",
-            "file": "controllers/subscriptions.go",
-            "line": 316,
-            "category": "ASVS V1",
-            "claimed_severity": "Medium",
-            "refute_reasons": ["intentional_behavior"],
-            "exclusion_rule": 3,
-            "tier": "countersign",
-            "evidence_refs": ["controllers/subscriptions.go:316"],
-            "asserted_at": "2026-07-23T17:00:10+00:00",
-            "asserted_by": "triage/0.32.0",
-            "note": "Execution evidence overrides."
-        }],
+        "entries": [
+            {
+                "finding_ref": "FIND-007",
+                "triage_id": "f007",
+                "title": "Refuted claim",
+                "file": "controllers/subscriptions.go",
+                "line": 316,
+                "category": "ASVS V1",
+                "claimed_severity": "Medium",
+                "refute_reasons": ["intentional_behavior"],
+                "exclusion_rule": 3,
+                "tier": "countersign",
+                "evidence_refs": ["controllers/subscriptions.go:316"],
+                "asserted_at": "2026-07-23T17:00:10+00:00",
+                "asserted_by": "triage/0.32.0",
+                "note": "Execution evidence overrides.",
+            }
+        ],
     }
 
 
