@@ -1,11 +1,12 @@
-"""Regenerate storage-v1-ddl-model.md (next to this module) from the checked-in SQL.
+"""Regenerate traust docs/storage-v1-ddl-model.md from the checked-in SQL.
 
 Reads storage/v1/{sqlite,postgres}/schema/*.sql and storage/v1/profiles.json,
 and emits the table model as Mermaid class diagrams: core, secondary (fan-out)
 projections, primary projections, and the artifact-class table. Nothing here
 is recalled; run it whenever the DDL moves.
 
-    python3 -m traust_contracts.v1.storage.build_storage_ddl_model [--out FILE]
+    python3 -m traust_contracts.v1.storage.build_storage_ddl_model \
+        --out ../traust/docs/storage-v1-ddl-model.md
 """
 
 from __future__ import annotations
@@ -99,7 +100,9 @@ def render_diagram(
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, default=Path(__file__).with_name("storage-v1-ddl-model.md"))
+    ap.add_argument(
+        "--out", type=Path, required=True, help="e.g. ../traust/docs/storage-v1-ddl-model.md"
+    )
     args = ap.parse_args()
     tables, meta = load(storage_dir())
     out = args.out
