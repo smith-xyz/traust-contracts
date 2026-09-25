@@ -2,6 +2,19 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.36.0]
+
+### Added
+
+- Added optional SQL-first `ledger/v1` per-table PostgreSQL and SQLite DDL,
+  and direct per-file bootstrap APIs (no packaged query files).
+  The fresh Ledger baseline is `v1` / revision 1 with singleton metadata;
+  existing mismatches require explicit handling rather than an implicit upgrade.
+- Confirmed `schemas/v1/layer.schema.json` as the complete portable layer
+  document across file and database backends, with a synthetic full-layer fixture.
+- Added SQL resource, bootstrap, metadata, and packaging checks; baseline
+  `storage/v1` remains independent of Ledger.
+
 ## [0.9.0]
 
 ## Changes
