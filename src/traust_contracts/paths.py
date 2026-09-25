@@ -66,3 +66,8 @@ def enum_path(name: str, version: str = "v1") -> Path:
 def storage_dir(version: str = "v1") -> Path:
     """Directory containing the authored storage SQL and write semantics."""
     return package_root() / "storage" / version
+
+
+def ledger_dir(version: str = "v1") -> Path:
+    """Directory containing the optional Ledger SQL contract."""
+    return package_root() / "ledger" / version

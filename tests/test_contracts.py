@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 
 import pytest
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
 REPO_ROOT = Path(__file__).parent.parent
@@ -27,6 +27,23 @@ def build_registry() -> Registry:
         schema_id = doc.get("$id", sf.name)
         resources[schema_id] = Resource.from_contents(doc)
     return Registry(resources=resources)
+
+
+def test_complete_synthetic_layer_document() -> None:
+    """The portable schema validates a whole layer, not just isolated events."""
+    from jsonschema import FormatChecker
+
+    schema = json.loads((SCHEMA_DIR / "layer.schema.json").read_text(encoding="utf-8"))
+    document = json.loads(
+        (REPO_ROOT / "tests/fixtures/sample-findings-layer.json").read_text(encoding="utf-8")
+    )
+    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator.validate(document)
+    assert len(document["events"]) == 2
+    assert "\0" in document["events"][0]["rationale"]
+    for field in ("metadata", "events", "needs_review"):
+        with pytest.raises(ValidationError):
+            validator.validate({key: value for key, value in document.items() if key != field})
 
 
 class TestSchemas:

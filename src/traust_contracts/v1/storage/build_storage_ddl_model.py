@@ -13,89 +13,17 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 from traust_contracts.paths import storage_dir
-
-COLUMN = re.compile(r"^\s{4}([a-z][a-z0-9_]*)\s+([A-Z]+(?:\s+PRECISION)?)(.*?),?\s*$")
-PK = re.compile(r"PRIMARY KEY \(([^)]*)\)")
-FK = re.compile(
-    r"FOREIGN KEY \(([^)]*)\)\s*REFERENCES\s+(?:traust_storage\.)?([a-z_]+)\(([^)]*)\)", re.S
-)
-INLINE_FK = re.compile(r"REFERENCES (?:traust_storage\.)?([a-z_]+)\(([^)]*)\)")
+from traust_contracts.v1.ddl_model import TableModel, load_tables, render_diagram
 
 
-def _uncommented(sql: str) -> str:
-    return "\n".join(line.split("--")[0] for line in sql.splitlines())
-
-
-def parse_table(sql: str) -> dict:
-    sql = _uncommented(sql)
-    body = sql[sql.index("(") + 1 :]
-    cols, pk, fks = [], set(), []
-    m = PK.search(body)
-    if m:
-        pk = {c.strip() for c in m.group(1).split(",")}
-    for m in FK.finditer(body):
-        fks.append((m.group(2), [c.strip() for c in m.group(1).split(",")]))
-    for line in body.splitlines():
-        cm = COLUMN.match(line)
-        if not cm or cm.group(1) in ("primary", "foreign"):
-            continue
-        name, typ, rest = cm.group(1), cm.group(2), cm.group(3)
-        notnull = "NOT NULL" in rest
-        ref = INLINE_FK.search(rest)
-        if ref:
-            fks.append((ref.group(1), [name]))
-        cols.append((name, typ, notnull))
-    return {"columns": cols, "pk": pk, "fks": fks}
-
-
-def load(storage: Path) -> tuple[dict, dict]:
-    tables: dict[str, dict] = {}
-    for dialect in ("sqlite", "postgres"):
-        for path in sorted((storage / dialect / "schema").glob("*.sql")):
-            parsed = parse_table(path.read_text())
-            entry = tables.setdefault(
-                path.stem, {"pk": parsed["pk"], "fks": parsed["fks"], "types": {}}
-            )
-            for name, typ, notnull in parsed["columns"]:
-                entry["types"].setdefault(name, {})[dialect] = (typ, notnull)
+def load(storage: Path) -> tuple[dict[str, TableModel], dict]:
+    tables = load_tables(storage)
     views = sorted(p.stem for p in (storage / "sqlite/views").glob("*.sql"))
     profiles = json.loads((storage / "profiles.json").read_text())["artifacts"]
     return tables, {"views": views, "profiles": profiles}
-
-
-def type_label(types: dict) -> str:
-    s, p = types.get("sqlite"), types.get("postgres")
-    if s and p and s[0] != p[0]:
-        return f"{s[0]}|{p[0]}"
-    return (s or p)[0]
-
-
-def render_class(name: str, table: dict, note: str | None = None) -> list[str]:
-    lines = [f"  class {name} {{"]
-    if note:
-        lines.append(f"    «{note}»")
-    for col, types in table["types"].items():
-        marker = "+" if col in table["pk"] else " "
-        lines.append(f"    {marker}{type_label(types)} {col}")
-    lines.append("  }")
-    return lines
-
-
-def render_diagram(
-    names: list[str], tables: dict, notes: dict | None = None, direction: str = "LR"
-) -> str:
-    out = ["```mermaid", "classDiagram", f"  direction {direction}"]
-    for n in names:
-        out += render_class(n, tables[n], (notes or {}).get(n))
-    for n in names:
-        for target, cols in tables[n]["fks"]:
-            out.append(f"  {target} <-- {n} : {','.join(cols)}")
-    out.append("```")
-    return "\n".join(out)
 
 
 def main() -> int:

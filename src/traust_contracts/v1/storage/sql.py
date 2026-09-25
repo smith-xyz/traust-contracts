@@ -1,14 +1,13 @@
 """Read authored SQL in deterministic table-then-view bootstrap order."""
 
-import sqlite3
-from collections.abc import Iterator
 from functools import cache
 from pathlib import Path
-from typing import Literal
 
 from traust_contracts.paths import storage_dir
+from traust_contracts.v1.sql import Dialect
+from traust_contracts.v1.sql import bootstrap_files as _bootstrap_files
+from traust_contracts.v1.sql import bootstrap_statements as bootstrap_statements
 
-Dialect = Literal["postgres", "sqlite"]
 CONTRACT_VERSION = "v1"
 #: Storage migration revision. This remains 1 until the first explicit
 #: migration of a deployed storage/v1 database.
@@ -52,32 +51,9 @@ VIEW_ORDER: tuple[str, ...] = (
 
 def bootstrap_files(dialect: Dialect) -> list[Path]:
     """Return dependency-ordered tables followed by dependency-ordered views."""
-    root = storage_dir() / dialect
-    schema = {path.name: path for path in (root / "schema").glob("*.sql")}
-    first = [schema.pop(name) for name in ("artifact_evidence.sql", "artifact_binding.sql")]
-    namespace = [root / "namespace.sql"] if dialect == "postgres" else []
-    views = {path.name: path for path in (root / "views").glob("*.sql")}
-    ordered = [views.pop(name) for name in VIEW_ORDER if name in views]
-    return [
-        *namespace,
-        *first,
-        *sorted(schema.values()),
-        *ordered,
-        *sorted(views.values()),
-    ]
-
-
-def bootstrap_statements(dialect: Dialect, path: Path) -> Iterator[str]:
-    """Yield driver-safe statements while preserving authored file boundaries."""
-    sql = path.read_text(encoding="utf-8")
-    if dialect == "postgres":
-        yield sql
-        return
-    statement = ""
-    for line in sql.splitlines(keepends=True):
-        statement += line
-        if sqlite3.complete_statement(statement):
-            yield statement
-            statement = ""
-    if statement.strip():
-        raise ValueError(f"incomplete SQLite statement in {path.name}")
+    return _bootstrap_files(
+        storage_dir(),
+        dialect,
+        first_tables=("artifact_evidence", "artifact_binding"),
+        view_order=VIEW_ORDER,
+    )
