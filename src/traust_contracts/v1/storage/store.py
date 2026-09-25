@@ -369,7 +369,7 @@ def storage_profiles() -> dict[str, dict[str, Any]]:
         **{name: table for name, (table, _) in ONE_ROW_PROJECTIONS.items()},
         # Families that fan out to a differently-named table rather than
         # taking the one-row default.
-        "layer": "layer_metadata",
+        "layer": "layer_event",
         "triage": "triage_verdict",
         "vuln-findings": "finding",
         "corpus-registry": "subject_ownership",
@@ -1055,18 +1055,6 @@ class Store:
         self, artifact: str, document: dict[str, Any], digest: str, binding_id_value: str
     ) -> None:
         if artifact == "layer":
-            metadata = document["metadata"]
-            self._execute(
-                query(self.dialect, "layer_metadata.upsert.sql"),
-                {
-                    "binding_id": binding_id_value,
-                    "artifact_digest": digest,
-                    "repo": metadata.get("repository"),
-                    "created_at": metadata.get("created"),
-                    "merkle_root": metadata.get("merkle_root"),
-                    "merkle_epoch": _integer(metadata.get("merkle_epoch")),
-                },
-            )
             self._project_layer_events(document, digest, binding_id_value)
         elif artifact == "vuln-findings":
             for finding in document["findings"]:

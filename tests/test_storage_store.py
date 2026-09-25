@@ -144,7 +144,8 @@ def test_all_artifacts_ingest_and_project(store: Store, name: str) -> None:
     table = PROJECTION_TABLES[name]
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     # Fan-out families project one row per item in their sample.
-    assert count == (2 if name in {"vuln-findings", "corpus-registry", "threat-model"} else 1)
+    fan_out = {"vuln-findings": 2, "corpus-registry": 2, "threat-model": 2, "layer": 3}
+    assert count == fan_out.get(name, 1)
 
 
 def test_global_evidence_dedup_is_private_and_binding_scoped(store: Store) -> None:
@@ -1001,7 +1002,7 @@ def test_ledger_events_project_and_carry_the_clock(store: Store) -> None:
     """The whole time dimension was being discarded.
 
     layer.events is an append-only dated transition stream and
-    layer_metadata kept only repo/created/merkle_root, so storage/v1 could
+    storage/v1 could previously only
     answer what is open NOW and nothing about when, how long, or what the
     estate looked like on any past date.
     """

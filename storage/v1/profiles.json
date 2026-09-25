@@ -91,7 +91,7 @@
       "required": [
         "layer_id"
       ],
-      "projection": "layer_metadata"
+      "projection": "layer_event"
     },
     "operator-priv-profile": {
       "class": "run-bound",

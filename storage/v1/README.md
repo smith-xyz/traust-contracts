@@ -20,9 +20,27 @@ flowchart LR
     P --> V[Scoped live views]
 ```
 
-Artifact bytes are validated, digested, and projected at ingest time; the raw
-payload is not retained in the database. Source bytes live in the caller's
-object store; storage records the content-addressed digest and byte size.
+## Ledger integration
+
+The [Traust Ledger](../../ledger/v1/) is optional. Without it, storage provides
+artifact projections, findings, ownership, and point-in-time posture views.
+With the ledger, storage additionally provides the time dimension:
+
+| Capability | Without ledger | With ledger |
+|---|---|---|
+| Current findings and posture | ✓ | ✓ |
+| Ownership and census | ✓ | ✓ |
+| Validation and verification | ✓ | ✓ |
+| Finding timeline (first adjudicated, resolved, regression) | — | ✓ |
+| SLA clock and breach detection | report date only | event-accurate |
+| Exposure trend (opened/closed per month) | — | ✓ |
+| MTTR and duration metrics | — | ✓ |
+
+The ledger produces layer artifacts (`layer.schema.json`) containing an
+append-only event stream. Storage projects those events into `layer_event`
+rows, which the timeline views consume via LEFT JOIN. When no layer artifacts
+are ingested, those views return NULL for their clock columns — degraded, not
+broken.
 
 ## Identity model
 
