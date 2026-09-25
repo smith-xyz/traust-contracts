@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from contextlib import closing
@@ -54,7 +55,7 @@ def test_optional_actor_survives_storage_unchanged(include_actor: bool) -> None:
         store = Store(conn)
         store.init()
         saved = store.ingest("layer", payload, Binding(layer_id="fixture-layer"))
-        assert store.get_evidence(saved.digest) == payload
+        assert saved.digest == hashlib.sha256(payload).hexdigest()
     assert "submitted_by" not in validators()["layer"].schema["$defs"]["review_item"]["required"]
 
 

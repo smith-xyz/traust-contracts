@@ -54,8 +54,10 @@ never move under you.
 ## Storage contract
 
 `storage/v1` ships readable, authored SQLite/PostgreSQL SQL and a reference
-Store that separates exact evidence from caller-owned workflow bindings. Every
-artifact contract has a durable SQL projection, and scoped views can compose
+Store that records artifact evidence metadata and caller-owned workflow bindings.
+Artifact bytes live in the caller's object store; storage retains the
+content-addressed digest and byte size. Every artifact contract has a durable
+SQL projection, and scoped views can compose
 bindings with those projections. See the [model and write
 semantics](storage/v1/README.md). SQL is grouped by database, entity and operation;
 there is no ORM or shipped test corpus.
@@ -86,8 +88,9 @@ finally:
 
 The caller owns an idle connection and supplies opaque context required by the
 artifact's hand-authored storage profile. `scope_id` defaults to `local`.
-Ingest validates exact bytes, stores evidence, binding, and any approved projection
-in one transaction, and makes identical-binding retries a no-op.
+Ingest validates bytes, computes the digest, stores the evidence record, binding,
+and any approved projection in one transaction. Raw payload is not retained in
+the database. Identical-binding retries are a no-op.
 On `IngestError`, the host MUST surface/preserve `error.payload` (the input file
 already on disk suffices). The library never chooses a reject path.
 
@@ -110,19 +113,22 @@ conformance bundle.
 
 ## Ledger relational contract
 
-`ledger/v1` is the optional SQL-first Ledger database contract, separate from
-baseline `storage/v1`. Contracts owns authored PostgreSQL and SQLite table SQL
-and deterministic per-file bootstrap order; no relational
-manifest or generated ORM binding is shipped. Ledger runtimes pin a Contracts
-release and load SQL for fresh databases, while keeping future migrations,
-local SQLAlchemy bindings, guards, grants, and persistence behavior local.
-`CONTRACT_VERSION = "v1"` and `REVISION = 1` identify the fresh database shape,
-independent of package semver. The singleton `schema_revision` row (`id = 1`)
-records those values and an `applied_at` timestamp; existing metadata mismatches
-must fail explicitly, never silently migrate or downgrade. Physical tables stay
-private. `schemas/v1/layer.schema.json` is the portable **complete-layer**
-document contract for file, SQLite, and PostgreSQL backends (metadata, ordered
-events, and review queue), not a database-specific projection.
+`ledger/v1` is the SQL-first Ledger database contract, separate from baseline
+`storage/v1`. Contracts owns authored PostgreSQL and SQLite DDL — tables,
+constraints, indexes, and **append-only enforcement triggers** — plus
+deterministic per-file bootstrap order. No ORM binding is shipped.
+
+Bootstrapping from the contracts SQL alone installs the full append-only
+contract: events reject UPDATE, DELETE, truncation, and out-of-order sequence
+inserts; layers reject deletion. Ledger runtimes pin a Contracts release and
+load SQL for fresh databases, keeping migrations, SQLAlchemy bindings, grants,
+and persistence behavior local. `IF NOT EXISTS` / `DROP + CREATE` makes the
+ledger's separate guard installation idempotent.
+
+`CONTRACT_VERSION = "v1"`, `REVISION = 1`. The singleton `schema_revision` row
+(`id = 1`) records version and `applied_at`; mismatches fail explicitly.
+`schemas/v1/layer.schema.json` is the portable complete-layer document contract
+across file, SQLite, and PostgreSQL backends.
 
 ## Validate an artifact
 
@@ -135,20 +141,20 @@ python validate.py --list
 
 ```bash
 make setup    # uv sync + enable .githooks
-make test
+make test     # SQLite + schema tests; PG tests included when db-up
 ```
 
-Or manually:
+PostgreSQL e2e:
 
 ```bash
-uv sync
-uv run pytest tests/ -q
+make db-up    # start local Postgres container
+make test     # includes PG storage + ledger schema tests
+make db-down
 ```
 
 `tests/test_compat.py` gates breaking JSON Schema changes against the previous tag.
-PostgreSQL tests use a fixed local test DSN, recreate `traust_storage` per test,
-and verify that same-named application tables remain untouched.
-They run automatically when `psycopg` and the database are available; otherwise they warn and skip.
+PostgreSQL tests run automatically when `psycopg` and the database are available;
+otherwise they skip.
 
 ## License
 

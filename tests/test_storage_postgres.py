@@ -86,8 +86,12 @@ def test_postgres_shape_roundtrip_and_binding_noop(database: tuple[Any, str]) ->
     for name in FAMILIES:
         payload, _ = sample(name)
         result = store.ingest(name, payload, binding_for(name))
-        assert store.get_evidence(result.digest) == payload
-        assert store.get(name, result.binding_id) == payload
+        # Evidence record keeps digest and byte_size, not payload.
+        row = conn.execute(
+            "SELECT byte_size FROM artifact_evidence WHERE digest = %s", (result.digest,)
+        ).fetchone()
+        assert row[0] == len(payload)
+        conn.commit()
         retry = store.ingest(name, payload, binding_for(name))
         assert retry.already_bound and retry.binding_id == result.binding_id
     assert conn.execute("SELECT count(*) FROM artifact_binding").fetchone() == (len(FAMILIES),)

@@ -398,8 +398,7 @@ def _integer(value: int | float | None) -> int | None:
 def _projected_text(value: str | None) -> str | None:
     """Escape JSON NULs that PostgreSQL TEXT cannot represent.
 
-    Exact bytes remain in artifact_evidence; this only makes the rebuildable
-    query projection portable across SQLite and PostgreSQL.
+    This makes the query projection portable across SQLite and PostgreSQL.
     """
     return value.replace("\x00", "\\u0000") if value is not None else None
 
@@ -631,22 +630,6 @@ class Store:
             rollback_error = self._rollback()
             raise IngestError(f"storage init: {_error_detail(error)}{rollback_error}") from None
 
-    def get_evidence(self, digest: str) -> bytes:
-        """Return exact evidence bytes without making a schema claim."""
-        self._idle()
-        if not isinstance(digest, str) or not DIGEST_PATTERN.fullmatch(digest):
-            raise IngestError("artifact not found")
-        self._begin()
-        try:
-            payload = self._evidence(digest)
-            self.conn.execute("COMMIT")
-            return payload
-        except Exception as error:
-            rollback_error = self._rollback()
-            raise IngestError(
-                f"storage evidence read: {_error_detail(error)}{rollback_error}"
-            ) from None
-
     def get_binding(self, binding_id_value: str) -> BindingRecord:
         """Return one binding without interpreting its evidence."""
         self._idle()
@@ -664,34 +647,6 @@ class Store:
             rollback_error = self._rollback()
             raise IngestError(
                 f"storage binding read: {_error_detail(error)}{rollback_error}"
-            ) from None
-
-    def get(self, artifact: str, binding_id_value: str) -> bytes:
-        """Return exact validated evidence through a type-checked binding."""
-        self._idle(artifact)
-        validator = validators().get(artifact) if isinstance(artifact, str) else None
-        if validator is None:
-            raise IngestError("unknown artifact schema", artifact=artifact)
-        if not isinstance(binding_id_value, str) or not DIGEST_PATTERN.fullmatch(binding_id_value):
-            raise IngestError("artifact binding not found", artifact=artifact)
-        self._begin(artifact)
-        try:
-            row = self._binding_row(binding_id_value)
-            if row is None:
-                raise IngestError("artifact binding not found")
-            record = self._binding_record(binding_id_value, row)
-            if record.artifact_name != artifact:
-                raise IngestError("artifact type mismatch")
-            payload = self._evidence(record.artifact_digest)
-            document = json.loads(payload, parse_constant=_reject_constant)
-            validator.validate(document)
-            self.conn.execute("COMMIT")
-            return payload
-        except Exception as error:
-            rollback_error = self._rollback()
-            raise IngestError(
-                f"storage read {artifact}: {_error_detail(error)}{rollback_error}",
-                artifact=artifact,
             ) from None
 
     def ingest(
@@ -744,12 +699,10 @@ class Store:
                 query(self.dialect, "artifact_evidence.upsert.sql"),
                 {
                     "digest": digest,
-                    "payload": payload,
+                    "byte_size": len(payload),
                     "first_ingested_at": datetime.now(UTC).isoformat(),
                 },
             )
-            if self._evidence(digest) != payload:
-                raise IngestError("artifact evidence digest collision")
             context = f"artifact {artifact}, table artifact_binding"
             self._execute(
                 query(self.dialect, "artifact_binding.upsert.sql"),
@@ -1040,17 +993,6 @@ class Store:
         for field in storage_profiles()[artifact]["required"]:
             if getattr(binding, field) is None:
                 raise IngestError(f"{field}: required value missing")
-
-    def _evidence(self, digest: str) -> bytes:
-        row = self._execute(
-            query(self.dialect, "artifact_evidence.get.sql"), {"digest": digest}
-        ).fetchone()
-        if row is None:
-            raise IngestError("artifact not found")
-        payload = row[0]
-        if hashlib.sha256(payload).hexdigest() != digest:
-            raise IngestError("artifact evidence digest mismatch")
-        return payload
 
     def _binding_row(self, binding_id_value: str) -> tuple[Any, ...] | None:
         return self._execute(

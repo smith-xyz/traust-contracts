@@ -1,4 +1,4 @@
-"""Executed SQLite protocol: evidence, bindings, projections, history, and scope."""
+"""Executed SQLite protocol: bindings, projections, history, and scope."""
 
 from __future__ import annotations
 
@@ -132,12 +132,15 @@ def test_binding_id_golden_vector_and_presence_encoding() -> None:
 
 
 @pytest.mark.parametrize("name", FAMILIES)
-def test_all_artifacts_retain_exact_evidence_and_project(store: Store, name: str) -> None:
+def test_all_artifacts_ingest_and_project(store: Store, name: str) -> None:
     payload, _ = sample(name)
     result = store.ingest(name, payload, binding_for(name))
-    assert store.get_evidence(result.digest) == payload
-    assert store.get(name, result.binding_id) == payload
     assert store.get_binding(result.binding_id).binding == binding_for(name)
+    # Evidence record keeps digest and byte_size, not payload.
+    row = store.conn.execute(
+        "SELECT digest, byte_size FROM artifact_evidence WHERE digest = ?", (result.digest,)
+    ).fetchone()
+    assert row == (result.digest, len(payload))
     table = PROJECTION_TABLES[name]
     count = store.conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
     # Fan-out families project one row per item in their sample.
@@ -156,19 +159,13 @@ def test_global_evidence_dedup_is_private_and_binding_scoped(store: Store) -> No
     assert store.conn.execute("SELECT count(*) FROM artifact_binding").fetchone() == (2,)
 
 
-def test_typed_read_uses_binding_name_and_rechecks_evidence(store: Store) -> None:
+def test_evidence_record_tracks_byte_size(store: Store) -> None:
     payload, _ = sample("vuln-findings")
     result = store.ingest("vuln-findings", payload, run_binding())
-    with pytest.raises(IngestError, match="type mismatch"):
-        store.get("triage", result.binding_id)
-    store.conn.execute(
-        "UPDATE artifact_evidence SET payload=? WHERE digest=?", (payload + b" ", result.digest)
-    )
-    store.conn.commit()
-    with pytest.raises(IngestError, match="digest mismatch"):
-        store.get_evidence(result.digest)
-    with pytest.raises(IngestError, match="not found"):
-        store.get_evidence("0" * 64)
+    row = store.conn.execute(
+        "SELECT byte_size FROM artifact_evidence WHERE digest = ?", (result.digest,)
+    ).fetchone()
+    assert row[0] == len(payload)
 
 
 @pytest.mark.parametrize("name,missing", [("vuln-findings", "subject_id"), ("triage", "run_id")])
@@ -186,7 +183,7 @@ def test_layer_profile_requires_layer_only(store: Store) -> None:
     with pytest.raises(IngestError, match="layer_id"):
         store.ingest("layer", payload)
     result = store.ingest("layer", payload, Binding(layer_id="ledger/layer:team/a"))
-    assert store.get("layer", result.binding_id) == payload
+    assert store.get_binding(result.binding_id).binding.layer_id == "ledger/layer:team/a"
 
 
 def test_explicit_supersession_is_current_and_backfill_order_free(store: Store) -> None:
@@ -203,8 +200,8 @@ def test_explicit_supersession_is_current_and_backfill_order_free(store: Store) 
     assert store.conn.execute(
         "SELECT binding_id FROM current_binding WHERE artifact_name='vuln-findings'"
     ).fetchall() == [(second.binding_id,)]
-    assert store.get("vuln-findings", first.binding_id) == initial
-    assert store.get("vuln-findings", second.binding_id) == encode(corrected)
+    assert store.get_binding(first.binding_id).artifact_digest == first.digest
+    assert store.get_binding(second.binding_id).artifact_digest == second.digest
 
 
 def test_supersession_rejects_missing_cross_context_and_branches(store: Store) -> None:
@@ -278,7 +275,7 @@ def test_fixture_remains_exact(store: Store) -> None:
         Path(__file__).parent / "fixtures/storage/vuln-findings-populated.test.json"
     ).read_bytes()
     result = store.ingest("vuln-findings", payload, run_binding())
-    assert store.get_evidence(result.digest) == payload
+    assert result.digest == hashlib.sha256(payload).hexdigest()
     assert store.conn.execute("SELECT count(*) FROM finding").fetchone() == (5,)
 
 
@@ -353,12 +350,10 @@ def test_report_findings_project_disposition_and_fingerprint(store: Store) -> No
     assert all(value is None for value in bare[1:])
 
 
-def test_report_blob_is_unchanged_by_the_new_projection(store: Store) -> None:
-    """The index must not become a second source of truth."""
+def test_report_projection_is_consistent_with_source(store: Store) -> None:
+    """The projection must faithfully represent the source document."""
     payload = report_with_findings()
     result = store.ingest("report", payload, binding_for("report"))
-    assert store.get_evidence(result.digest) == payload
-    assert store.get("report", result.binding_id) == payload
     stored = store.conn.execute(
         "SELECT findings FROM report WHERE binding_id = ?", (result.binding_id,)
     ).fetchone()[0]
@@ -636,8 +631,10 @@ def test_cloud_config_findings_project_into_queryable_rows(store: Store) -> None
     assert second[0] == "CCA-ARO-HCP-002" and second[1] == "CKV_AZURE_99"
     assert second[4] == "needs_review" and second[6] is None
 
-    # The blob stays authoritative.
-    assert store.get_evidence(result.digest) == payload
+    # Evidence record present.
+    assert store.conn.execute(
+        "SELECT byte_size FROM artifact_evidence WHERE digest = ?", (result.digest,)
+    ).fetchone()[0] == len(payload)
 
 
 def test_cloud_config_findings_are_separable_by_check(store: Store) -> None:
@@ -1616,4 +1613,4 @@ def test_layer_event_escapes_nul_only_in_query_projection(store: Store) -> None:
         (result.binding_id,),
     ).fetchone()[0]
     assert rationale == r"argv\u0000--flag=value"
-    assert store.get("layer", result.binding_id) == payload
+    assert store.get_binding(result.binding_id).artifact_digest == result.digest
