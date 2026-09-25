@@ -1,7 +1,8 @@
 # Storage v1
 
-Storage v1 retains exact artifact evidence and binds it to caller-owned workflow
-context. SQL is the data model; [JSON Schemas](../../schemas/v1/) validate
+Storage v1 records artifact evidence metadata and binds it to caller-owned
+workflow context. Artifact bytes live in the caller's object store; storage
+retains the content-addressed digest and byte size. SQL is the data model; [JSON Schemas](../../schemas/v1/) validate
 artifact interpretations.
 
 | Database | Driver | Scoped dashboard |
@@ -11,12 +12,17 @@ artifact interpretations.
 
 ```mermaid
 flowchart LR
-    A[Exact artifact bytes] --> E[artifact_evidence]
+    A[Artifact bytes] --> D[SHA-256 digest + byte_size]
+    D --> E[artifact_evidence]
     C[Caller workflow context] --> B[artifact_binding]
     E --> B
     B --> P[Typed projections]
     P --> V[Scoped live views]
 ```
+
+Artifact bytes are validated, digested, and projected at ingest time; the raw
+payload is not retained in the database. Source bytes live in the caller's
+object store; storage records the content-addressed digest and byte size.
 
 ## Identity model
 
@@ -123,11 +129,10 @@ projection retains generated save and smoke-test coverage.
 | Operation | Rule |
 |---|---|
 | Initialize | Fresh databases bootstrap with the package's storage metadata; mismatches require explicit migration. |
-| Save | Validate bytes, acquire one digest lock on PostgreSQL, insert evidence, insert binding, and write any projection in one transaction. |
+| Save | Validate bytes, compute digest and byte size, acquire one digest lock on PostgreSQL, insert evidence record, insert binding, and write any projection in one transaction. Raw payload is not retained. |
 | Retry | The same binding is a no-op and returns `AlreadyBound`. Evidence-level deduplication stays private. |
 | Correct | A new binding names `supersedes_binding_id`; clocks never determine correction order. |
-| Read evidence | Select by digest, recheck SHA-256, and return exact bytes without a schema claim. |
-| Typed read | Select by binding ID, require the requested artifact name, recheck evidence, revalidate the schema, and return exact bytes. |
+| Read binding | Select by binding ID; return binding record without a payload claim. |
 
 `supersedes_binding_id` is a nullable soft reference. A successor must match its
 predecessor's scope, artifact name, subject, run, and layer context. One binding

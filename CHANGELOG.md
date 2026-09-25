@@ -2,6 +2,37 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.37.0]
+
+### Changed
+
+- **`artifact_evidence` no longer retains payload bytes.** The `payload`
+  column (BYTEA/BLOB) is replaced by `byte_size` (BIGINT/INTEGER) recording
+  the original artifact size. Artifact bytes live in the caller's object
+  store; storage records the content-addressed digest and byte size only.
+- Removed `Store.get_evidence()` and `Store.get()` — payload is not in the
+  database. Consumers needing original bytes fetch from object store using
+  the digest.
+- Removed `artifact_evidence.get.sql` queries from both dialects.
+- The post-insert evidence collision check is removed; the digest primary
+  key makes it structurally unnecessary.
+
+## [0.36.1]
+
+### Added
+
+- Append-only enforcement triggers are now shipped in the contracts SQL itself.
+  SQLite `events.sql` installs `events_reject_update`, `events_reject_delete`,
+  and `events_validate_append`; `layers.sql` installs `layers_reject_delete`.
+  PostgreSQL `namespace.sql` defines `reject_authoritative_mutation()` and
+  `validate_event_append()` functions; `events.sql` and `layers.sql` install
+  mutation, truncation, and append-validation triggers.
+  Consumers bootstrapping from contracts SQL alone now get the full
+  append-only contract without needing the Ledger runtime.
+- Added `test_sqlite_append_only_guards` — bootstraps from contracts SQL
+  and proves UPDATE, DELETE, and out-of-order seq are rejected.
+- Added `make db-up` / `make db-down` for local PostgreSQL container lifecycle.
+
 ## [0.36.0]
 
 ### Added

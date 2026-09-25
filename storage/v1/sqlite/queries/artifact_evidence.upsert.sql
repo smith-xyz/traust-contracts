@@ -1,11 +1,11 @@
 INSERT INTO artifact_evidence (
     digest,
-    payload,
+    byte_size,
     first_ingested_at
 )
 VALUES (
     :digest,
-    :payload,
+    :byte_size,
     :first_ingested_at
 )
 ON CONFLICT (digest) DO NOTHING;
