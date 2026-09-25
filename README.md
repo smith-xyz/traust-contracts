@@ -108,6 +108,22 @@ review compatibility; SQL is not byte-pinned.
 Tests use focused synthetic inputs and test fixtures, not a packaged
 conformance bundle.
 
+## Ledger relational contract
+
+`ledger/v1` is the optional SQL-first Ledger database contract, separate from
+baseline `storage/v1`. Contracts owns authored PostgreSQL and SQLite table SQL
+and deterministic per-file bootstrap order; no relational
+manifest or generated ORM binding is shipped. Ledger runtimes pin a Contracts
+release and load SQL for fresh databases, while keeping future migrations,
+local SQLAlchemy bindings, guards, grants, and persistence behavior local.
+`CONTRACT_VERSION = "v1"` and `REVISION = 1` identify the fresh database shape,
+independent of package semver. The singleton `schema_revision` row (`id = 1`)
+records those values and an `applied_at` timestamp; existing metadata mismatches
+must fail explicitly, never silently migrate or downgrade. Physical tables stay
+private. `schemas/v1/layer.schema.json` is the portable **complete-layer**
+document contract for file, SQLite, and PostgreSQL backends (metadata, ordered
+events, and review queue), not a database-specific projection.
+
 ## Validate an artifact
 
 ```bash
