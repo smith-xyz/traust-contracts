@@ -92,6 +92,26 @@ def seed_findings_summary(store: Store) -> None:
     store.ingest("vuln-findings", finding_payload, context)
     store.ingest("triage", encode(triage), context)
     store.ingest("layer", layer_payload, Binding(layer_id=FINDINGS_SUMMARY_LAYER))
+    # findings_summary gets repo from ownership, not layer_metadata.
+    store.ingest(
+        "corpus-registry",
+        encode(
+            {
+                "version": 1,
+                "subjects": [
+                    {
+                        "subject_id": FINDINGS_SUMMARY_SUBJECT,
+                        "tree": "findings",
+                        "ownership": "owned",
+                        "business_unit": "Test",
+                        "repo_url": "https://example.test/repo",
+                        "is_branch_audit": False,
+                    }
+                ],
+            }
+        ),
+        Binding(scope_id=FINDINGS_SUMMARY_SCOPE),
+    )
 
 
 def report_with_findings() -> bytes:

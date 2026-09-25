@@ -57,7 +57,7 @@ RUN_BOUND = {
 }
 PROJECTION_TABLES = {
     **{name: name.replace("-", "_") for name in FAMILIES},
-    "layer": "layer_metadata",
+    "layer": "layer_event",
     "triage": "triage_verdict",
     "vuln-findings": "finding",
     "corpus-registry": "subject_ownership",
@@ -77,9 +77,6 @@ PROJECTION_TABLES = {
 SECONDARY_PROJECTION_TABLES_BY_FAMILY: dict[str, tuple[str, ...]] = {
     "report": ("report_finding",),
     "cloud-config-findings-current": ("cloud_config_finding",),
-    # The ledger's dated transitions -- the time dimension. layer_metadata
-    # keeps the merkle root; this keeps the history.
-    "layer": ("layer_event",),
     # The live-validation outcome per claimed finding: confirmed, refuted,
     # inconclusive, blocked by scope, or not attempted and why -- plus the
     # multi-step chains, whose verdict is about the PATH, not a finding.

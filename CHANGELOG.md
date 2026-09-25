@@ -16,6 +16,12 @@ All notable changes to traust-contracts are documented here.
 - Removed `artifact_evidence.get.sql` queries from both dialects.
 - The post-insert evidence collision check is removed; the digest primary
   key makes it structurally unnecessary.
+- **Removed `layer_metadata` table.** `findings_summary.repo` now reads from
+  `ownership_current.repo_url` instead of joining through the layer binding
+  chain. `layer_event` stays as the projection for the time dimension.
+- Documented ledger integration: the ledger is optional, and the views it
+  enables (`finding_timeline`, `exposure_trend`, `finding_sla`) degrade
+  gracefully to report-date-only when no layer artifacts are ingested.
 
 ## [0.36.1]
 

@@ -4,7 +4,7 @@ SELECT finding_binding.scope_id,
        finding_binding.subject_id,
        finding_binding.run_id,
        finding_binding.layer_id,
-       layer.repo,
+       ownership.repo_url AS repo,
        finding.severity,
        triage.verdict,
        COUNT(DISTINCT finding.finding_id) AS finding_count
@@ -19,12 +19,9 @@ LEFT JOIN traust_storage.current_binding triage_binding
 LEFT JOIN traust_storage.triage_verdict triage
   ON triage.binding_id = triage_binding.binding_id
  AND triage.source_finding_id = finding.finding_id
-LEFT JOIN traust_storage.current_binding layer_binding
-  ON layer_binding.scope_id = finding_binding.scope_id
- AND layer_binding.layer_id = finding_binding.layer_id
- AND layer_binding.artifact_name = 'layer'
-LEFT JOIN traust_storage.layer_metadata layer
-  ON layer.binding_id = layer_binding.binding_id
+LEFT JOIN traust_storage.ownership_current ownership
+  ON ownership.scope_id = finding_binding.scope_id
+ AND ownership.subject_id = finding_binding.subject_id
 WHERE finding_binding.artifact_name = 'vuln-findings'
   AND finding_binding.scope_id IN (
       SELECT jsonb_array_elements_text(
@@ -35,6 +32,6 @@ GROUP BY finding_binding.scope_id,
          finding_binding.subject_id,
          finding_binding.run_id,
          finding_binding.layer_id,
-         layer.repo,
+         ownership.repo_url,
          finding.severity,
          triage.verdict;

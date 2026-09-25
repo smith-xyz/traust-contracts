@@ -99,9 +99,9 @@ def _top_level_projection(sql: str) -> str:
 def _output_columns(sql: str) -> list[str]:
     """Output column names of a view: its alias, else the bare column, else `*`.
 
-    Normalising to the *output* name is the point — the two dialects reach
-    `repo` through different table aliases (`layer` vs `layer_metadata`), which
-    a consumer never sees and must not be gated on.
+    Normalising to the *output* name is the point — the two dialects may reach
+    columns through different table aliases, which a consumer never sees and
+    must not be gated on.
     """
     items: list[str] = []
     current = ""
