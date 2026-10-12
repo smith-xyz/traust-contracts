@@ -2,6 +2,28 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.53.0]
+
+### Added
+
+- **`ledger.yaml` config section** (`LedgerConfig`, `HarnessContext.ledger`,
+  `config/v1/ledger.schema.json`). Optional, no environment overrides — the
+  same rules as `storage.yaml`:
+  - `dsn` (SQLAlchemy URL: `postgresql+psycopg://…`, `postgresql://…` or
+    `sqlite:////…`; repr hidden): present, the Ledger database is the
+    authority for disposition layers and layer files are read-only snapshots;
+    absent, layer files are the ledger (`LedgerConfig.database`).
+  - `signing` (`LedgerSigning`): `required`, `method` (`keypair` |
+    `identity`), `key_path` (absolute; required for a required keypair), and
+    the keyless `oidc_issuer`, `oidc_client_id`, `expected_identity`,
+    `ca_url`, `tlog_url`.
+  - `identity` (`LedgerIdentity`): `oidc_issuer`, `oidc_audience`, `jwks_url`,
+    `directory_command`.
+  - Secrets stay out: the keypair password, identity tokens and the caller's
+    ledger token remain runner/caller credentials. Consumers read this from
+    the injected context instead of `LAAS_*` / `LEDGER_*` environment
+    variables; the verification key stays `ledger-signing-key.pub`.
+
 ## [0.52.0]
 
 ### Reverted — generated numeric identity (0.51.0)

@@ -14,6 +14,7 @@ from traust_contracts.config import (
     MANIFEST,
     TRAUST_CONFIG_HOME_ENV,
     DeploymentConfigMissing,
+    LedgerConfig,
     StorageConfig,
     config_completeness_audit,
     config_path,
@@ -47,6 +48,7 @@ def test_manifest_covers_harness_context_sections():
         "hardening_risk_weights",
         "rpm_distgit_watch",
         "storage",
+        "ledger",
     }
     assert manifest_sections == required
 
@@ -186,6 +188,92 @@ def test_storage_section_missing_required_vs_optional(tmp_path: Path) -> None:
     assert load_section("storage", config_home=tmp_path) is None
     with pytest.raises(DeploymentConfigMissing, match=r"storage.yaml"):
         load_section("storage", config_home=tmp_path, required=True)
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "postgresql+psycopg://ledger_rw:private-password@localhost/traust",
+        "postgresql://localhost/traust",
+        "sqlite:////absolute/path/ledger.db",
+    ],
+)
+def test_ledger_section_uses_canonical_loader(tmp_path: Path, dsn: str) -> None:
+    path = tmp_path / "ledger.yaml"
+    path.write_text(yaml.safe_dump({"dsn": dsn}), encoding="utf-8")
+    section = load_section("ledger", config_home=tmp_path, required=True)
+    assert isinstance(section, LedgerConfig)
+    assert section.dsn == dsn
+    assert section.database
+    assert section.source_sha == hashlib.sha256(path.read_bytes()).hexdigest()[:12]
+    assert load_section("ledger.yaml", config_home=tmp_path) == section
+    assert dsn not in repr(section)
+
+
+def test_ledger_full_shape_and_file_mode(tmp_path: Path) -> None:
+    """signing and identity apply without a database; dsn alone selects database mode."""
+    (tmp_path / "ledger.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "signing": {
+                    "required": True,
+                    "method": "keypair",
+                    "key_path": "/run/secrets/cosign.key",
+                },
+                "identity": {
+                    "oidc_issuer": "https://issuer.example",
+                    "oidc_audience": "laas-api",
+                    "jwks_url": "https://issuer.example/keys",
+                    "directory_command": "/usr/local/bin/ledger-directory",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    section = load_section("ledger", config_home=tmp_path)
+    assert not section.database
+    assert section.signing.required and section.signing.key_path == "/run/secrets/cosign.key"
+    assert section.identity.oidc_audience == "laas-api"
+
+    keyless = {"signing": {"method": "identity", "required": True, "oidc_issuer": "https://o"}}
+    (tmp_path / "ledger.yaml").write_text(yaml.safe_dump(keyless), encoding="utf-8")
+    assert load_section("ledger", config_home=tmp_path).signing.method == "identity"
+
+
+def test_context_ledger_is_optional(tmp_path: Path) -> None:
+    _write_minimal_config(tmp_path)
+    assert load_context(config_home=tmp_path).ledger is None
+    (tmp_path / "ledger.yaml").write_text(
+        yaml.safe_dump({"dsn": "sqlite:////tmp/ledger.db"}), encoding="utf-8"
+    )
+    assert load_context(config_home=tmp_path).ledger.dsn == "sqlite:////tmp/ledger.db"
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {},
+        {"dsn": None},
+        {"dsn": ""},
+        {"dsn": "mysql://localhost/test"},
+        {"dsn": "postgresql+psycopg2://localhost/test"},
+        {"dsn": "sqlite:///relative.db with space"},
+        {"dsn": "postgresql://localhost/test", "backend": "db"},
+        {"signing": {"required": True}},
+        {"signing": {"required": True, "method": "keypair"}},
+        {"signing": {"key_path": "relative/cosign.key"}},
+        {"signing": {"method": "pgp"}},
+        {"signing": {"password": "secret"}},
+        {"signing": {"tlog_url": "http://insecure"}},
+        {"identity": {}},
+        {"identity": {"token": "secret"}},
+        {"identity": {"jwks_url": "http://insecure/keys"}},
+    ],
+)
+def test_ledger_config_rejects_invalid_values(tmp_path: Path, data: dict) -> None:
+    (tmp_path / "ledger.yaml").write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(jsonschema.ValidationError):
+        load_section("ledger", config_home=tmp_path)
 
 
 # --- scope resolution -------------------------------------------------------

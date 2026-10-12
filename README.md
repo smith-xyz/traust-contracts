@@ -28,6 +28,12 @@ point. One loader → no two callers disagree about “what the config is.”
 Optional `storage.yaml` (e.g. `dsn: postgresql://localhost/traust`) loads as
 `context.storage`; `load_section("storage")` provides narrow access. Callers open
 connections; `Store` receives them and never resolves configuration.
+Optional `ledger.yaml` loads as `context.ledger`: `dsn` (SQLAlchemy URL, usually the
+storage database under the ledger's own role) makes the Ledger database the
+authority for disposition layers, with layer files as read-only snapshots; without
+`dsn`, layer files are the ledger. `signing` (method, key path, keyless options,
+`required`) and `identity` (token issuer/audience/JWKS, directory command) apply in
+both modes. Secrets (keypair password, tokens) never go in the file.
 End-to-end architecture: `traust/docs/architecture.md` → *Configuration & context*.
 
 ## Install

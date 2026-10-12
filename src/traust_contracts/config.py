@@ -23,7 +23,7 @@ import json
 import os
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import jsonschema
 import yaml
@@ -448,6 +448,67 @@ class StorageConfig(_Section):
     dsn: str = Field(repr=False)
 
 
+class LedgerSigning(BaseModel):
+    """How the Ledger signs layer Merkle roots (Ledger ``SigningConfig``).
+
+    Secrets never live here: a keypair's password (``COSIGN_PASSWORD``) and an
+    identity token stay in the environment or a secret file of the runner.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    #: Refuse to write an unsigned layer.
+    required: bool = False
+    #: ``keypair`` (a cosign key) or ``identity`` (keyless Sigstore/OIDC).
+    method: Literal["keypair", "identity"] = "keypair"
+    #: Absolute path of the cosign private key (``keypair``).
+    key_path: str | None = None
+    # ``identity`` (keyless) options; unset means the Sigstore defaults.
+    oidc_issuer: str | None = None
+    oidc_client_id: str | None = None
+    expected_identity: str | None = None
+    ca_url: str | None = None
+    tlog_url: str | None = None
+
+
+class LedgerIdentity(BaseModel):
+    """How the Ledger verifies the caller's token and (optionally) checks the directory.
+
+    The token itself is the caller's credential (``ledger auth login`` or a
+    workload token file), not deployment config.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    oidc_issuer: str | None = None
+    oidc_audience: str | None = None
+    jwks_url: str | None = None
+    #: Employee-directory cross-check command, run by the Ledger for each actor.
+    directory_command: str | None = None
+
+
+class LedgerConfig(_Section):
+    """Caller-owned Ledger configuration from ledger.yaml; no environment overrides.
+
+    ``dsn`` present: the Ledger database is the authority for disposition layers,
+    so a consumer reads and writes it and treats layer files as read-only
+    snapshots. ``dsn`` absent (or no ledger.yaml): layer files are the ledger.
+    ``signing`` and ``identity`` apply in both modes. The Ledger lives in the
+    storage database (its layers reference ``traust_storage``), so ``dsn``
+    usually names the same database as ``storage.yaml`` under the ledger's own
+    least-privilege role.
+    """
+
+    dsn: str | None = Field(default=None, repr=False)
+    signing: LedgerSigning | None = None
+    identity: LedgerIdentity | None = None
+
+    @property
+    def database(self) -> bool:
+        """True when the Ledger database (not layer files) is the authority."""
+        return self.dsn is not None
+
+
 class Locations(_Section):
     """Where the harness reads/writes runtime data. Estate config, not engine
     knowledge — every field is a local path or a location URI. Owned wholly by
@@ -540,6 +601,8 @@ MANIFEST: tuple[ConfigFile, ...] = (
     ),
     ConfigFile("locations.yaml", "locations", False, "yaml", "locations", Locations),
     ConfigFile("storage.yaml", "storage", False, "yaml", "storage", StorageConfig),
+    # optional: absent keeps disposition layers file-based with Ledger defaults.
+    ConfigFile("ledger.yaml", "ledger", False, "yaml", "ledger", LedgerConfig),
 )
 
 
@@ -573,6 +636,8 @@ class HarnessContext(BaseModel):
     signing_pubkey: Path | None = None
     locations: Locations | None = None
     storage: StorageConfig | None = None
+    #: Ledger database, signing and identity. None = file layers, Ledger defaults.
+    ledger: LedgerConfig | None = None
     budget_policy: BudgetPolicy | None = None
     product_map: ProductDefinitionsMap | None = None
     rule_pack_allowlist: RulePackAllowlist | None = None
