@@ -391,3 +391,17 @@ make test
 
 PostgreSQL tests use the fixed local test DSN. They run when `psycopg` and the
 database are available; otherwise they warn and skip.
+
+## Portfolio forge observations
+
+`portfolio_forge_facts` stores the latest forge observation, keyed by canonical URL
+(`url:...`) or filing key (`key:...`) when no supported URL exists. Missing-URL
+filings remain distinct; these lookup keys do not replace repository/CodeLine UUIDs.
+The audited SHA, audit date and audit-presence flag identify the comparison
+baseline; Core rejects reuse when it changes. Unknown measurements stay NULL.
+Core derives age, churn, finding counts, risk and exposure on read; `RepoState`
+is not stored.
+
+Storage revision 2 adds this table to the configured database. For existing
+revision-1 storage, back up and explicitly call `Store.migrate()`; `Store.init()`
+refuses older revisions. See [Migrations](#migrations).
