@@ -14,6 +14,9 @@ def test_revision_one_upgrade_adds_facts_without_changing_existing_rows():
     store.init()
     product = store.register_product("example")
     conn.execute("DROP TABLE portfolio_forge_facts")
+    # revision 3 added report.review_surface_coverage; a real revision-1
+    # database has no such column, and the 002_to_003 delta adds it
+    conn.execute("ALTER TABLE report DROP COLUMN review_surface_coverage")
     conn.execute("UPDATE traust_storage_meta SET revision = 1")
     conn.commit()
     with pytest.raises(IngestError, match="migration"):

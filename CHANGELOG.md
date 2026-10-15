@@ -2,6 +2,37 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.56.0]
+
+### Added
+
+- **`report.schema.json` declares `review_surface_coverage`: a deterministic
+  record of review-surface coverage.** It is an object keyed by surface,
+  with one entry for each of the six values in the new `review_surface` enum
+  (`credential-acceptance`, `ownership-resolution`, `security-flags`,
+  `outbound-fetch`, `stored-content-integrity`, `scope-enforcement`).
+  - Each entry's `status` comes from the new `review_surface_status` enum:
+    `finding` (requires `finding_ids`), `negative`, or `not_applicable` /
+    `not_assessed` (each requires a `note`).
+  - The schema rejects a missing surface, an unknown surface, an unknown
+    status, or a status without what it needs.
+  - The field is optional, so existing reports stay valid; producers adopt
+    it per release.
+- **Storage revision 3:** `report.review_surface_coverage` (SQLite `TEXT`
+  JSON, PostgreSQL `JSONB`), written by the report projection.
+  `002_to_003.sql` adds the column, and `003_to_004.sql` is the next
+  placeholder. Existing databases need `Store.migrate()`.
+- **Test:** every top-level `report.schema.json` property reaches the
+  store's report column list and both DDLs. Until now, a new top-level field
+  would have been silently dropped by the projection.
+
+### Changed
+
+- `enums/v1/precision-gate-action.json` is renamed in-file to
+  `precision_gate_action`, the underscore convention used by most of the
+  registry. The file name and values are unchanged, and no downstream
+  consumer referenced the old name.
+
 ## [0.55.0]
 
 ### Added

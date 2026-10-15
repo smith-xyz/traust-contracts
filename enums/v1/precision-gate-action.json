@@ -1,5 +1,5 @@
 {
-  "name": "precision-gate-action",
+  "name": "precision_gate_action",
   "source_schema": "report.schema.json#/$defs/metadata/properties/additional/properties/precision_gates/properties/fired/items/properties/action",
   "description": "What a fired Precision Gate did with a critical/high candidate.",
   "values": [
