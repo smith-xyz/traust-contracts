@@ -2,6 +2,32 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.57.0]
+
+### Added
+
+- **Review-surface coverage for the scans that follow an audit.**
+  `verification.schema.json` and `vuln-findings.schema.json` declare an
+  optional top-level `review_surface_coverage`. It uses the new
+  `report.schema.json#/$defs/scan_review_surface_coverage`: the same six
+  surfaces and statuses as the audit's record. A scan has no
+  `negative_results`, so a `negative` entry also needs a `note` saying what
+  was examined. The cumulative builder merges a scan's record into the
+  repo's `*-findings-current.json`.
+- **`out_of_scope` status** in `review_surface_status`, for a diff-scoped
+  scan whose diff does not touch a surface. It needs a `note`, like
+  `not_applicable` and `not_assessed`. All six surfaces stay required.
+- **Threat-model tags:** optional `review_surfaces` (an array of
+  `review_surface` values) on `threats[]` and `entry_points[]`.
+- **Storage revision 4:** `verification.review_surface_coverage` and
+  `threat.review_surfaces` (SQLite JSON text, PostgreSQL `JSONB`), written by
+  their projections. `threat_current` exposes `review_surfaces` as its last
+  column, so readers that index earlier columns by position are unaffected.
+  `003_to_004.sql` adds both columns, and `004_to_005.sql` is the next
+  placeholder. Existing databases need `Store.migrate()`.
+- `vuln-findings` still has no document-level table: its record reaches
+  storage through the cumulative report's `report.review_surface_coverage`.
+
 ## [0.56.0]
 
 ### Added

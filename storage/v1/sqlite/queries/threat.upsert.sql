@@ -26,7 +26,8 @@ INSERT INTO threat (
     score,
     attack_refs,
     isolation_dimensions,
-    isolation_boundaries
+    isolation_boundaries,
+    review_surfaces
 )
 VALUES (
     :binding_id,
@@ -56,6 +57,7 @@ VALUES (
     :score,
     :attack_refs,
     :isolation_dimensions,
-    :isolation_boundaries
+    :isolation_boundaries,
+    :review_surfaces
 )
 ON CONFLICT (binding_id, threat_key) DO NOTHING;

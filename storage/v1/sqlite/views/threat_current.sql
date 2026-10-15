@@ -42,7 +42,8 @@ SELECT b.scope_id,
        t.likelihood_level,
        t.impact_score,
        t.impact_level,
-       t.impact_basis
+       t.impact_basis,
+       t.review_surfaces
 FROM threat t
 JOIN artifact_binding b
   ON b.binding_id = t.binding_id

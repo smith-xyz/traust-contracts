@@ -54,6 +54,9 @@ CREATE TABLE IF NOT EXISTS traust_storage.threat (
     attack_refs JSONB,
     isolation_dimensions JSONB,
     isolation_boundaries JSONB,
+    -- Review surfaces the threat sits on (threat-model schema
+    -- `review_surfaces`); NULL on an untagged threat.
+    review_surfaces JSONB,
     PRIMARY KEY (binding_id, threat_key),
     FOREIGN KEY (binding_id, artifact_digest)
         REFERENCES traust_storage.artifact_binding(binding_id, artifact_digest)

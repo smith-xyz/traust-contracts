@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS traust_storage.verification (
     commit_timeline JSONB NOT NULL,
     evidence JSONB,
     recommendations JSONB,
+    review_surface_coverage JSONB,
     notes TEXT,
     footer TEXT,
     PRIMARY KEY (binding_id),

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS verification (
     commit_timeline TEXT NOT NULL CHECK (commit_timeline IS NULL OR json_valid(commit_timeline)),
     evidence TEXT CHECK (evidence IS NULL OR json_valid(evidence)),
     recommendations TEXT CHECK (recommendations IS NULL OR json_valid(recommendations)),
+    review_surface_coverage TEXT CHECK (review_surface_coverage IS NULL OR json_valid(review_surface_coverage)),
     notes TEXT,
     footer TEXT,
     PRIMARY KEY (binding_id),

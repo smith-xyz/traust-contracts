@@ -26,7 +26,8 @@ INSERT INTO traust_storage.threat (
     score,
     attack_refs,
     isolation_dimensions,
-    isolation_boundaries
+    isolation_boundaries,
+    review_surfaces
 )
 VALUES (
     %(binding_id)s,
@@ -56,6 +57,7 @@ VALUES (
     %(score)s,
     %(attack_refs)s,
     %(isolation_dimensions)s,
-    %(isolation_boundaries)s
+    %(isolation_boundaries)s,
+    %(review_surfaces)s
 )
 ON CONFLICT (binding_id, threat_key) DO NOTHING;

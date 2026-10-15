@@ -27,7 +27,8 @@ SELECT scope_id,
        likelihood_level,
        impact_score,
        impact_level,
-       impact_basis
+       impact_basis,
+       review_surfaces
 FROM traust_storage.threat_current
 WHERE scope_id IN (
     SELECT jsonb_array_elements_text(%(scope_ids)s::jsonb)

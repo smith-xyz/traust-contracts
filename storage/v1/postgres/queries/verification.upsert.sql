@@ -9,6 +9,7 @@ INSERT INTO traust_storage.verification (
     commit_timeline,
     evidence,
     recommendations,
+    review_surface_coverage,
     notes,
     footer
 ) VALUES (
@@ -22,6 +23,7 @@ INSERT INTO traust_storage.verification (
     %(commit_timeline)s,
     %(evidence)s,
     %(recommendations)s,
+    %(review_surface_coverage)s,
     %(notes)s,
     %(footer)s
 )

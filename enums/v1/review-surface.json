@@ -12,6 +12,9 @@
   ],
   "note": "Review guidance, not a finding field: a finding on a surface keeps the shared category vocabulary and cwes. Distinct from isolation-dimension (PEACH tenant-boundary parameters). credential-acceptance: what else passes each credential verifier. ownership-resolution: owners matched by name or unescaped pattern. security-flags: every reader of a security-relevant flag, controls that fail open when unconfigured, default keys. outbound-fetch: every outbound call site, including identity-provider discovery and key fetches. stored-content-integrity: the verified bytes are the stored bytes. scope-enforcement: scope and step-up rules hold for every credential type and route.",
   "used_in_schemas": [
-    "report.schema.json"
+    "report.schema.json",
+    "threat-model.schema.json",
+    "verification.schema.json",
+    "vuln-findings.schema.json"
   ]
 }

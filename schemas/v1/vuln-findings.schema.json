@@ -47,6 +47,10 @@
         "$ref": "#/$defs/known_finding"
       }
     },
+    "review_surface_coverage": {
+      "$ref": "report.schema.json#/$defs/scan_review_surface_coverage",
+      "description": "Review-surface coverage of the scanned code (the whole tree, or the diff for a --diff scan): one entry per surface. A surface the diff does not touch is out_of_scope. The cumulative builder merges this record into the repo's cumulative report (*-findings-current.json)."
+    },
     "summary": {
       "$ref": "#/$defs/summary"
     }
