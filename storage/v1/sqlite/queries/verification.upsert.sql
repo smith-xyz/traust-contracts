@@ -9,6 +9,7 @@ INSERT INTO verification (
     commit_timeline,
     evidence,
     recommendations,
+    review_surface_coverage,
     notes,
     footer
 ) VALUES (
@@ -22,6 +23,7 @@ INSERT INTO verification (
     :commit_timeline,
     :evidence,
     :recommendations,
+    :review_surface_coverage,
     :notes,
     :footer
 )

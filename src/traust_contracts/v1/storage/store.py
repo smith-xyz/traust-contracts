@@ -295,6 +295,7 @@ ONE_ROW_PROJECTIONS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
             ("commit_timeline", "json"),
             ("evidence", "json"),
             ("recommendations", "json"),
+            ("review_surface_coverage", "json"),
             ("notes", "scalar"),
             ("footer", "scalar"),
         ),
@@ -1590,6 +1591,7 @@ class Store:
                     "attack_refs": _json_or_none(threat.get("attack_refs")),
                     "isolation_dimensions": _json_or_none(threat.get("isolation_dimensions")),
                     "isolation_boundaries": _json_or_none(threat.get("isolation_boundaries")),
+                    "review_surfaces": _json_or_none(threat.get("review_surfaces")),
                 },
             )
 

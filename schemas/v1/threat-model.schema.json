@@ -139,7 +139,11 @@
           "items": { "enum": ["privilege", "encryption", "authentication", "connectivity", "hygiene"] },
           "description": "Column 12, optional, multi-tenant only. Which isolation dimension this threat stresses."
         },
-        "risk_rating": { "$ref": "#/$defs/owasp_risk_rating" }
+        "risk_rating": { "$ref": "#/$defs/owasp_risk_rating" },
+        "review_surfaces": {
+          "$ref": "#/$defs/review_surfaces",
+          "description": "Review surfaces this threat sits on, so an audit's threat-model coverage diff maps modelled threats to its review_surface_coverage record."
+        }
       }
     },
     "asset": {
@@ -178,8 +182,27 @@
           "type": "string",
           "minLength": 1,
           "description": "Comma-separated names of section-2 assets reachable through this entry point."
+        },
+        "review_surfaces": {
+          "$ref": "#/$defs/review_surfaces",
+          "description": "Review surfaces reachable through this entry point."
         }
       }
+    },
+    "review_surfaces": {
+      "type": "array",
+      "description": "Review surfaces (traust-contracts enums/v1/review-surface.json). Optional: an untagged threat or entry point is simply not mapped.",
+      "items": {
+        "enum": [
+          "credential-acceptance",
+          "ownership-resolution",
+          "security-flags",
+          "outbound-fetch",
+          "stored-content-integrity",
+          "scope-enforcement"
+        ]
+      },
+      "uniqueItems": true
     },
     "deprioritized_threat": {
       "type": "object",

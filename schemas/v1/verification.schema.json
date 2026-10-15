@@ -61,6 +61,10 @@
         "minLength": 10
       }
     },
+    "review_surface_coverage": {
+      "$ref": "report.schema.json#/$defs/scan_review_surface_coverage",
+      "description": "Review-surface coverage of the re-reviewed code (the diff and its regression scan): one entry per surface. A surface the diff does not touch is out_of_scope. The cumulative builder merges this record into the repo's cumulative report (*-findings-current.json)."
+    },
     "notes": {
       "type": "string",
       "description": "Free-form auditor/agent notes \u2014 attribution caveats (force-pushed history, squash merges), scoping decisions for the regression scan, anything a human reviewer should know."

@@ -1169,7 +1169,7 @@
         "status"
       ],
       "additionalProperties": false,
-      "description": "One review surface's outcome. finding: finding_ids name the report findings on it. negative: a negative_results entry whose area is the surface id records what was examined. not_applicable / not_assessed: note says why; a not_assessed surface also belongs in metadata.additional.coverage_gaps.",
+      "description": "One review surface's outcome. finding: finding_ids name the report findings on it. negative: a negative_results entry whose area is the surface id records what was examined. not_applicable / not_assessed / out_of_scope: note says why; a not_assessed surface also belongs in metadata.additional.coverage_gaps. out_of_scope is for a diff-scoped scan whose diff does not touch the surface.",
       "properties": {
         "status": {
           "type": "string",
@@ -1177,7 +1177,8 @@
             "finding",
             "negative",
             "not_applicable",
-            "not_assessed"
+            "not_assessed",
+            "out_of_scope"
           ]
         },
         "finding_ids": {
@@ -1220,8 +1221,64 @@
               "status": {
                 "enum": [
                   "not_applicable",
-                  "not_assessed"
+                  "not_assessed",
+                  "out_of_scope"
                 ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "note"
+            ],
+            "properties": {
+              "note": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "scan_review_surface_coverage": {
+      "type": "object",
+      "description": "Review-surface coverage recorded by a scan that follows an audit (vuln-findings.schema.json, verification.schema.json). Same keys and statuses as the report's review_surface_coverage, but a scan has no negative_results, so a negative entry carries its evidence in note. The cumulative builder merges these records into the cumulative report.",
+      "propertyNames": {
+        "enum": [
+          "credential-acceptance",
+          "ownership-resolution",
+          "security-flags",
+          "outbound-fetch",
+          "stored-content-integrity",
+          "scope-enforcement"
+        ]
+      },
+      "required": [
+        "credential-acceptance",
+        "ownership-resolution",
+        "security-flags",
+        "outbound-fetch",
+        "stored-content-integrity",
+        "scope-enforcement"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/scan_review_surface_entry"
+      }
+    },
+    "scan_review_surface_entry": {
+      "description": "A review_surface_entry whose negative status also needs a note saying what was examined.",
+      "allOf": [
+        {
+          "$ref": "#/$defs/review_surface_entry"
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "negative"
               }
             },
             "required": [

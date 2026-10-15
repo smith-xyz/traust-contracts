@@ -19,6 +19,7 @@ from jsonschema import Draft202012Validator
 
 from traust_contracts.paths import enum_dir, schema_dir, storage_dir
 from traust_contracts.v1.storage import Binding, Store
+from traust_contracts.v1.storage.sql import view_names
 from traust_contracts.v1.storage.store import ONE_ROW_PROJECTIONS
 
 REPORT = json.loads((schema_dir() / "report.schema.json").read_text(encoding="utf-8"))
@@ -120,6 +121,10 @@ def test_migrating_from_revision_two_adds_the_column():
     store = Store(conn)
     store.init()
     conn.execute("ALTER TABLE report DROP COLUMN review_surface_coverage")
+    conn.execute("ALTER TABLE verification DROP COLUMN review_surface_coverage")
+    for name in reversed(view_names("sqlite")):  # migrate() recreates them
+        conn.execute(f"DROP VIEW IF EXISTS {name}")
+    conn.execute("ALTER TABLE threat DROP COLUMN review_surfaces")
     conn.execute("UPDATE traust_storage_meta SET revision = 2")
     conn.commit()
     store.migrate()

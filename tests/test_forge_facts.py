@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from traust_contracts.v1.storage import IngestError, Store
-from traust_contracts.v1.storage.sql import REVISION
+from traust_contracts.v1.storage.sql import REVISION, view_names
 
 
 def test_revision_one_upgrade_adds_facts_without_changing_existing_rows():
@@ -14,9 +14,13 @@ def test_revision_one_upgrade_adds_facts_without_changing_existing_rows():
     store.init()
     product = store.register_product("example")
     conn.execute("DROP TABLE portfolio_forge_facts")
-    # revision 3 added report.review_surface_coverage; a real revision-1
-    # database has no such column, and the 002_to_003 delta adds it
+    # revisions 3 and 4 added these columns; a real revision-1 database has
+    # none of them, and the 002_to_003 and 003_to_004 deltas add them
     conn.execute("ALTER TABLE report DROP COLUMN review_surface_coverage")
+    conn.execute("ALTER TABLE verification DROP COLUMN review_surface_coverage")
+    for name in reversed(view_names("sqlite")):  # migrate() recreates them
+        conn.execute(f"DROP VIEW IF EXISTS {name}")
+    conn.execute("ALTER TABLE threat DROP COLUMN review_surfaces")
     conn.execute("UPDATE traust_storage_meta SET revision = 1")
     conn.commit()
     with pytest.raises(IngestError, match="migration"):

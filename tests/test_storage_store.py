@@ -1102,9 +1102,10 @@ def test_threat_current_carries_the_rating(store: Store) -> None:
     rows = {row[2]: row for row in store.query_threat_current(["local"])}
     # The rating columns are appended after the existing ones, so readers
     # that index the older columns by position are unaffected.
-    assert rows["T2"][-6:] == ("high", 4.375, "medium", 7.25, "high", "technical")
-    assert json.loads(rows["T2"][-7])["severity"] == "high"
-    assert rows["T1"][-7:] == (None,) * 7
+    # review_surfaces follows them, last.
+    assert rows["T2"][-7:-1] == ("high", 4.375, "medium", 7.25, "high", "technical")
+    assert json.loads(rows["T2"][-8])["severity"] == "high"
+    assert rows["T1"][-8:-1] == (None,) * 7
 
 
 def test_threat_exposure_splits_rated_from_legacy_and_orders_by_severity(store: Store) -> None:

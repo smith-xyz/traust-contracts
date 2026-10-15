@@ -27,7 +27,8 @@ SELECT scope_id,
        likelihood_level,
        impact_score,
        impact_level,
-       impact_basis
+       impact_basis,
+       review_surfaces
 FROM threat_current
 WHERE scope_id IN (SELECT value FROM json_each(:scope_ids))
 ORDER BY scope_id, threat_key;

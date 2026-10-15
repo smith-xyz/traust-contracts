@@ -416,3 +416,12 @@ Reports written before the field existed leave the column NULL.
 Storage revision 3 adds this column (`migrations/002_to_003.sql`). For existing
 revision-2 storage, back up and explicitly call `Store.migrate()`; see
 [Migrations](#migrations).
+
+`verification.review_surface_coverage` holds a verification run's record, and
+`threat.review_surfaces` the surfaces a modelled threat is tagged with
+(`threat_current` exposes it). A vuln-scan's record has no table of its own:
+the cumulative builder merges it into the repo's cumulative report, which is
+stored in `report.review_surface_coverage`.
+
+Storage revision 4 adds both columns (`migrations/003_to_004.sql`). For existing
+revision-3 storage, back up and explicitly call `Store.migrate()`.
