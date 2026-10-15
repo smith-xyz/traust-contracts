@@ -189,7 +189,7 @@
         },
         "additional": {
           "type": "object",
-          "description": "Producer-declared provenance and free-form extras. harness_version identifies the producing harness release; contracts_version pins the contract surface it was validated against.",
+          "description": "Producer-declared provenance and run records. harness_version identifies the producing harness release; contracts_version pins the contract surface it was validated against. The other declared fields are the run records the report-producing skills (code, rpm and container profiles) specify. The object stays open: an undeclared key is allowed, but a declared key must match its shape.",
           "properties": {
             "harness_version": {
               "type": "string",
@@ -198,6 +198,152 @@
             "contracts_version": {
               "type": "string",
               "description": "Version of traust-contracts this report was validated against."
+            },
+            "deterministic_steps": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Fate of every deterministic pre-scan, keyed by step name (e.g. opengrep, gitleaks, osv-scanner, sbom-grype, k8s-hardening, priv-profile, fork-advisory-lag, route-guards, config-matrix, yara, crypto-audit, crypto). Value: 'ran', 'skipped: <reason>', or a step-specific state ('list', '<n> records'). A skipped step means that area was reviewed by hand only; consumers must not read missing scanner facts as a clean result."
+            },
+            "precision_gates": {
+              "type": "object",
+              "required": [
+                "crit_high_evaluated",
+                "fired"
+              ],
+              "description": "Precision Gate pass record. A report that files critical/high findings without this block is an incomplete run.",
+              "properties": {
+                "crit_high_evaluated": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Every critical/high candidate evaluated, filed or gated."
+                },
+                "fired": {
+                  "type": "array",
+                  "description": "Each gate that changed a candidate's disposition. An empty list is legitimate.",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "candidate",
+                      "gate",
+                      "action"
+                    ],
+                    "properties": {
+                      "candidate": {
+                        "type": "string",
+                        "description": "Short title or finding id."
+                      },
+                      "gate": {
+                        "type": "string",
+                        "description": "Gate name from the skill's Precision Gate section."
+                      },
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "downgraded",
+                          "negative_results",
+                          "dependency_audit"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "coverage_gaps": {
+              "type": "array",
+              "description": "Systems a pre-scan or review lane could not examine (unexpanded config systems, unenumerated frameworks, classes a scoped audit did not cover). Aggregated fleet-wide: an audit that skipped something says so here instead of reading as clean.",
+              "items": {
+                "type": "object",
+                "required": [
+                  "tool",
+                  "system",
+                  "reason"
+                ],
+                "properties": {
+                  "tool": {
+                    "type": "string",
+                    "description": "Pre-scan or lane that recorded the gap."
+                  },
+                  "system": {
+                    "type": "string",
+                    "description": "What was not examined."
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "Number of files or items affected, when known."
+                  }
+                }
+              }
+            },
+            "assertive_inference": {
+              "type": "object",
+              "required": [
+                "languages",
+                "trigger"
+              ],
+              "description": "Assertive reporting posture for languages with thin or no deterministic rule coverage. Changes the report-or-omit decision only, never severity or validation_status.",
+              "properties": {
+                "languages": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "trigger": {
+                  "type": "string",
+                  "description": "Why the posture applied, e.g. 'thin per opengrep coverage block'."
+                }
+              }
+            },
+            "companion_lanes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Other scan lanes the tree needs that this audit does not cover (e.g. 'cloud-config-audit' when IaC is present). A declaration only; the router turns it into worklist rows."
+            },
+            "audit_passes": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "Number of independent review passes merged into the report. Recorded when it differs from the two-pass default."
+            },
+            "model_routing": {
+              "type": "object",
+              "required": [
+                "role",
+                "model"
+              ],
+              "description": "The routed model decision that produced the report.",
+              "properties": {
+                "role": {
+                  "type": "string"
+                },
+                "model": {
+                  "type": "string"
+                },
+                "registry_sha": {
+                  "type": "string",
+                  "description": "Short sha of the model registry revision that made the decision."
+                },
+                "floor": {
+                  "type": "string",
+                  "description": "Model-class floor that applied."
+                }
+              }
+            },
+            "source_audit": {
+              "type": "string",
+              "description": "Container profile: path of the source repository's code-profile report that this image audit cross-links."
+            },
+            "degraded": {
+              "type": "boolean",
+              "description": "True when the run lost coverage (a lane or tool unavailable). A degraded report must not be read as full coverage."
             }
           }
         },

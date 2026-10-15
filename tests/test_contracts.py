@@ -8,6 +8,7 @@ guard.
 
 import json
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
@@ -358,3 +359,64 @@ def test_canonical_write_mitigation_keeps_uppercase_history_and_requires_known_s
     del item["effort"]
     assert not writer.is_valid(document)
     assert not reader.is_valid(document)
+
+
+class TestReportMetadataAdditional:
+    """Declared run records under report metadata.additional (0.55.0).
+
+    The object stays open: undeclared keys pass, declared keys must match.
+    """
+
+    @staticmethod
+    def _validator():
+        schema = json.loads((SCHEMA_DIR / "report.schema.json").read_text(encoding="utf-8"))
+        return Draft202012Validator(schema["$defs"]["metadata"]["properties"]["additional"])
+
+    VALID: ClassVar[dict] = {
+        "harness_version": "0.17.0-abc1234",
+        "deterministic_steps": {"opengrep": "ran", "gitleaks": "skipped: not on PATH"},
+        "precision_gates": {
+            "crit_high_evaluated": 2,
+            "fired": [{"candidate": "X-001", "gate": "fp-precedent", "action": "downgraded"}],
+        },
+        "coverage_gaps": [
+            {"tool": "route-guards", "system": "fastapi", "reason": "no enumerator"},
+            {"tool": "config-matrix", "system": "toml", "reason": "no expander", "count": 3},
+        ],
+        "assertive_inference": {"languages": ["rust"], "trigger": "uncovered per opengrep"},
+        "companion_lanes": ["cloud-config-audit"],
+        "audit_passes": 1,
+        "model_routing": {"role": "auditor", "model": "m", "registry_sha": "abc", "floor": "f"},
+        "source_audit": "findings/p/r/r-security-audit.json",
+        "degraded": False,
+        "undeclared_extra": {"anything": [1, 2]},
+    }
+
+    def test_declared_shapes_validate(self):
+        errors = list(self._validator().iter_errors(self.VALID))
+        assert errors == [], [e.message for e in errors]
+
+    def test_empty_fired_list_is_legitimate(self):
+        doc = {"precision_gates": {"crit_high_evaluated": 0, "fired": []}}
+        assert list(self._validator().iter_errors(doc)) == []
+
+    @pytest.mark.parametrize(
+        "doc",
+        [
+            {"deterministic_steps": {"opengrep": True}},
+            {"precision_gates": {"fired": []}},
+            {
+                "precision_gates": {
+                    "crit_high_evaluated": 1,
+                    "fired": [{"candidate": "a", "gate": "g", "action": "dropped"}],
+                }
+            },
+            {"coverage_gaps": [{"tool": "t", "system": "s"}]},
+            {"assertive_inference": None},
+            {"audit_passes": 0},
+            {"model_routing": {"role": "r", "model": "m", "registry_sha": None}},
+            {"degraded": "yes"},
+        ],
+    )
+    def test_malformed_declared_fields_fail(self, doc):
+        assert list(self._validator().iter_errors(doc)), doc

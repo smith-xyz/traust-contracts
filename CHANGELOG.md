@@ -2,6 +2,30 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.55.0]
+
+### Added
+
+- **`report.schema.json` declares the run records under
+  `metadata.additional`.** Besides `harness_version` and
+  `contracts_version`, the schema now declares the fields the
+  report-producing skills (code, rpm and container profiles) specify:
+  `deterministic_steps`, `precision_gates`, `coverage_gaps`,
+  `assertive_inference`, `companion_lanes`, `audit_passes`,
+  `model_routing`, `source_audit` and `degraded`. `metadata.additional`
+  stays open: undeclared keys are still allowed, but a declared key must
+  match its shape. Fields the skills mention without defining a shape stay
+  undeclared until their producers pin one.
+
+### Breaking
+
+A report whose `metadata.additional` carries one of the declared keys in
+another shape now fails validation. Known producer shapes that fail: `null`
+inside `model_routing` (e.g. `"registry_sha": null`) and
+`"assertive_inference": null`. Omit an unknown value rather than writing
+`null`; existing reports with those shapes need their producer fixed or a
+re-emit before adopting this release.
+
 ## [0.54.0]
 
 ### Added
