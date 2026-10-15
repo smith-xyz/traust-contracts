@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS report (
     dependency_audit TEXT CHECK (dependency_audit IS NULL OR json_valid(dependency_audit)),
     negative_results TEXT CHECK (negative_results IS NULL OR json_valid(negative_results)),
     asvs_coverage TEXT CHECK (asvs_coverage IS NULL OR json_valid(asvs_coverage)),
+    review_surface_coverage TEXT CHECK (review_surface_coverage IS NULL OR json_valid(review_surface_coverage)),
     scanner_correlation TEXT CHECK (scanner_correlation IS NULL OR json_valid(scanner_correlation)),
     peach_isolation_review TEXT CHECK (peach_isolation_review IS NULL OR json_valid(peach_isolation_review)),
     disposition_summary TEXT CHECK (disposition_summary IS NULL OR json_valid(disposition_summary)),

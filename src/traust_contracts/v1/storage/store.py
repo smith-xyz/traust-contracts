@@ -234,6 +234,7 @@ ONE_ROW_PROJECTIONS: dict[str, tuple[str, tuple[tuple[str, str], ...]]] = {
             ("dependency_audit", "json"),
             ("negative_results", "json"),
             ("asvs_coverage", "json"),
+            ("review_surface_coverage", "json"),
             ("scanner_correlation", "json"),
             ("peach_isolation_review", "json"),
             ("disposition_summary", "json"),

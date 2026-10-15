@@ -405,3 +405,14 @@ is not stored.
 Storage revision 2 adds this table to the configured database. For existing
 revision-1 storage, back up and explicitly call `Store.migrate()`; `Store.init()`
 refuses older revisions. See [Migrations](#migrations).
+
+## Review-surface coverage
+
+`report.review_surface_coverage` holds a report's `review_surface_coverage`
+record: one entry per review surface (`enums/v1/review-surface.json`) with a
+`review_surface_status`. It is stored as JSON, alongside `asvs_coverage`.
+Reports written before the field existed leave the column NULL.
+
+Storage revision 3 adds this column (`migrations/002_to_003.sql`). For existing
+revision-2 storage, back up and explicitly call `Store.migrate()`; see
+[Migrations](#migrations).

@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS traust_storage.report (
     dependency_audit JSONB,
     negative_results JSONB,
     asvs_coverage JSONB,
+    review_surface_coverage JSONB,
     scanner_correlation JSONB,
     peach_isolation_review JSONB,
     disposition_summary JSONB,

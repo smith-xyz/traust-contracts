@@ -68,6 +68,31 @@
         "$ref": "#/$defs/asvs_chapter"
       }
     },
+    "review_surface_coverage": {
+      "type": "object",
+      "description": "Coverage of the six review surfaces (traust-contracts enums/v1/review-surface.json): one entry per surface, recording whether the audit answered it with a finding, a negative result, not-applicable, or not assessed. A deterministic record, so coverage is checked by schema, not inferred from prose.",
+      "propertyNames": {
+        "enum": [
+          "credential-acceptance",
+          "ownership-resolution",
+          "security-flags",
+          "outbound-fetch",
+          "stored-content-integrity",
+          "scope-enforcement"
+        ]
+      },
+      "required": [
+        "credential-acceptance",
+        "ownership-resolution",
+        "security-flags",
+        "outbound-fetch",
+        "stored-content-integrity",
+        "scope-enforcement"
+      ],
+      "additionalProperties": {
+        "$ref": "#/$defs/review_surface_entry"
+      }
+    },
     "scanner_correlation": {
       "type": "array",
       "items": {
@@ -1137,6 +1162,84 @@
           "type": "string"
         }
       }
+    },
+    "review_surface_entry": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "additionalProperties": false,
+      "description": "One review surface's outcome. finding: finding_ids name the report findings on it. negative: a negative_results entry whose area is the surface id records what was examined. not_applicable / not_assessed: note says why; a not_assessed surface also belongs in metadata.additional.coverage_gaps.",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "finding",
+            "negative",
+            "not_applicable",
+            "not_assessed"
+          ]
+        },
+        "finding_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "note": {
+          "type": "string"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "finding"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "finding_ids"
+            ],
+            "properties": {
+              "finding_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_applicable",
+                  "not_assessed"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "required": [
+              "note"
+            ],
+            "properties": {
+              "note": {
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
     },
     "asvs_chapter": {
       "type": "object",
