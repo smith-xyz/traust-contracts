@@ -161,3 +161,40 @@ def test_ingest_stores_threat_tags_and_the_view_exposes_them():
     assert stored and all(json.loads(row[0]) == ["scope-enforcement"] for row in stored)
     viewed = conn.execute("SELECT review_surfaces FROM threat_current").fetchall()
     assert viewed == stored
+
+
+COVERAGE_DIFF = {
+    "changed_files_covered": ["src/app.py"],
+    "callers_covered": ["src/views.py"],
+    "refused_or_skipped": ["README.md: not first-party code"],
+    "baseline_report": "findings/org/repo/repo-security-audit.json",
+    "anchor": "f3ee255b833ec8da7946395b6cfccc219edd6bfb",
+    "resolution_source": "override",
+}
+COVERAGE_DIFF_POINTER = "/$defs/metadata/properties/additional/properties/coverage_diff"
+
+
+def test_the_diff_stamp_validates():
+    assert _errors("vuln-findings", COVERAGE_DIFF_POINTER, COVERAGE_DIFF) == []
+
+
+@pytest.mark.parametrize(
+    ("mutate", "why"),
+    [
+        (lambda d: d.pop("anchor"), "a required key is missing"),
+        (lambda d: d.__setitem__("callers_covered", "src/views.py"), "a list written as a string"),
+        (lambda d: d.__setitem__("changed_files_covered", 3), "a count instead of a list"),
+        (lambda d: d.__setitem__("baseline_report", ""), "an empty baseline"),
+    ],
+)
+def test_a_malformed_diff_stamp_fails(mutate, why):
+    stamp = dict(COVERAGE_DIFF)
+    mutate(stamp)
+    assert _errors("vuln-findings", COVERAGE_DIFF_POINTER, stamp), why
+
+
+def test_a_full_scan_omits_the_stamp():
+    meta_pointer = "/$defs/metadata/properties/additional"
+    assert (
+        _errors("vuln-findings", meta_pointer, {"deterministic_steps": {"opengrep": "ran"}}) == []
+    )

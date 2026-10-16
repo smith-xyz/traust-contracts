@@ -2,6 +2,29 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.58.0]
+
+### Added
+
+- **`vuln-findings.schema.json` declares `metadata.additional.coverage_diff`**,
+  the stamp `/vuln-scan --diff` already writes:
+  - three arrays of strings: `changed_files_covered`, `callers_covered`,
+    `refused_or_skipped`
+  - three non-empty strings: `baseline_report`, `anchor`,
+    `resolution_source`
+
+  All six keys are required. It is present exactly when the scan was
+  diff-scoped, which lets the validator allow a `review_surface_coverage`
+  entry of `out_of_scope` only on diff scans. Other `additional` keys stay
+  allowed.
+
+### Breaking
+
+- `coverage_diff` was previously free-form. A stamp that writes a list as a
+  string, counts in place of lists, or objects in `refused_or_skipped` now
+  fails validation. 16 of the 161 vuln-findings reports on disk do (8 repos,
+  each also mirrored under `_orgs/`). New scans write the documented shape.
+
 ## [0.57.0]
 
 ### Added
