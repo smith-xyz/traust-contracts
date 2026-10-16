@@ -109,8 +109,23 @@
           "minimum": 0
         },
         "additional": {
-          "description": "Free-form extension bag (same convention as report.schema.json): deterministic_steps recording, and in --diff mode the coverage_diff stamp (changed_files_covered, callers_covered, refused_or_skipped, baseline_report, anchor, resolution_source) and the spend calibration stamp.",
-          "type": "object"
+          "description": "Extension bag (same convention as report.schema.json): deterministic_steps recording, the --diff mode coverage_diff stamp, and the spend calibration stamp. Undeclared keys stay allowed.",
+          "type": "object",
+          "properties": {
+            "coverage_diff": {
+              "type": "object",
+              "description": "Present exactly when the scan was diff-scoped (/vuln-scan --diff): what the diff was taken against and what of it the scan covered. A full scan omits it. A review_surface_coverage entry may be out_of_scope only when this is present.",
+              "required": ["changed_files_covered", "callers_covered", "refused_or_skipped", "baseline_report", "anchor", "resolution_source"],
+              "properties": {
+                "changed_files_covered": {"type": "array", "items": {"type": "string"}, "description": "Changed first-party files the scan reviewed."},
+                "callers_covered": {"type": "array", "items": {"type": "string"}, "description": "Callers of changed code the scan reviewed."},
+                "refused_or_skipped": {"type": "array", "items": {"type": "string"}, "description": "Each changed file or step not covered, as '<file or step>: <reason>'."},
+                "baseline_report": {"type": "string", "minLength": 1, "description": "The audit report the diff was resolved against."},
+                "anchor": {"type": "string", "minLength": 1, "description": "The commit the diff starts from (the baseline's metadata.commit)."},
+                "resolution_source": {"type": "string", "minLength": 1, "description": "How the baseline and anchor were chosen: auto (the resolver) or override (--since / --baseline)."}
+              }
+            }
+          }
         }
       },
       "additionalProperties": false
