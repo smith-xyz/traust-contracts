@@ -224,6 +224,18 @@ class ExternalTools(_Section):
     tools: list[Any]
 
 
+class LongPromptPricing(_Section):
+    """Prices for a request whose prompt is over ``above_tokens``.
+
+    The prompt counts input, cache reads and cache writes. Over the threshold
+    these prices replace the base prices for every token of the request.
+    """
+
+    above_tokens: int
+    price_per_mtok_in: float
+    price_per_mtok_out: float
+
+
 class ModelSpec(_Section):
     """One concrete model: its tier class and (optional) list prices."""
 
@@ -231,6 +243,9 @@ class ModelSpec(_Section):
     batch_eligible: bool = False
     price_per_mtok_in: float | None = None
     price_per_mtok_out: float | None = None
+    #: cache-hit price as a fraction of the input price; None means 0.1
+    cache_read_multiplier: float | None = None
+    long_prompt: LongPromptPricing | None = None
 
 
 class ProviderSpec(_Section):

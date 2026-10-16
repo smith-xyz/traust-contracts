@@ -80,6 +80,36 @@
                     "number",
                     "null"
                   ]
+                },
+                "cache_read_multiplier": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 1,
+                  "description": "Cache-hit price as a fraction of price_per_mtok_in. Omit for the standard 0.1."
+                },
+                "long_prompt": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "above_tokens",
+                    "price_per_mtok_in",
+                    "price_per_mtok_out"
+                  ],
+                  "description": "Higher prices for a request whose prompt (input plus cache reads plus cache writes) is over above_tokens. They replace the base prices for every token of that request.",
+                  "properties": {
+                    "above_tokens": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "price_per_mtok_in": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "price_per_mtok_out": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  }
                 }
               }
             }
