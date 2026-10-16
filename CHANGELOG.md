@@ -2,6 +2,24 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.59.0]
+
+### Added
+
+- **Per-model pricing tiers in the model registry**
+  (`config/v1/model-registry.schema.json` and `ModelSpec`). Both are
+  optional, so existing registries load unchanged.
+  - `cache_read_multiplier`: the cache-hit price as a fraction of
+    `price_per_mtok_in`, a number in (0, 1]. Omit it for the standard 0.1.
+    Current Anthropic models use 0.05 (Opus 5.5, Sonnet 5.5) or 0.025
+    (Mythos 5.1, Fable 5.1).
+  - `long_prompt`: `{above_tokens, price_per_mtok_in, price_per_mtok_out}`
+    (new `LongPromptPricing`). A request whose prompt is over `above_tokens`
+    pays these prices instead of the base prices for every token of that
+    request. The prompt counts input, cache reads and cache writes. Haiku 5.5
+    is priced this way above 100k tokens.
+- The engine's `cost_usd` uses both (traust-engine, next release).
+
 ## [0.58.0]
 
 ### Added
