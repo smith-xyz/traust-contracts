@@ -191,7 +191,7 @@
     },
     "review_surfaces": {
       "type": "array",
-      "description": "Review surfaces (traust-contracts enums/v1/review-surface.json). Optional: an untagged threat or entry point is simply not mapped.",
+      "description": "Review surfaces (traust-contracts enums/v1/review-surface.json). Optional: an untagged threat, entry point or deprioritized threat is simply not mapped.",
       "items": {
         "enum": [
           "credential-acceptance",
@@ -210,7 +210,11 @@
       "additionalProperties": false,
       "properties": {
         "threat": { "type": "string", "minLength": 1 },
-        "reason": { "type": "string", "minLength": 1 }
+        "reason": { "type": "string", "minLength": 1 },
+        "review_surfaces": {
+          "$ref": "#/$defs/review_surfaces",
+          "description": "Review surfaces the set-aside threat sits on: the model considered the surface and recorded why the threat was not carried. Distinct from no tag, which says nothing about the surface."
+        }
       }
     },
     "attack_scenario": {

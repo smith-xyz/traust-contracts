@@ -56,6 +56,35 @@
     }
   },
   "additionalProperties": false,
+  "allOf": [
+    {
+      "$comment": "out_of_scope is for a diff-scoped scan only. A record that answers any surface out_of_scope must carry the --diff stamp, metadata.additional.coverage_diff; a full scan records what it found on every surface.",
+      "if": {
+        "required": ["review_surface_coverage"],
+        "properties": {
+          "review_surface_coverage": {
+            "not": {
+              "additionalProperties": {
+                "not": {
+                  "required": ["status"],
+                  "properties": { "status": { "const": "out_of_scope" } }
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": ["metadata"],
+        "properties": {
+          "metadata": {
+            "required": ["additional"],
+            "properties": { "additional": { "required": ["coverage_diff"] } }
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "severity_level": {
       "type": "string",
