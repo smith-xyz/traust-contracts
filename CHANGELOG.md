@@ -2,6 +2,26 @@
 
 All notable changes to traust-contracts are documented here.
 
+## [0.60.0]
+
+### Added
+
+- **`threat-model.schema.json`: a deprioritized threat (section 5) may carry
+  `review_surfaces`**, like threats and entry points. A tag records that the
+  model considered the surface and set the threat aside, which is a
+  different claim from leaving the surface untagged. Optional; untagged
+  rows validate unchanged. Not stored: section 5 has no storage table.
+
+### Changed
+
+- **`vuln-findings.schema.json` enforces the full-scan rule.** A record that
+  answers any review surface `out_of_scope` must carry
+  `metadata.additional.coverage_diff`, the `--diff` stamp (an `if`/`then`
+  at the top level). A full scan records what it found on every surface.
+  The rule was in the `coverage_diff` description and enforced only by the
+  traust-engine validator; the schema now enforces it for every consumer.
+  A document the engine validator accepted still validates.
+
 ## [0.59.0]
 
 ### Added

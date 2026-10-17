@@ -106,7 +106,9 @@ def test_an_audit_may_use_out_of_scope_with_a_note():
     assert _errors("report", "/properties/review_surface_coverage", record)
 
 
-@pytest.mark.parametrize("pointer", ["/$defs/threat", "/$defs/entry_point"])
+@pytest.mark.parametrize(
+    "pointer", ["/$defs/threat", "/$defs/entry_point", "/$defs/deprioritized_threat"]
+)
 def test_threat_model_tags(pointer):
     model = json.loads(sample("threat-model")[0])
     entry_point = {
@@ -115,7 +117,12 @@ def test_threat_model_tags(pointer):
         "trust_boundary": "internet -> service",
         "reachable_assets": "tokens",
     }
-    base = model["threats"][0] if pointer.endswith("threat") else entry_point
+    deprioritized = {"threat": "physical access to the host", "reason": "out of scope"}
+    base = {
+        "/$defs/threat": model["threats"][0],
+        "/$defs/entry_point": entry_point,
+        "/$defs/deprioritized_threat": deprioritized,
+    }[pointer]
     assert _errors("threat-model", pointer, base) == []
     assert _errors("threat-model", pointer, {**base, "review_surfaces": SURFACES[:2]}) == []
     assert _errors("threat-model", pointer, {**base, "review_surfaces": ["made-up"]})
@@ -198,3 +205,36 @@ def test_a_full_scan_omits_the_stamp():
     assert (
         _errors("vuln-findings", meta_pointer, {"deterministic_steps": {"opengrep": "ran"}}) == []
     )
+
+
+def _vuln_findings(record: dict | None, stamp: dict | None = None) -> dict:
+    document = json.loads(sample("vuln-findings")[0])
+    if record is not None:
+        document["review_surface_coverage"] = record
+    if stamp is not None:
+        document["metadata"]["additional"] = {"coverage_diff": stamp}
+    return document
+
+
+def _report_errors(document: dict) -> list[str]:
+    return _errors("vuln-findings", "", document)
+
+
+def test_a_diff_scan_may_answer_out_of_scope():
+    record = _scan_record()
+    record["credential-acceptance"]["finding_ids"] = ["REPO-abcdef0-001"]
+    assert _report_errors(_vuln_findings(record, COVERAGE_DIFF)) == []
+
+
+def test_a_full_scan_may_not_answer_out_of_scope():
+    record = _scan_record()
+    assert _report_errors(_vuln_findings(record))
+    with_other_additional = _vuln_findings(record)
+    with_other_additional["metadata"]["additional"] = {"deterministic_steps": {"opengrep": "ran"}}
+    assert _report_errors(with_other_additional)
+
+
+def test_a_full_scan_without_out_of_scope_needs_no_stamp():
+    record = {s: {"status": "negative", "note": "examined, clean"} for s in SURFACES}
+    assert _report_errors(_vuln_findings(record)) == []
+    assert _report_errors(_vuln_findings(None)) == []
