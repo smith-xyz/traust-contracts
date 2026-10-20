@@ -58,7 +58,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA_DIRS = (ROOT / "schemas" / "v1", ROOT / "config" / "v1")
+SCHEMA_DIRS = (ROOT / "artifacts_schema" / "v1", ROOT / "config" / "v1")
 ENUMS_DIR = ROOT / "enums" / "v1"
 
 

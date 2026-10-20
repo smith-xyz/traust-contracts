@@ -3,7 +3,7 @@
 Source of truth for JSON schemas and enums shared across the Traust ecosystem,
 plus generated Python bindings, **the configuration contract** (the one place
 that knows what config exists and how it loads), and **storage/v1** (the SQL-first
-relational contract and reference write protocol).
+relational contract for the one-owner data model).
 
 ## Configuration contract
 
@@ -13,7 +13,7 @@ only, never estate data:
 - **MANIFEST** — the authoritative list of config files (name, required/optional,
   schema, typed model). The single source of truth for “what config exists.”
 - **Schemas** — `config/v1/*.schema.json`, applied at load time (versioned
-  separately from the `schemas/v1` data schemas).
+  separately from the `artifacts_schema/v1` schemas).
 - **Typed sections + `HarnessContext`** — each file parses into a typed model;
   `HarnessContext` is the frozen bundle of them all.
 - **The loader** — `load_context()` (resolve the whole context at an entry point)
@@ -27,7 +27,7 @@ Consumers declare the subset they need and receive an injected `HarnessContext`
 point. One loader → no two callers disagree about “what the config is.”
 Optional `storage.yaml` (e.g. `dsn: postgresql://localhost/traust`) loads as
 `context.storage`; `load_section("storage")` provides narrow access. Callers open
-connections; `Store` receives them and never resolves configuration.
+connections; the write protocol (Store) is rebuilt against the new data model.
 Optional `ledger.yaml` loads as `context.ledger`: `dsn` (SQLAlchemy URL, usually the
 storage database under the ledger's own role) makes the Ledger database the
 authority for disposition layers, with layer files as read-only snapshots; without
@@ -46,12 +46,13 @@ Go SDK: see [traust-sdk](https://github.com/traust-security/traust-sdk).
 
 ## Versioning
 
-Two independent axes:
+Two axes:
 
 - **Data-contract version** (`v1`, `v2`, ...) — the shape of schemas/enums
   and everything generated from them. Lives as a real directory; `v2` sits
   beside `v1` once it exists.
-- **Package release version** (`VERSION`) — normal semver for this repo.
+- **Commit SHA** — the only release identifier. No package versions or tags:
+  traust-core pins this repo by commit (`[tool.uv.sources] rev = "<sha>"`).
 
 `traust_contracts.models` / `.enums` / `.paths` alias the current major
 (`v1` today). Pin to `traust_contracts.v1.*` directly if the shape must
@@ -59,90 +60,56 @@ never move under you.
 
 ## Storage contract
 
-New here? Start with the diagrams in [docs/data-model.md](docs/data-model.md):
-the product → repo registry, artifacts, projections and the ledger, and how they join.
-
-`storage/v1` ships readable, authored SQLite/PostgreSQL SQL and a reference
-Store that records artifact evidence metadata and caller-owned workflow bindings.
-Artifact bytes live in the caller's object store; storage retains the
-content-addressed digest and byte size. Every artifact contract has a durable
-SQL projection, and scoped views can compose
-bindings with those projections. See the [model and write
-semantics](storage/v1/README.md). SQL is grouped by database, entity and operation;
-there is no ORM or shipped test corpus.
+`db/v1/traust` is the one-owner data model (XWING-2363): readable, authored
+SQLite/PostgreSQL SQL — each concept one owner, database-generated UUID v4
+identity (`gen_random_uuid()` / SQLite's `uuid()`), real constraints. Namespaces:
+`traust` (domain), `traust_ops` (operations), `traust_ledger` (ledger)
+— each owns its top-level directory
+(`db/v1/traust`, `db/v1/traust_ops`, `db/v1/traust_ledger`) and loader, with Postgres schemas and
+cross-schema FKs, and SQLite table prefixes in one database file. See the
+[model README](db/v1/traust/README.md).
 
 ```python
 import sqlite3
-from pathlib import Path
 
-from traust_contracts.v1.storage import Binding, Store
+from traust_contracts.v1.storage.sql import bootstrap_files, bootstrap_statements
 
 conn = sqlite3.connect("traust.db")
-try:
-    store = Store(conn)
-    store.init()
-    payload = Path("my-vuln-findings.json").read_bytes()
-    result = store.ingest(
-        "vuln-findings",
-        payload,
-        Binding(
-            subject_id="sci:inventory-item:42",
-            run_id="sci:scan-result:7",
-        ),
-    )
-    print(result.digest, result.binding_id, result.already_bound)
-finally:
-    conn.close()
+conn.execute("PRAGMA foreign_keys = ON")
+for path in bootstrap_files("sqlite"):
+    for statement in bootstrap_statements("sqlite", path):
+        conn.execute(statement)
 ```
-
-The caller owns an idle connection and supplies opaque context required by the
-artifact's hand-authored storage profile. `scope_id` defaults to `local`.
-Ingest validates bytes, computes the digest, stores the evidence record, binding,
-and any approved projection in one transaction. Raw payload is not retained in
-the database. Identical-binding retries are a no-op.
-On `IngestError`, the host MUST surface/preserve `error.payload` (the input file
-already on disk suffices). The library never chooses a reject path.
 
 SQLite is complete with stdlib; the caller-selected database file is its
 physical namespace. PostgreSQL >=14 uses the optional `postgres` extra
-(`psycopg>=3`, requiring libpq or separately installed `psycopg[binary]`). Its
-relations live in the fixed `traust_storage` schema, created by `init()` when
-absent or provisioned beforehand by restricted deployments. Qualified canonical
-SQL prevents application relations and `search_path` from redirecting storage.
-The scoped views are live; no refresh worker is needed. PostgreSQL filters by
-transaction-local `traust.scope_ids`; callers provision tenant permissions.
-Storage-internal foreign keys protect binding/evidence/projection integrity;
-cross-artifact domain references remain soft.
+(`psycopg>=3`, requiring libpq or separately installed `psycopg[binary]`).
 
-Storage compatibility metadata is independent of package semver. `init()` rejects
-metadata mismatches and does not migrate existing databases. Edit SQL directly and
-review compatibility; SQL is not byte-pinned.
-Tests use focused synthetic inputs and test fixtures, not a packaged
-conformance bundle.
+The model lands part by part (see the [status table](db/v1/traust/README.md));
+queries, views and the write protocol (Store) follow once the DDL has landed.
+The previous projection model was removed with this revision — databases
+created under it are recreated, not migrated.
 
 ## Ledger relational contract
 
-`ledger/v1` is the SQL-first Ledger database contract, separate from baseline
-`storage/v1`. Contracts owns authored PostgreSQL and SQLite DDL — tables,
-constraints, indexes, and **append-only enforcement triggers** — plus
-deterministic per-file bootstrap order. No ORM binding is shipped.
+`db/v1/traust_ledger` is the `traust_ledger` namespace of the one-owner data model:
+append-only proof of decisions. `layers` — one per repository, or one per
+branch line — carry the Merkle root, epoch, size and signature; `events` —
+one per decision, `UNIQUE (decision_id)` — carry the opaque, signed payload
+and the layer sequence. The traust-ledger library computes and signs; the
+app stores. Optional: off means no proof, never broken queries.
 
-Bootstrapping from the contracts SQL alone installs the full append-only
-contract: events reject UPDATE, DELETE, truncation, and out-of-order sequence
-inserts; layers reject deletion. Ledger runtimes pin a Contracts release and
-load SQL for fresh databases, keeping migrations, SQLAlchemy bindings, grants,
-and persistence behavior local. `IF NOT EXISTS` / `DROP + CREATE` makes the
-ledger's separate guard installation idempotent.
-
-`CONTRACT_VERSION = "v1"`, `REVISION = 1`. The singleton `schema_revision` row
-(`id = 1`) records version and `applied_at`; mismatches fail explicitly.
-`schemas/v1/layer.schema.json` is the portable complete-layer document contract
-across file, SQLite, and PostgreSQL backends.
+Contracts owns the authored DDL — tables, constraints, indexes and
+append-only enforcement triggers — plus deterministic bootstrap order.
+Bootstraps after `db/v1/traust`: layers and events reference `repository`,
+`repository_ref` and `decision` there. SQLite: `ledger_` table prefixes in
+the same database file. `CONTRACT_VERSION = "v1"`, `REVISION = 1`;
+databases created under the earlier ledger are recreated, not migrated.
 
 ## Enum registry
 
 `enums/v1/` holds one file per controlled vocabulary. Every string `enum` in
-`schemas/v1` and `config/v1` must match a registry file by its exact set of
+`artifacts_schema/v1` and `config/v1` must match a registry file by its exact set of
 values; `tests/test_enum_registry.py` enforces this. `ci/enum_registry.py
 --write` derives each file's `used_in_schemas`, and `--check` verifies the
 rest.
@@ -205,14 +172,6 @@ Default validator selection is unchanged. Reader normalization, event-identity
 gates and affected-contract review still precede writer activation/publication.
 Existing report, baseline and event bytes are never rewritten.
 
-Storage revision 3 carries the independent flag in a nullable
-`report_finding.blocked_external` INTEGER column on SQLite and PostgreSQL.
-True/false project as 1/0; absence remains SQL NULL, including historical
-`blocked-external` effort labels with no separately stated flag. No size or
-blocking fact is inferred. Existing report JSON remains intact. Initialization
-refuses older storage revisions without modifying them; this candidate supplies
-no automatic or live database migration.
-
 ## Test
 
 ```bash
@@ -228,7 +187,7 @@ make test     # includes PG storage + ledger schema tests
 make db-down
 ```
 
-`tests/test_compat.py` gates breaking JSON Schema changes against the previous tag.
+`make schema-diff` reports schema changes vs `origin/development` that traust-core may need to absorb.
 PostgreSQL tests run automatically when `psycopg` and the database are available;
 otherwise they skip.
 

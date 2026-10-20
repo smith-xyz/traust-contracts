@@ -19,7 +19,7 @@ from traust_contracts.v1.models.adapter import AdapterMetadata, AdapterSummary
 from traust_contracts.v1.models.finding import Location
 
 REPO_ROOT = Path(__file__).parent.parent
-SCHEMA_DIR = REPO_ROOT / "schemas" / "v1"
+SCHEMA_DIR = REPO_ROOT / "artifacts_schema" / "v1"
 FIXTURES = Path(__file__).parent / "fixtures"
 
 

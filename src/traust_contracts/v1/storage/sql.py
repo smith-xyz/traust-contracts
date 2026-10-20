@@ -1,58 +1,81 @@
-"""Read authored SQL in deterministic table-then-view bootstrap order."""
+"""Read authored SQL in deterministic table-then-view bootstrap order.
 
-import re
-from functools import cache
+The traust namespace of the one-owner data model: domain tables - inventory,
+dependencies, assessments & findings. Each namespace owns its directory and
+loader under db/v1/ - traust_ops and traust_ledger - with cross-schema FKs
+as the contract between them on Postgres, and table prefixes (`ops_`,
+`ledger_`) bootstrapped into one SQLite file. The db version itself is
+owned by traust_contracts.v1.db.
+"""
+
+from __future__ import annotations
+
 from pathlib import Path
 
 from traust_contracts.paths import storage_dir
+from traust_contracts.v1.db import REVISION
 from traust_contracts.v1.sql import Dialect
 from traust_contracts.v1.sql import bootstrap_files as _bootstrap_files
 from traust_contracts.v1.sql import bootstrap_statements as bootstrap_statements
 
+__all__ = [
+    "CONTRACT_VERSION",
+    "REVISION",
+    "TABLE_ORDER",
+    "VIEW_ORDER",
+    "bootstrap_files",
+    "bootstrap_statements",
+]
+
 CONTRACT_VERSION = "v1"
-#: Storage schema revision, stamped in traust_storage_meta and checked on
-#: open. Bump it whenever the DDL changes, so a database created under an
-#: older schema is refused instead of failing on its first read or write.
-#: 1: baseline (0.50.0). Rebaselined: the registry, report_finding.blocked_external
-#: and every earlier change are part of revision 1. Databases created under any
-#: earlier schema are recreated, not migrated.
-#: Each later step adds migrations/NNN_to_NNN+1.sql; Store.migrate() runs them.
-#: 2: cached Portfolio forge observations (XWING-2214).
-REVISION = 5
 
+#: Tables other tables reference, in dependency order; the loader appends the
+#: remaining schema files alphabetically, so a table must appear here whenever
+#: another table's FK reaches it and alphabetical order would invert that.
+#: Two FKs close cycles and are ALTERs on Postgres (SQLite does not check
+#: parent existence at CREATE): sbom.artifact_id (added in artifact.sql) and
+#: assessment.run_order_id (added by the ops bootstrap, since run_order
+#: references storage tables back).
+TABLE_ORDER: tuple[str, ...] = (
+    "repository",
+    "sbom",
+    "repository_ref",
+    "product",
+    "release",
+    "component",
+    "team",
+    "ownership",
+    "advisory",
+    "package",
+    "dependency",
+    "image",
+    "advisory_package",
+    "assessment",
+    "artifact",
+    "finding",
+    "cwe",
+    "finding_cwe",
+    "finding_label",
+    "finding_external_ref",
+    "decision",
+    "review_item",
+    "occurrence",
+    "location",
+)
 
-@cache
-def query(dialect: Dialect, filename: str) -> str:
-    return (storage_dir() / dialect / "queries" / filename).read_text(encoding="utf-8")
-
-
-#: Views that other views select FROM, in the order they must be created.
-#: Alphabetical order is not dependency order -- `current_finding` sorts
-#: before `report_current` but selects from it, and PostgreSQL resolves a
-#: view's references at CREATE time, so the glob order alone fails there
-#: while silently succeeding on SQLite.
-#: THE SCHEMA IS THE REFERENCE FOR WHAT A VIEW MUST CARRY. A view is not
-#: correct because its numbers match another projection -- two projections
-#: dropping the same fields agree perfectly and are both wrong. Check it
-#: against the artifact's JSON Schema, and let
-#: tests/test_view_contract_coverage.py fail you if a declared field never
-#: reaches SQL. See storage/v1/README.md, "The schema is the reference".
+#: Views other views select FROM, in creation order (filenames), because
+#: Postgres resolves a view's references at CREATE: current_resolution reads
+#: decision_at. The disposition pair is the classifier contract: each field
+#: is its latest non-null answer, null means no answer.
 VIEW_ORDER: tuple[str, ...] = (
-    "binding_current.sql",
-    "report_current.sql",
+    "decision_at.sql",
+    "current_decision.sql",
+    "current_resolution.sql",
+    "unowned.sql",
     "ownership_current.sql",
-    "current_finding.sql",
-    "threat_current.sql",
-    "validation_current.sql",
-    "finding_first_seen.sql",
-    "finding_timeline.sql",
-    "pqc_posture.sql",
-    "sla_clock.sql",
-    "sla_threshold.sql",
-    # Reads current_finding, so it must follow it.
-    "pattern_exposure.sql",
-    # Reads threat_current and current_binding.
-    "attack_coverage.sql",
+    "finding_status.sql",
+    "finding_clock.sql",
+    "finding_primary_cwe.sql",
 )
 
 
@@ -61,45 +84,6 @@ def bootstrap_files(dialect: Dialect) -> list[Path]:
     return _bootstrap_files(
         storage_dir(),
         dialect,
-        first_tables=(
-            "product",
-            "repo",
-            "product_repo",
-            "artifact_evidence",
-            "artifact_binding",
-            "artifact_location",
-        ),
+        first_tables=TABLE_ORDER,
         view_order=VIEW_ORDER,
     )
-
-
-def migration_files(dialect: Dialect, from_revision: int) -> list[Path]:
-    """Return the delta files that take ``from_revision`` to ``REVISION``, in order.
-
-    A delta file holds only what re-running the schema files cannot do:
-    ALTER, DROP, data UPDATEs. New tables, indexes and views come from the
-    schema and view files themselves, which Store.migrate() re-runs.
-    """
-    directory = storage_dir() / dialect / "migrations"
-    paths = [
-        directory / f"{step:03d}_to_{step + 1:03d}.sql" for step in range(from_revision, REVISION)
-    ]
-    missing = [path.name for path in paths if not path.is_file()]
-    if missing:
-        raise FileNotFoundError(f"missing {dialect} migration: {', '.join(missing)}")
-    return paths
-
-
-_VIEW_NAME = re.compile(r"CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.]+)")
-
-
-def view_names(dialect: Dialect) -> list[str]:
-    """Names of the views storage owns, in creation order, read from the SQL."""
-    names = []
-    for path in bootstrap_files(dialect):
-        if path.parent.name == "views":
-            match = _VIEW_NAME.search(path.read_text(encoding="utf-8"))
-            if match is None:
-                raise ValueError(f"no CREATE VIEW in {path.name}")
-            names.append(match.group(1))
-    return names

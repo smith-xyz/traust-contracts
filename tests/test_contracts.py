@@ -15,7 +15,7 @@ from jsonschema import Draft202012Validator, ValidationError
 from referencing import Registry, Resource
 
 REPO_ROOT = Path(__file__).parent.parent
-SCHEMA_DIR = REPO_ROOT / "schemas" / "v1"
+SCHEMA_DIR = REPO_ROOT / "artifacts_schema" / "v1"
 CONFIG_SCHEMA_DIR = REPO_ROOT / "config" / "v1"
 ENUMS_DIR = REPO_ROOT / "enums" / "v1"
 

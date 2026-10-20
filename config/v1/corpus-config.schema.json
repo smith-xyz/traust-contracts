@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/traust-contracts/schemas/v1/corpus-config.schema.json",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/corpus-config.schema.json",
   "title": "Corpus Ownership Configuration",
   "description": "Schema for config/corpus-config.yaml \u2014 which trees under analysis-results/ belong to the report corpus, who owns them, and how their numbers roll up. Permissive by design: tree/engagement/override entries carry optional descriptive fields; only the top-level shape and per-tree essentials are validated.",
   "type": "object",

@@ -325,7 +325,7 @@ def scope_slug(value: str) -> str:
 class ScopeConfig(_Section):
     """How corpus trees map onto storage scope ids.
 
-    ``scope_id`` is storage/v1's authorization partition, and PostgreSQL
+    ``scope_id`` is the db storage contract's authorization partition, and PostgreSQL
     enforces it *inside* the view — a query that supplies no scope returns
     nothing rather than erroring. Absent this stanza every tree resolves to
     one scope, which is the behaviour of a deployment that has never thought
@@ -509,7 +509,7 @@ class LedgerConfig(_Section):
     so a consumer reads and writes it and treats layer files as read-only
     snapshots. ``dsn`` absent (or no ledger.yaml): layer files are the ledger.
     ``signing`` and ``identity`` apply in both modes. The Ledger lives in the
-    storage database (its layers reference ``traust_storage``), so ``dsn``
+    storage database (its layers reference ``traust``), so ``dsn``
     usually names the same database as ``storage.yaml`` under the ledger's own
     least-privilege role.
     """
