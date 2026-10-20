@@ -14,8 +14,10 @@ import pytest
 from conftest import (
     FINDINGS_SUMMARY_ROWS,
     FINDINGS_SUMMARY_SCOPE,
+    current_finding_detail_rows,
     report_with_external_blocking,
     report_with_findings,
+    seed_current_finding_detail,
     seed_findings_summary,
 )
 from storage_samples import (
@@ -30,7 +32,7 @@ from storage_samples import (
 )
 
 from traust_contracts.v1.storage import Binding, IngestError, Store
-from traust_contracts.v1.storage.sql import REVISION
+from traust_contracts.v1.storage.sql import REVISION, view_names
 
 TABLES = {
     "portfolio_forge_facts",
@@ -162,6 +164,26 @@ def test_postgres_findings_summary_uses_json_scope_and_same_run(
     conn.execute("SELECT set_config('traust.scope_ids', %s, true)", ('["local"]',))
     assert conn.execute("SELECT count(*) FROM findings_summary").fetchone() == (2,)
     conn.execute("ROLLBACK")
+
+
+def test_postgres_current_finding_detail_classifies_and_joins_triage(
+    database: tuple[Any, str],
+) -> None:
+    """The PostgreSQL half of the cross-dialect parity pair.
+
+    Fixture and expectation are shared with
+    `test_storage_store.py::test_current_finding_detail_classifies_and_joins_triage`
+    so the two views cannot drift behind separately-authored setups.
+    """
+    conn, _ = database
+    store = Store(conn)
+    store.init()
+    seed_current_finding_detail(store)
+    assert store.query_current_finding_detail([FINDINGS_SUMMARY_SCOPE]) == (
+        current_finding_detail_rows(is_branch_audit=False, render_cwes=lambda ids: ids)
+    )
+    assert store.query_current_finding_detail(["other"]) == []
+    conn.commit()
 
 
 def test_postgres_atomic_projection_failure(database: tuple[Any, str]) -> None:
@@ -581,3 +603,39 @@ def test_postgres_inventory_tables(database: tuple[Any, str]) -> None:
     assert rows == [(["c"], ["x"])]
     with pytest.raises(IngestError, match=r"(?i)foreign_?key"):
         store.register_repo_owner("0" * 64, "team")
+
+
+def test_postgres_migrate_syncs_the_revision_five_views(database: tuple[Any, str]) -> None:
+    """A revision-4 database must pick the new views up by migrating.
+
+    Revision 5 changes only views; Store.init() verifies without syncing,
+    so the revision bump is what makes an existing database re-run the
+    bootstrap files. Build a revision-4 shape (old spine without
+    cvss_score, no detail view, dependents dropped with it), migrate, and
+    compare against a fresh init.
+    """
+    conn, _ = database
+    Store(conn).init()
+    expected = _pg_shape(conn)
+    for name in reversed(view_names("postgres")):
+        conn.execute(f"DROP VIEW IF EXISTS {name} CASCADE")
+    conn.execute(
+        "CREATE VIEW traust_storage.current_finding AS "
+        "SELECT binding_id, finding_id, title "
+        "FROM traust_storage.report_finding"
+    )
+    conn.execute("UPDATE traust_storage.traust_storage_meta SET revision = 4")
+    conn.commit()
+
+    with pytest.raises(IngestError, match="explicit migration"):
+        Store(conn).init()
+
+    assert Store(conn).migrate() == 4
+    Store(conn).init()
+    assert _pg_shape(conn) == expected
+    rows = conn.execute(
+        "SELECT (SELECT revision FROM traust_storage.traust_storage_meta), "
+        "(SELECT count(*) FROM traust_storage.current_finding_detail)"
+    ).fetchone()
+    conn.commit()
+    assert rows == (REVISION, 0)
