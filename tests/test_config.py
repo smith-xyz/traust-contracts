@@ -277,7 +277,7 @@ def test_ledger_config_rejects_invalid_values(tmp_path: Path, data: dict) -> Non
 
 
 # --- scope resolution -------------------------------------------------------
-# scope_id is storage/v1's authorization partition, and PostgreSQL enforces it
+# scope_id is the db storage contract's authorization partition, and PostgreSQL enforces it
 # inside the view: a query with no scope returns nothing rather than erroring.
 # So the failure mode of getting this wrong is a silently empty dashboard.
 

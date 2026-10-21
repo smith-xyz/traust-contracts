@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/traust-contracts/schemas/v1/locations.schema.json",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/locations.schema.json",
   "title": "Runtime Locations",
   "description": "Schema for locations.yaml — where the harness reads and writes runtime data (analysis results, the portfolio graph, the metrics/progress tree, the workspace root, the feed cache) plus operator-provided source overrides. These are deployment/estate values, not engine knowledge: the engine receives them injected and never assumes a workspace topology. Each value is a local path or a location URI (file://, s3://, gs://, az://), or an https endpoint for source overrides. Local paths may be absolute or relative to the config home ($TRAUST_CONFIG_HOME); load_context() normalizes relatives to absolute. Every field is optional; a feature that needs an unset location fails loudly. Config-owned: there are no environment-variable overrides — edit this file.",
   "type": "object",

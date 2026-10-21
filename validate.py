@@ -17,7 +17,7 @@ from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 from referencing.exceptions import Unresolvable
 
-SCHEMA_DIR = Path(__file__).parent / "schemas" / "v1"
+SCHEMA_DIR = Path(__file__).parent / "artifacts_schema" / "v1"
 
 
 def build_registry() -> Registry:

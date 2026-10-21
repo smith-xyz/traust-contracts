@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://example.com/traust-contracts/schemas/v1/model-registry.schema.json",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/model-registry.schema.json",
   "title": "Model Registry",
   "description": "Schema for config/model-registry.yaml \u2014 the single source of vendor/model identifiers and role routing policy (multi-model-strategy-plan M0).",
   "type": "object",

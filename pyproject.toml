@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "traust-contracts"
-version = "0.61.0"
+version = "0.0.0"  # unused: consumers pin by commit SHA, no releases or tags
 license = "Apache-2.0"
 description = "Contract surface for the AI security ledger ecosystem: schemas and shared enums"
 requires-python = ">=3.11"
@@ -33,19 +33,21 @@ packages = ["src/traust_contracts"]
 exclude = ["/.ci-venv", "/.venv", "/tests/fixtures/storage"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"schemas/v1" = "traust_contracts/schemas/v1"
+"artifacts_schema/v1" = "traust_contracts/artifacts_schema/v1"
 "config/v1" = "traust_contracts/config/v1"
 "enums/v1" = "traust_contracts/enums/v1"
-"storage/v1" = "traust_contracts/storage/v1"
-"ledger/v1" = "traust_contracts/ledger/v1"
+"db/v1/traust" = "traust_contracts/db/v1/traust"
+"db/v1/traust_ops" = "traust_contracts/db/v1/traust_ops"
+"db/v1/traust_ledger" = "traust_contracts/db/v1/traust_ledger"
 
 [tool.hatch.build]
 artifacts = [
-    "schemas/v1/**",
+    "artifacts_schema/v1/**",
     "config/v1/**",
     "enums/v1/**",
-    "storage/v1/**",
-    "ledger/v1/**",
+    "db/v1/traust/**",
+    "db/v1/traust_ops/**",
+    "db/v1/traust_ledger/**",
 ]
 
 [tool.pytest.ini_options]
