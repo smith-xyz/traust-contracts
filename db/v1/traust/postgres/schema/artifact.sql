@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS traust.artifact (
     digest TEXT NOT NULL CHECK (digest <> ''),
     kind TEXT NOT NULL CHECK (kind <> ''),
     uri TEXT NOT NULL CHECK (uri <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (assessment_id, digest)
 );

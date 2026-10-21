@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS traust.sbom (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     digest TEXT NOT NULL CHECK (digest <> ''),
     artifact_id UUID,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (digest)
 );

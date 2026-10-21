@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS traust.finding (
     fingerprint TEXT NOT NULL CHECK (fingerprint <> ''),
     kind TEXT CHECK (kind <> ''),
     title TEXT NOT NULL CHECK (title <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (repository_id, fingerprint_algo, fingerprint),
     CHECK ((advisory_id IS NULL) = (advisory_match IS NULL))

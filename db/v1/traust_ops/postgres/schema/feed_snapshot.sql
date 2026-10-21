@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS traust_ops.feed_snapshot (
     artifact_id UUID NOT NULL REFERENCES traust.artifact(id) ON DELETE RESTRICT,
     feed TEXT NOT NULL CHECK (feed <> ''),
     retrieved_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id)
 );
 

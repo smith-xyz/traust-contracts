@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS traust.dependency (
     package_id UUID NOT NULL REFERENCES traust.package(id) ON DELETE RESTRICT,
     version TEXT NOT NULL CHECK (version <> ''),
     direct BOOLEAN NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (sbom_id, package_id, version)
 );

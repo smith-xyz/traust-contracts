@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS traust.product (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     slug TEXT NOT NULL CHECK (slug <> ''),
     name TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (slug)
 );

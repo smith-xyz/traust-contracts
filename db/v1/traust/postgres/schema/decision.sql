@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS traust.decision (
     source_channel TEXT,
     actor TEXT,
     occurred_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (finding_id, statement_key),
     CHECK (assessment_id IS NOT NULL OR actor IS NOT NULL),

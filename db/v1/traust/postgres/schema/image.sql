@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS traust.image (
     platform TEXT,
     repository_ref_id UUID REFERENCES traust.repository_ref(id) ON DELETE RESTRICT,
     sbom_id UUID REFERENCES traust.sbom(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (digest)
 );

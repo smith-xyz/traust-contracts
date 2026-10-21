@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS traust.component (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     release_id UUID NOT NULL REFERENCES traust.release(id) ON DELETE RESTRICT,
     repository_ref_id UUID NOT NULL REFERENCES traust.repository_ref(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (release_id, repository_ref_id)
 );

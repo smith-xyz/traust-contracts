@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS traust.location (
     line_end INTEGER,
     language TEXT,
     symbol TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     CHECK (line_start IS NULL OR line_start >= 1),
     CHECK ((line_start IS NULL) = (line_end IS NULL)),

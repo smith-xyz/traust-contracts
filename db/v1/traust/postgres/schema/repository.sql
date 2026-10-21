@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS traust.repository (
     upstream_id UUID REFERENCES traust.repository(id) ON DELETE RESTRICT,
     url TEXT NOT NULL CHECK (url <> ''),
     "public" BOOLEAN NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (url)
 );

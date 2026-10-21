@@ -7,8 +7,8 @@ CREATE TABLE IF NOT EXISTS traust.advisory_package (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     advisory_id UUID NOT NULL REFERENCES traust.advisory(id) ON DELETE RESTRICT,
     package_id UUID NOT NULL REFERENCES traust.package(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (advisory_id, package_id)
 );

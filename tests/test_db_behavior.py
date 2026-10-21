@@ -142,6 +142,19 @@ def test_database_owns_identity_and_time(db: Db) -> None:
     assert updated2 > updated
 
 
+def test_rows_written_in_one_transaction_keep_their_order(db: Db) -> None:
+    db.run("BEGIN")
+    first = db.insert("team", name="first")
+    time.sleep(0.002)  # SQLite stamps milliseconds
+    second = db.insert("team", name="second")
+    db.run("COMMIT")
+    stamps = dict(db.run(f"SELECT id, created_at FROM {db.t('team')}"))
+    assert (
+        stamps[uuid.UUID(second) if db.engine == "postgres" else second]
+        > stamps[uuid.UUID(first) if db.engine == "postgres" else first]
+    )
+
+
 def test_append_only_rows_are_never_changed(db: Db) -> None:
     sid = db.insert("sbom", digest="d" * 64)
     spend = db.insert(

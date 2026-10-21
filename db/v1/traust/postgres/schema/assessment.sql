@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS traust.assessment (
     assessor TEXT NOT NULL CHECK (assessor <> ''),
     assessor_version TEXT NOT NULL,
     occurred_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id)
 );
 

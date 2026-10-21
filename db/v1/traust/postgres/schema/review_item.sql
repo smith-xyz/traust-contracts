@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS traust.review_item (
     resolved_by_decision_id UUID REFERENCES traust.decision(id) ON DELETE RESTRICT,
     reason TEXT,
     status TEXT NOT NULL CHECK (status <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id)
 );
 

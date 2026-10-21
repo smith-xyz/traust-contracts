@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS traust_ledger.events (
     decision_id UUID NOT NULL REFERENCES traust.decision(id) ON DELETE RESTRICT,
     seq INTEGER NOT NULL CHECK (seq >= 0),
     event_payload BYTEA NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (layer_id, seq),
     UNIQUE (decision_id)

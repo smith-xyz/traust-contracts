@@ -16,8 +16,8 @@ CREATE TABLE IF NOT EXISTS traust_ledger.layers (
     merkle_root_signature TEXT,
     merkle_signing_method TEXT NOT NULL CHECK (merkle_signing_method <> ''),
     merkle_signature_format INTEGER,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id)
 );
 

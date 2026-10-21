@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS traust.advisory (
     alias_of_id UUID REFERENCES traust.advisory(id) ON DELETE RESTRICT,
     identifier TEXT NOT NULL CHECK (identifier <> ''),
     published_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (identifier)
 );

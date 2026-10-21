@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS traust.cwe (
     abstraction TEXT,
     mapping_usage TEXT,
     catalog_version TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (identifier)
 );

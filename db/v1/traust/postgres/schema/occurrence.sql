@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS traust.occurrence (
     cvss_vector TEXT,
     cvss_score NUMERIC CHECK (cvss_score BETWEEN 0 AND 10),
     rule TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (finding_id, assessment_id)
 );

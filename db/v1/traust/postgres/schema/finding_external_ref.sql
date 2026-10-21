@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS traust.finding_external_ref (
     finding_id UUID NOT NULL REFERENCES traust.finding(id) ON DELETE RESTRICT,
     system TEXT NOT NULL CHECK (system <> ''),
     ref TEXT NOT NULL CHECK (ref <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (system, ref, finding_id)
 );

@@ -6,8 +6,8 @@ CREATE TABLE IF NOT EXISTS traust.release (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     product_id UUID NOT NULL REFERENCES traust.product(id) ON DELETE RESTRICT,
     version TEXT NOT NULL CHECK (version <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (product_id, version)
 );

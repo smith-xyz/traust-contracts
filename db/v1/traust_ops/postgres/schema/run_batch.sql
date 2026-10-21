@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS traust_ops.run_batch (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     kind TEXT NOT NULL CHECK (kind <> ''),
     period TEXT NOT NULL CHECK (period <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (kind, period)
 );

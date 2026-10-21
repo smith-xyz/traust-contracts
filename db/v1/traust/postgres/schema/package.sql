@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS traust.package (
     sbom_id UUID REFERENCES traust.sbom(id) ON DELETE RESTRICT,
     ecosystem TEXT NOT NULL CHECK (ecosystem <> ''),
     name TEXT NOT NULL CHECK (name <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (ecosystem, name)
 );

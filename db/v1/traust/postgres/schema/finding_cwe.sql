@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS traust.finding_cwe (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     finding_id UUID NOT NULL REFERENCES traust.finding(id) ON DELETE RESTRICT,
     cwe_id UUID NOT NULL REFERENCES traust.cwe(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (finding_id, cwe_id)
 );

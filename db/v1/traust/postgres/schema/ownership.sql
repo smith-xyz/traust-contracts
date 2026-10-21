@@ -10,8 +10,8 @@ CREATE TABLE IF NOT EXISTS traust.ownership (
     team_id UUID NOT NULL REFERENCES traust.team(id) ON DELETE RESTRICT,
     valid_from TIMESTAMPTZ NOT NULL,
     valid_to TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     CHECK (valid_to IS NULL OR valid_to > valid_from)
 );

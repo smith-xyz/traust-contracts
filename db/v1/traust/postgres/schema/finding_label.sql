@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS traust.finding_label (
     finding_id UUID NOT NULL REFERENCES traust.finding(id) ON DELETE RESTRICT,
     taxonomy TEXT NOT NULL CHECK (taxonomy <> ''),
     label TEXT NOT NULL CHECK (label <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (finding_id, taxonomy, label)
 );

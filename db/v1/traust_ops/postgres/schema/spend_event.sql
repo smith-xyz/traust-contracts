@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS traust_ops.spend_event (
     tokens_out BIGINT NOT NULL,
     cost_usd NUMERIC NOT NULL,
     occurred_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     CHECK (tokens_in >= 0 AND tokens_out >= 0 AND cost_usd >= 0)
 );

@@ -5,8 +5,8 @@
 CREATE TABLE IF NOT EXISTS traust.team (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     name TEXT NOT NULL CHECK (name <> ''),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (name)
 );

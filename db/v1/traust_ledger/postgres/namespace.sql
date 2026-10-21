@@ -18,10 +18,14 @@ END
 $$;
 
 -- Shared touch for mutable tables: the database owns updated_at.
+-- Timestamps use statement_timestamp(), not now(): now() is the transaction's
+-- start, so every row a transaction writes would tie on created_at. Per
+-- statement matches SQLite's strftime('now') and keeps created_at = updated_at
+-- on insert (both defaults read the same statement time).
 CREATE OR REPLACE FUNCTION traust_ledger.touch_updated_at()
 RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
-  NEW.updated_at := now();
+  NEW.updated_at := statement_timestamp();
   RETURN NEW;
 END
 $$;

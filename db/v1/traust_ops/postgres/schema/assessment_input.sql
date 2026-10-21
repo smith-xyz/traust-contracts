@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS traust_ops.assessment_input (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     assessment_id UUID NOT NULL REFERENCES traust.assessment(id) ON DELETE RESTRICT,
     feed_snapshot_id UUID NOT NULL REFERENCES traust_ops.feed_snapshot(id) ON DELETE RESTRICT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT statement_timestamp(),
     PRIMARY KEY (id),
     UNIQUE (assessment_id, feed_snapshot_id)
 );
