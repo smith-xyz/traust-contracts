@@ -49,5 +49,8 @@ jobs:
           enable-cache: true
           python-version: ${{ matrix.python-version }}
       - run: uv sync --frozen
+      # tests/test_config.py reads config fixtures from a sibling traust checkout
+      # (../traust/tests/fixtures/config), the layout of a local mono-checkout.
+      - run: git clone --depth 1 https://github.com/traust-security/traust.git ../traust
       # The Postgres half must run here; a skip (database unreachable) fails the job.
       - run: uv run pytest tests/ -q -W "error:PostgreSQL E2E skipped:pytest.PytestWarning"
