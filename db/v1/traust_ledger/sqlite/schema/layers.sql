@@ -25,6 +25,17 @@ CREATE TABLE IF NOT EXISTS ledger_layers (
 CREATE INDEX IF NOT EXISTS idx_ledger_layers_repository
     ON ledger_layers (repository_id);
 
+-- One chain per (repository, line): appends join it, so a second would split the proof.
+-- line is nullable and NULLs never collide in a unique key, so the repository layer gets
+-- its own partial index.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_layers_repository
+    ON ledger_layers (repository_id)
+    WHERE line IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_layers_line
+    ON ledger_layers (repository_id, line)
+    WHERE line IS NOT NULL;
+
 -- The database owns updated_at; the guard keeps it stable under recursive
 -- triggers and respects a manually set value.
 CREATE TRIGGER IF NOT EXISTS ledger_layers_touch
