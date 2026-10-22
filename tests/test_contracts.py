@@ -53,7 +53,7 @@ class TestSchemas:
     def test_all_schemas_parse_json(self):
         """All schema files must be valid JSON."""
         schema_files = list(SCHEMA_DIR.glob("*.schema.json"))
-        assert len(schema_files) == 31, f"Expected 31 data schemas, found {len(schema_files)}"
+        assert len(schema_files) == 32, f"Expected 32 data schemas, found {len(schema_files)}"
 
         config_schema_files = list(CONFIG_SCHEMA_DIR.glob("*.schema.json"))
         assert len(config_schema_files) == 14, (
@@ -420,3 +420,56 @@ class TestReportMetadataAdditional:
     )
     def test_malformed_declared_fields_fail(self, doc):
         assert list(self._validator().iter_errors(doc)), doc
+
+
+def _repo_state_validator() -> Draft202012Validator:
+    schema = json.loads((SCHEMA_DIR / "repo-state.schema.json").read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, registry=build_registry())
+
+
+def test_repo_state_records_an_observation_with_or_without_a_comparison() -> None:
+    validator = _repo_state_validator()
+    unchanged = {
+        "observed_at": "2026-10-22T09:00:00Z",
+        "status": "ok",
+        "pushed_at": "2026-09-01T00:00:00Z",
+    }
+    validator.validate(unchanged)
+    compared = {
+        **unchanged,
+        "comparison": {
+            "ahead_by": 12,
+            "truncated": False,
+            "changed_lines": 340,
+            "sensitive_changed": True,
+            "sensitive_lines": 25,
+            "deps_only": False,
+        },
+    }
+    validator.validate(compared)
+    validator.validate({"observed_at": "2026-10-22T09:00:00Z", "status": "no-pinned-sha"})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"status": "stale"},
+        {"head_sha": "a" * 40},
+        {"comparison": {"ahead_by": 1}},
+        {
+            "comparison": {
+                "ahead_by": -1,
+                "truncated": False,
+                "changed_lines": 0,
+                "sensitive_changed": False,
+                "sensitive_lines": 0,
+                "deps_only": True,
+            }
+        },
+    ],
+    ids=["unknown status", "fact owned by the ref row", "partial comparison", "negative count"],
+)
+def test_repo_state_rejects_what_it_does_not_own(change: dict) -> None:
+    document = {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", **change}
+    with pytest.raises(ValidationError):
+        _repo_state_validator().validate(document)

@@ -3,11 +3,15 @@
 -- Mutable table. One natural key (url, exact string - not canonicalized).
 -- upstream_id self-references the repository this one forks: null = no
 -- upstream recorded. Not indexed on purpose: rare single-row lookups.
+-- public, upstream_id and archived are kept current by forge observation;
+-- archived null = not observed yet. Per-observation measurements are an
+-- assessment of kind repo-state (artifact: repo-state.schema.json).
 CREATE TABLE IF NOT EXISTS repository (
     id TEXT NOT NULL DEFAULT (uuid()),
     upstream_id TEXT REFERENCES repository(id) ON DELETE RESTRICT,
     url TEXT NOT NULL CHECK (url <> ''),
     public BOOLEAN NOT NULL CHECK (public IN (0, 1)),
+    archived BOOLEAN CHECK (archived IN (0, 1)),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     PRIMARY KEY (id),
