@@ -11,6 +11,12 @@
 -- repository_ref_id must belong to the finding's repository - not
 -- expressible as a constraint (it crosses finding); the decision service
 -- enforces it.
+--
+-- rationale is the actor's why. A restatement (restates_id set) is an
+-- administrator correcting the record: it names a person, its authority
+-- (ticket), its reason and rationale, and any approvers in
+-- decision_approver. auto_accept_tier marks an assessor's false positive
+-- that met the auto-accept bar, so it stands without a human countersign.
 CREATE TABLE IF NOT EXISTS decision (
     id TEXT NOT NULL DEFAULT (uuid()),
     finding_id TEXT NOT NULL REFERENCES finding(id) ON DELETE RESTRICT,
@@ -27,13 +33,20 @@ CREATE TABLE IF NOT EXISTS decision (
     severity TEXT,
     source_channel TEXT,
     actor TEXT,
+    rationale TEXT,
+    ticket TEXT,
+    auto_accept_tier BOOLEAN NOT NULL DEFAULT 0 CHECK (auto_accept_tier IN (0, 1)),
     occurred_at TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     PRIMARY KEY (id),
     UNIQUE (finding_id, statement_key),
     CHECK (assessment_id IS NOT NULL OR actor IS NOT NULL),
     CHECK (assessment_id IS NULL OR actor IS NULL),
-    CHECK (assessment_id IS NULL OR repository_ref_id IS NULL)
+    CHECK (assessment_id IS NULL OR repository_ref_id IS NULL),
+    CHECK (restates_id IS NULL OR (actor IS NOT NULL AND ticket IS NOT NULL
+        AND reason IS NOT NULL AND rationale IS NOT NULL)),
+    CHECK (NOT auto_accept_tier OR (assessment_id IS NOT NULL
+        AND validity = 'false_positive'))
 );
 
 -- Latest answer per finding (current_decision,
