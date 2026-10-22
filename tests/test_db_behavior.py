@@ -294,6 +294,21 @@ def test_spend_is_never_negative(db: Db) -> None:
     )
 
 
+def test_spend_carries_its_orders_lane(db: Db) -> None:
+    order = {"state": "queued", "priority": 1, "requested_by": "service:engine"}
+    routed = db.insert("ops.run_order", asset="diff_scan", lane="diff-scan", **order)
+    unrouted = db.insert("ops.run_order", asset="feeds_cache", **order)
+    spend = {"provider": "p", "model": "m", "tokens_in": 1, "tokens_out": 1, "cost_usd": 0.1}
+    db.insert("ops.spend_event", run_order_id=routed, lane="diff-scan", occurred_at=NOW, **spend)
+    db.insert("ops.spend_event", run_order_id=unrouted, occurred_at=NOW, **spend)
+    db.insert("ops.spend_event", occurred_at=NOW, **spend)  # unattributed: no lane
+    db.rejects("ops.spend_event", run_order_id=routed, occurred_at=NOW, **spend)
+    db.rejects("ops.spend_event", run_order_id=routed, lane="full-audit", occurred_at=NOW, **spend)
+    db.rejects("ops.spend_event", run_order_id=unrouted, lane="diff-scan", occurred_at=NOW, **spend)
+    db.rejects("ops.spend_event", lane="diff-scan", occurred_at=NOW, **spend)
+    db.rejects("ops.spend_event", run_order_id=routed, lane="", occurred_at=NOW, **spend)
+
+
 def test_status_and_clock_follow_the_default_line(db: Db) -> None:
     rid = repo(db)
     main1 = db.insert(
