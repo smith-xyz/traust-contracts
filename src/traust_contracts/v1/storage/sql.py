@@ -58,6 +58,7 @@ TABLE_ORDER: tuple[str, ...] = (
     "finding_label",
     "finding_external_ref",
     "decision",
+    "decision_approver",
     "review_item",
     "occurrence",
     "location",

@@ -157,6 +157,18 @@ def test_rows_written_in_one_transaction_keep_their_order(db: Db) -> None:
 
 def test_append_only_rows_are_never_changed(db: Db) -> None:
     sid = db.insert("sbom", digest="d" * 64)
+    rid = repo(db)
+    rref = ref(db, rid)
+    fid = finding(db, rid)
+    decided = db.insert(
+        "decision",
+        finding_id=fid,
+        actor="human:a",
+        repository_ref_id=rref,
+        statement_key="k",
+        occurred_at=NOW,
+    )
+    approver = db.insert("decision_approver", decision_id=decided, approver="human:b")
     spend = db.insert(
         "ops.spend_event",
         provider="p",
@@ -166,7 +178,7 @@ def test_append_only_rows_are_never_changed(db: Db) -> None:
         cost_usd=0.1,
         occurred_at=NOW,
     )
-    for table, row in (("sbom", sid), ("ops.spend_event", spend)):
+    for table, row in (("sbom", sid), ("ops.spend_event", spend), ("decision_approver", approver)):
         with pytest.raises(db.Error):
             db.run(f"UPDATE {db.t(table)} SET created_at = created_at WHERE id = ?", (row,))
         with pytest.raises(db.Error):
@@ -239,6 +251,40 @@ def test_decision_has_one_who_one_commit_and_no_duplicates(db: Db) -> None:
     db.rejects("decision", assessment_id=aid, actor="user:a", statement_key="k3", **base)
     db.rejects("decision", assessment_id=aid, repository_ref_id=rref, statement_key="k4", **base)
     db.insert("decision", actor="user:a", repository_ref_id=rref, statement_key="k5", **base)
+
+
+def test_a_restatement_names_its_author_authority_reason_and_rationale(db: Db) -> None:
+    rid = repo(db)
+    rref = ref(db, rid)
+    fid = finding(db, rid)
+    base = {"finding_id": fid, "occurred_at": NOW, "repository_ref_id": rref}
+    first = db.insert("decision", actor="human:a", statement_key="k1", validity="confirmed", **base)
+    why = {"ticket": "T-1", "reason": "data_error", "rationale": "the audit misread the sink"}
+    restated = {"restates_id": first, "actor": "human:b", "validity": "false_positive", **base}
+    for missing in why:
+        rest = {k: v for k, v in why.items() if k != missing}
+        db.rejects("decision", statement_key=f"no-{missing}", **restated, **rest)
+    second = db.insert("decision", statement_key="k2", **restated, **why)
+    db.insert("decision_approver", decision_id=second, approver="human:c")
+    db.rejects("decision_approver", decision_id=second, approver="human:c")
+    db.rejects("decision_approver", decision_id=second, approver="")
+
+
+def test_only_an_assessors_false_positive_is_auto_accepted(db: Db) -> None:
+    rid = repo(db)
+    rref = ref(db, rid)
+    aid, fid = assessment(db, rref), finding(db, rid)
+    base = {"finding_id": fid, "occurred_at": NOW, "auto_accept_tier": True}
+    db.insert("decision", assessment_id=aid, statement_key="k1", validity="false_positive", **base)
+    db.rejects("decision", assessment_id=aid, statement_key="k2", validity="confirmed", **base)
+    db.rejects(
+        "decision",
+        actor="human:a",
+        repository_ref_id=rref,
+        statement_key="k3",
+        validity="false_positive",
+        **base,
+    )
 
 
 def test_occurrence_and_location_rules(db: Db) -> None:
