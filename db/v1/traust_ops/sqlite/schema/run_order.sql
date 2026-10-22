@@ -1,6 +1,11 @@
--- One unit of routed work: what traust ran, on what subject, in which lane.
+-- One unit of work: which asset traust materialized, on what subject, and
+-- (when routed) in which lane.
 --
--- Mutable table. Routed by the router (rule set) or injected as an event
+-- Mutable table. asset is the pack asset the order materializes (pack
+-- vocabulary from assets.yaml, like run_batch.kind) - what it produces.
+-- lane is the routing path the router chose (contracts work-lane) - why and
+-- how it was routed; null when the asset is not routed (feeds, dashboards).
+-- Routed by the router (rule set) or injected as an event
 -- (event_source set, contracts rescan-event-source) - never both; both null
 -- = manual. state values (planned | queued | leased | succeeded | degraded
 -- | refused | withheld | failed) come from contracts, to add - checked at
@@ -16,7 +21,8 @@ CREATE TABLE IF NOT EXISTS ops_run_order (
     artifact_id TEXT REFERENCES artifact(id) ON DELETE RESTRICT,
     rule TEXT,
     event_source TEXT,
-    lane TEXT NOT NULL CHECK (lane <> ''),
+    asset TEXT NOT NULL CHECK (asset <> ''),
+    lane TEXT CHECK (lane <> ''),
     state TEXT NOT NULL CHECK (state <> ''),
     priority INTEGER NOT NULL,
     reason TEXT,

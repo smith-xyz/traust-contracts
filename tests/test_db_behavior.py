@@ -255,7 +255,12 @@ def test_occurrence_and_location_rules(db: Db) -> None:
 
 
 def test_run_order_routing_and_lease_rules(db: Db) -> None:
-    order = {"lane": "diff_scan", "priority": 1, "requested_by": "skill:router"}
+    order = {
+        "asset": "diff_scan",
+        "lane": "diff-scan",
+        "priority": 1,
+        "requested_by": "skill:router",
+    }
     db.insert("ops.run_order", state="queued", rule="r1", **order)
     db.rejects("ops.run_order", state="queued", rule="r1", event_source="cve", **order)
     db.rejects("ops.run_order", state="leased", **order)  # leased without a holder
@@ -267,6 +272,14 @@ def test_run_order_routing_and_lease_rules(db: Db) -> None:
         **order,
     )
     db.rejects("ops.run_order", state="succeeded", started_at=LATER, finished_at=NOW, **order)
+
+
+def test_run_order_names_its_asset_and_lane_only_when_routed(db: Db) -> None:
+    order = {"state": "queued", "priority": 1, "requested_by": "service:engine"}
+    db.insert("ops.run_order", asset="feeds_cache", **order)  # not routed: no lane
+    db.rejects("ops.run_order", lane="diff-scan", **order)  # every order names its asset
+    db.rejects("ops.run_order", asset="", **order)
+    db.rejects("ops.run_order", asset="diff_scan", lane="", **order)
 
 
 def test_spend_is_never_negative(db: Db) -> None:
