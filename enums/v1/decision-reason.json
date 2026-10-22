@@ -1,0 +1,23 @@
+{
+  "name": "decision_reason",
+  "source_schema": "",
+  "description": "Decision.reason: why a judgement changed, retaining existing restatement reason codes and the approved regression reason.",
+  "values": [
+    "regression",
+    "data_error",
+    "schema_migration",
+    "baseline_rewrite",
+    "operator_error"
+  ],
+  "definitions": {
+    "regression": "A previously resolved finding is open again because a regression was introduced.",
+    "data_error": "A new judgement corrects erroneous data in an earlier judgement.",
+    "schema_migration": "A restatement is needed because of a schema migration; original statements remain immutable.",
+    "baseline_rewrite": "An existing baseline restatement reason; it does not authorize rewriting historical bytes.",
+    "operator_error": "A new judgement corrects an operator error."
+  },
+  "used_in_schemas": [],
+  "standard": {
+    "none": "Project-defined vocabulary owned by the existing data model."
+  }
+}

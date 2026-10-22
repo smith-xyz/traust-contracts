@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from pydantic import Field
 
-from traust_contracts.v1.enums import Assurance, DispositionResolution, Severity, Validity
+from traust_contracts.v1.enums import (
+    Assurance,
+    DispositionResolution,
+    EvidenceGrade,
+    FindingKind,
+    Severity,
+    Validity,
+)
 from traust_contracts.v1.models._base import ContractModel
 
 
@@ -40,6 +47,7 @@ class Disposition(ContractModel):
     conflict: bool | None = None
     refuted_awaiting_signoff: bool | None = None
     assurance: Assurance | None = None
+    evidence_grade: EvidenceGrade | str | None = None
     fp_overridden: bool | None = None
     fp_reassertion_blocked: bool | None = None
     severity_override: SeverityOverride | None = None
@@ -71,8 +79,11 @@ class DependencyProvenance(ContractModel):
 class Finding(ContractModel):
     """A security finding from an audit report."""
 
+    explicit_null_fields = frozenset({"remediation_effort"})
+
     id: str
     title: str
+    kind: FindingKind | None = None
     severity: Severity
     cwes: list[str]
     locations: list[Location]
