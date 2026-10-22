@@ -15,3 +15,6 @@
 /Makefile @traust-security/traust-admins
 
 * @traust-security/traust-admins
+
+# Tables: changes need the data-model owners (last match wins, so this follows *)
+/db/ @chubirka @smith-xyz
