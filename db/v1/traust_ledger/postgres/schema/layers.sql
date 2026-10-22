@@ -25,6 +25,17 @@ CREATE TABLE IF NOT EXISTS traust_ledger.layers (
 CREATE INDEX IF NOT EXISTS idx_ledger_layers_repository
     ON traust_ledger.layers (repository_id);
 
+-- One chain per (repository, line): appends join it, so a second would split the proof.
+-- line is nullable and NULLs never collide in a unique key, so the repository layer gets
+-- its own partial index.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_layers_repository
+    ON traust_ledger.layers (repository_id)
+    WHERE line IS NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_ledger_layers_line
+    ON traust_ledger.layers (repository_id, line)
+    WHERE line IS NOT NULL;
+
 DROP TRIGGER IF EXISTS layers_touch ON traust_ledger.layers;
 CREATE TRIGGER layers_touch
 BEFORE UPDATE ON traust_ledger.layers

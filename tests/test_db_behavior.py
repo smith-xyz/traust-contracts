@@ -282,6 +282,18 @@ def test_run_order_names_its_asset_and_lane_only_when_routed(db: Db) -> None:
     db.rejects("ops.run_order", asset="diff_scan", lane="", **order)
 
 
+def test_one_ledger_layer_per_repository_and_line(db: Db) -> None:
+    r, other = repo(db), repo(db, "https://example.com/other")
+    layer = {"merkle_signing_method": "keypair"}
+    db.insert("ledger.layers", repository_id=r, **layer)
+    db.rejects("ledger.layers", repository_id=r, **layer)  # a second repository layer
+    db.insert("ledger.layers", repository_id=r, line="release-4.22", **layer)
+    db.rejects("ledger.layers", repository_id=r, line="release-4.22", **layer)
+    db.insert("ledger.layers", repository_id=r, line="release-4.23", **layer)
+    db.insert("ledger.layers", repository_id=other, **layer)
+    db.insert("ledger.layers", repository_id=other, line="release-4.22", **layer)
+
+
 def test_spend_is_never_negative(db: Db) -> None:
     db.rejects(
         "ops.spend_event",
