@@ -32,6 +32,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_ref_bare
     ON repository_ref (repository_id, sha)
     WHERE name IS NULL;
 
+-- A repository's refs (portfolio reads, review-surface coverage); the unique
+-- indexes above are partial, so they can't serve an unconditioned lookup.
+CREATE INDEX IF NOT EXISTS idx_repository_ref_repository
+    ON repository_ref (repository_id);
+
 -- Refs carrying a manifest SBOM (blast radius, usage query, drift).
 CREATE INDEX IF NOT EXISTS idx_repository_ref_manifest_sbom
     ON repository_ref (manifest_sbom_id)
