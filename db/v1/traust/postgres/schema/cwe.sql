@@ -1,9 +1,9 @@
--- The MITRE CWE catalog: reference data, loaded read-only. Never written by
--- assessments.
+-- CWE identifiers findings report. A row is recorded at intake for each
+-- well-formed identifier (CWE-306), as the report schemas checked.
 --
--- Mutable table (catalog releases change it). identifier is the catalog id
--- (CWE-306); abstraction and mapping_usage classify (closed catalog values,
--- checked at intake); catalog_version pins the load.
+-- Mutable table. abstraction, mapping_usage and catalog_version are optional
+-- MITRE catalog enrichment (closed catalog values when loaded; no loader yet):
+-- they refine the finding_primary_cwe ranking and stay null until then.
 CREATE TABLE IF NOT EXISTS traust.cwe (
     id UUID NOT NULL DEFAULT gen_random_uuid(),
     identifier TEXT NOT NULL CHECK (identifier <> ''),
