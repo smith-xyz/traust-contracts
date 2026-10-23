@@ -67,6 +67,14 @@ runners execute from `run`, `params`, `runner`, `model`, `writes`, `riders` and
 `outcomes` in their pinned copy. The schema is strict, so a key one reader doesn't know
 fails for both.
 
+## Run manifest
+
+`artifacts_schema/v1/run-manifest.schema.json` is the per-order detail that
+`run_order.artifact_id` points at: config digests in force (the pack file's digest is the
+pack version), the budget verdict at admission, the approval, progress and degraded keys.
+Each change is a new artifact; the manifest doesn't name its order, so orders in the same
+state share one artifact.
+
 ## Storage contract
 
 `artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
