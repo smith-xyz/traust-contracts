@@ -34,7 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_artifact_assessment
 -- The latest imported document of a kind (configuration documents such as the
 -- corpus registry, versioned as whole documents).
 CREATE INDEX IF NOT EXISTS idx_artifact_imported_kind
-    ON traust.artifact (kind, created_at DESC)
+    ON traust.artifact (kind, created_at DESC, id DESC)
     WHERE assessment_id IS NULL;
 
 -- sbom.artifact_id closes a cycle (sbom -> artifact -> assessment -> image
