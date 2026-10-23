@@ -448,6 +448,7 @@ def test_repo_state_records_an_observation_with_or_without_a_comparison() -> Non
     }
     validator.validate(compared)
     validator.validate({"observed_at": "2026-10-22T09:00:00Z", "status": "no-pinned-sha"})
+    validator.validate({**unchanged, "fork_of": "https://github.com/org/upstream"})
 
 
 @pytest.mark.parametrize(
@@ -455,6 +456,7 @@ def test_repo_state_records_an_observation_with_or_without_a_comparison() -> Non
     [
         {"status": "stale"},
         {"head_sha": "a" * 40},
+        {"fork_of": "org/upstream"},
         {"comparison": {"ahead_by": 1}},
         {
             "comparison": {
@@ -467,7 +469,13 @@ def test_repo_state_records_an_observation_with_or_without_a_comparison() -> Non
             }
         },
     ],
-    ids=["unknown status", "fact owned by the ref row", "partial comparison", "negative count"],
+    ids=[
+        "unknown status",
+        "fact owned by the ref row",
+        "fork_of not a URL",
+        "partial comparison",
+        "negative count",
+    ],
 )
 def test_repo_state_rejects_what_it_does_not_own(change: dict) -> None:
     document = {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", **change}
