@@ -29,6 +29,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_location_file
     ON location (occurrence_id, path)
     WHERE line_start IS NULL;
 
+-- Precedents: the same enclosing function in any repository (the reader then
+-- compares vendor-normalized paths). Most locations have no symbol.
+CREATE INDEX IF NOT EXISTS idx_location_symbol
+    ON location (symbol)
+    WHERE symbol IS NOT NULL;
+
 CREATE TRIGGER IF NOT EXISTS location_reject_update
 BEFORE UPDATE ON location BEGIN
   SELECT RAISE(ABORT, 'location rows are append-only');
