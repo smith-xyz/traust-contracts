@@ -31,6 +31,12 @@ CREATE INDEX IF NOT EXISTS idx_artifact_assessment
     ON artifact (assessment_id)
     WHERE assessment_id IS NOT NULL;
 
+-- The latest imported document of a kind (configuration documents such as the
+-- corpus registry, versioned as whole documents).
+CREATE INDEX IF NOT EXISTS idx_artifact_imported_kind
+    ON artifact (kind, created_at DESC, id DESC)
+    WHERE assessment_id IS NULL;
+
 CREATE TRIGGER IF NOT EXISTS artifact_reject_update
 BEFORE UPDATE ON artifact BEGIN
   SELECT RAISE(ABORT, 'artifact rows are append-only');
