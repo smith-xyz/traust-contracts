@@ -58,6 +58,13 @@ Two axes:
 (`v1` today). Pin to `traust_contracts.v1.*` directly if the shape must
 never move under you.
 
+Finding DTO serialization preserves schema-valid classifier aliases, dependency
+provenance and `fingerprint_algo`. Absent, empty defaults for the optional
+nonempty-only isolation/PEACH lists stay omitted; explicit values remain
+available to the final schema gate, including invalid explicit nulls. These
+models are not a new-write admission policy: core validates the final artifact
+bytes and owns canonical persistence.
+
 ## Pack spec
 
 `config/v1/pack.schema.json` is the shape of a workload pack's `assets.yaml` (the

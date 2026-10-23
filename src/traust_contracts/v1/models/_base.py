@@ -15,13 +15,17 @@ class ContractModel(BaseModel):
     # after construction; without it `event.recorded_at = "banana"` is accepted.
     model_config = ConfigDict(extra="ignore", validate_assignment=True)
     explicit_null_fields: ClassVar[frozenset[str]] = frozenset()
+    omit_unset_empty_fields: ClassVar[frozenset[str]] = frozenset()
 
     @model_serializer(mode="wrap")
     def _serialize(
         self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
     ) -> dict[str, Any]:
-        """Keep declared, explicitly supplied null sizes when nested serialization excludes None."""
+        """Preserve explicitly supplied optional values during nested serialization."""
         data = handler(self)
+        for name in self.omit_unset_empty_fields:
+            if name not in self.model_fields_set and not getattr(self, name):
+                data.pop(name, None)
         if info.exclude_none:
             for name in self.explicit_null_fields:
                 if name not in self.model_fields_set or getattr(self, name) is not None:
