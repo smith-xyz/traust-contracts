@@ -2,7 +2,7 @@
   "$id": "https://example.com/traust-contracts/artifacts_schema/v1/repo-state.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Repository State Observation",
-  "description": "One forge observation of a repository: its default-branch head, compared with its latest audit when it was pushed since. Stored as the artifact of an assessment of kind repo-state on the observed head ref (baseline_assessment_id = the audit). Recorded only when the forge answered; an unreachable or quota-deferred observation is the run order's outcome, not a document. Repository-level facts (public, upstream, archived) live on the repository row.",
+  "description": "One forge observation of a repository: its default-branch head, compared with its latest audit when it was pushed since. Stored as the artifact of an assessment of kind repo-state on the observed head ref (baseline_assessment_id = the audit). Recorded only when the forge answered; an unreachable or quota-deferred observation is the run order's outcome, not a document. Repository-level facts (public, upstream, archived) live on the repository row; fork_of keeps the parent the forge reported, the evidence behind repository.upstream_id.",
   "type": "object",
   "required": [
     "observed_at",
@@ -23,6 +23,12 @@
     },
     "comparison": {
       "$ref": "#/$defs/comparison"
+    },
+    "fork_of": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://",
+      "description": "The repository this one forks, as the forge reported it (https URL); absent when it isn't a fork. The observation that brings an upstream into the inventory."
     }
   },
   "additionalProperties": false,
