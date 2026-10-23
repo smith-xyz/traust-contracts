@@ -5,7 +5,10 @@
 --
 -- Mutable table: root, epoch and size advance as events append - the
 -- traust-ledger library computes, the app stores. Merkle fields are null
--- until the first event is signed.
+-- until the first event is signed. merkle_frontier is the tree's right edge
+-- (traust-ledger extend_frontier): the hex roots of its perfect subtrees,
+-- largest first, comma-separated, one per set bit of merkle_size; appends
+-- extend it without reading earlier events. Null = not computed yet.
 CREATE TABLE IF NOT EXISTS ledger_layers (
     id TEXT NOT NULL DEFAULT (uuid()),
     repository_id TEXT NOT NULL REFERENCES repository(id) ON DELETE RESTRICT,
@@ -16,6 +19,7 @@ CREATE TABLE IF NOT EXISTS ledger_layers (
     merkle_root_signature TEXT,
     merkle_signing_method TEXT NOT NULL CHECK (merkle_signing_method <> ''),
     merkle_signature_format INTEGER,
+    merkle_frontier TEXT CHECK (merkle_frontier <> ''),
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     PRIMARY KEY (id)
