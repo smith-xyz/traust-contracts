@@ -14,7 +14,7 @@ help:
 	@echo "  make hooks          — git config core.hooksPath .githooks"
 	@echo "  make lint           — ruff check + format --check"
 	@echo "  make lint-fix       — ruff check --fix + format"
-	@echo "  make test           — pytest tests (database e2e included when db-up)"
+	@echo "  make test           — pytest tests, parallel via pytest-xdist (database e2e included when db-up)"
 	@echo "  make db-up          — start local database container for e2e tests"
 	@echo "  make db-down        — stop and remove the database container"
 	@echo "  make schema-diff    — schema changes vs origin/development that traust-core may need to absorb"
@@ -43,7 +43,9 @@ storage-check:
 	uv run pytest tests/test_db_behavior.py -q
 
 test:
-	uv run pytest tests/ -q
+	# loadfile: test_db_behavior.py rebuilds fixed Postgres schemas per test,
+	# so it must stay on one worker; everything else spreads across workers.
+	uv run pytest tests/ -q -n auto --dist loadfile
 
 db-up:
 	@if podman container exists $(DB_CONTAINER) 2>/dev/null; then \
