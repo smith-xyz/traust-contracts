@@ -29,6 +29,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_location_file
     ON traust.location (occurrence_id, path)
     WHERE line_start IS NULL;
 
+-- Precedents: the same enclosing function in any repository (the reader then
+-- compares vendor-normalized paths). Most locations have no symbol.
+CREATE INDEX IF NOT EXISTS idx_location_symbol
+    ON traust.location (symbol)
+    WHERE symbol IS NOT NULL;
+
 DROP TRIGGER IF EXISTS location_reject_mutation ON traust.location;
 CREATE TRIGGER location_reject_mutation
 BEFORE UPDATE OR DELETE ON traust.location
