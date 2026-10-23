@@ -58,6 +58,15 @@ Two axes:
 (`v1` today). Pin to `traust_contracts.v1.*` directly if the shape must
 never move under you.
 
+## Pack spec
+
+`config/v1/pack.schema.json` is the shape of a workload pack's `assets.yaml` (the
+security pack lives in traust as `packs/security/assets.yaml`). traust-engine plans and
+admits from `deps`, `partitions`, `trigger`, `priority`, `freshness` and `admission`;
+runners execute from `run`, `params`, `runner`, `model`, `writes`, `riders` and
+`outcomes` in their pinned copy. The schema is strict, so a key one reader doesn't know
+fails for both.
+
 ## Storage contract
 
 `artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
