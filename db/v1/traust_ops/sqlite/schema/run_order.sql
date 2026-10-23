@@ -58,6 +58,11 @@ CREATE INDEX IF NOT EXISTS idx_ops_run_order_repository_state
     ON ops_run_order (repository_id, state)
     WHERE repository_id IS NOT NULL;
 
+-- An asset's orders by state: open subjects, and subjects finished since a time (the engine's
+-- open-order, freshness and re-route checks every tick). repository_id makes them index-only.
+CREATE INDEX IF NOT EXISTS idx_ops_run_order_asset_state
+    ON ops_run_order (asset, state, finished_at, repository_id);
+
 -- The database owns updated_at; the guard keeps it stable under recursive
 -- triggers and respects a manually set value.
 CREATE TRIGGER IF NOT EXISTS ops_run_order_touch

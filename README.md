@@ -60,6 +60,11 @@ never move under you.
 
 ## Storage contract
 
+`artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
+language/LoC counters for `tool_scan` assessments. The assessment identifies the
+scanned ref and producer. A null section is unmeasured; an empty array is a
+measured empty result. This artifact adds no database tables or columns.
+
 `db/v1/traust` is the one-owner data model (XWING-2363): readable, authored
 SQLite/PostgreSQL SQL — each concept one owner, database-generated UUID v4
 identity (`gen_random_uuid()` / SQLite's `uuid()`), real constraints. Namespaces:

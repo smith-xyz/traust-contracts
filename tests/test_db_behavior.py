@@ -802,3 +802,11 @@ def test_status_and_clock_follow_the_default_line(db: Db) -> None:
         (fixed, "release-4.22"),
     )
     assert resolution_on_release == [("open",)]
+
+
+def test_a_layer_frontier_is_absent_or_real(db: Db) -> None:
+    rid = repo(db)
+    base = {"repository_id": rid, "merkle_signing_method": "keypair"}
+    db.insert("ledger.layers", merkle_frontier="ab" * 32 + "," + "cd" * 32, **base)
+    db.insert("ledger.layers", line="dev", **base)
+    db.rejects("ledger.layers", line="other", merkle_frontier="", **base)
