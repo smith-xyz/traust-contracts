@@ -31,6 +31,12 @@ CREATE INDEX IF NOT EXISTS idx_artifact_assessment
     ON traust.artifact (assessment_id)
     WHERE assessment_id IS NOT NULL;
 
+-- The latest imported document of a kind (configuration documents such as the
+-- corpus registry, versioned as whole documents).
+CREATE INDEX IF NOT EXISTS idx_artifact_imported_kind
+    ON traust.artifact (kind, created_at DESC)
+    WHERE assessment_id IS NULL;
+
 -- sbom.artifact_id closes a cycle (sbom -> artifact -> assessment -> image
 -- -> sbom), so it cannot be inline on Postgres: added here, once all four
 -- tables exist. SQLite carries it inline in sbom.sql.
