@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS component (
     UNIQUE (release_id, repository_ref_id)
 );
 
+-- Keyset pages ordered by creation time, with id breaking ties.
+CREATE INDEX IF NOT EXISTS idx_component_created_id
+    ON component (created_at, id);
+
 CREATE INDEX IF NOT EXISTS idx_component_repository_ref
     ON component (repository_ref_id);
 

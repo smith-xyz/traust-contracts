@@ -810,3 +810,30 @@ def test_a_layer_frontier_is_absent_or_real(db: Db) -> None:
     db.insert("ledger.layers", merkle_frontier="ab" * 32 + "," + "cd" * 32, **base)
     db.insert("ledger.layers", line="dev", **base)
     db.rejects("ledger.layers", line="other", merkle_frontier="", **base)
+
+
+def test_component_paging_survives_bootstrap_reapplication(db: Db) -> None:
+    product = db.insert("product", slug="components", name="Components")
+    release = db.insert("release", product_id=product, version="1")
+    repository = repo(db)
+    refs = [ref(db, repository, sha=digit * 40) for digit in "abc"]
+    table = db.t("component")
+    db.run(
+        f"INSERT INTO {table} (release_id, repository_ref_id) VALUES (?, ?), (?, ?), (?, ?)",
+        tuple(value for rid in refs for value in (release, rid)),
+    )
+    for path in storage_sql.bootstrap_files(db.engine):
+        if path.stem == "component":
+            for statement in bootstrap_statements(db.engine, path):
+                db.run(statement)
+    rows = db.run(f"SELECT created_at, id FROM {table} ORDER BY created_at DESC, id DESC")
+    assert len(rows) == 3 and len({row[0] for row in rows}) == 1
+    query = (
+        f"SELECT created_at, id FROM {table} WHERE (created_at, id) < (?, ?) "
+        "ORDER BY created_at DESC, id DESC LIMIT 2"
+    )
+    assert db.run(query, rows[0]) == rows[1:]
+    if db.engine == "sqlite":
+        plan = db.run("EXPLAIN QUERY PLAN " + query, rows[0])
+        assert any("SEARCH" in row[-1] for row in plan), plan
+        assert not any("TEMP B-TREE" in row[-1] for row in plan), plan

@@ -9,6 +9,7 @@
     "enforced"
   ],
   "used_in_schemas": [
-    "budget-policy.schema.json"
+    "budget-policy.schema.json",
+    "run-manifest.schema.json"
   ]
 }
