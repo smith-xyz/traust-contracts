@@ -136,6 +136,14 @@ values; `tests/test_enum_registry.py` enforces this. `ci/enum_registry.py
 --write` derives each file's `used_in_schemas`, and `--check` verifies the
 rest.
 
+Operational DDL vocabularies are registered in `run-order-state`, `run-order-reason`,
+`work-lane` and `rescan-event-source`. Their existing registry representation uses an
+empty `source_schema`, `schema_enforced: false` and `used_in_schemas: []`: the values
+classify live `traust_ops.run_order` columns, not a JSON Schema site. Core loads these
+files and checks new writes; historical rows are not rewritten. Asset names remain
+pack vocabulary rather than work lanes. Reason codes are stored on orders; diagnostic
+detail belongs in structured logs.
+
 A registry file has `name`, `source_schema`, `description`, `values` and
 `used_in_schemas`, plus these optional fields:
 
