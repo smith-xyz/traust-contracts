@@ -144,6 +144,14 @@ files and checks new writes; historical rows are not rewritten. Asset names rema
 pack vocabulary rather than work lanes. Reason codes are stored on orders; diagnostic
 detail belongs in structured logs.
 
+`degraded-key` binds the run manifest's key node without closing historical JSON
+over an incomplete set of subjects. It declares common comparison/database causes
+and ledger counters; registered feed and view identifiers retain their own names
+and counts. Core enforces new completion keys against those owners before manifest
+publication. The schema keeps its existing lowercase key shape and positive-integer
+counts so imported manifests remain readable; no serialized namespace or version
+field is introduced.
+
 A registry file has `name`, `source_schema`, `description`, `values` and
 `used_in_schemas`, plus these optional fields:
 
