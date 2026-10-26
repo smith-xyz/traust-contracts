@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/traust-contracts/artifacts_schema/v1/below-range-verdicts.schema.json",
   "title": "Below-range review verdicts",
-  "description": "The review of one below-range packets document, held by an impact assessment of the same commit: per packet two blind reviews, a judge on a split or an undetermined review, and the final verdict (decisions D1, D4: only code-verified cases become findings; no human queue). Coverage gaps are carried unchanged: never dropped, never clean. Consistency among rows (every packet reviewed once, the judge exactly when needed, the verdict the agreed one or the judge's) is a service check.",
+  "description": "The review of one below-range packets document, held by a second impact assessment of the same commit: per packet two blind reviews, a judge on a split or an undetermined review, and the final verdict (decisions D1, D4: only code-verified cases become findings; no human queue). Coverage gaps are carried unchanged: never dropped, never clean. Consistency among rows (every packet reviewed once, the judge exactly when needed, the verdict the agreed one or the judge's) is a service check.",
   "type": "object",
   "required": [
     "artifact",
@@ -18,7 +18,7 @@
     "packets_assessment_id": {
       "type": "string",
       "format": "uuid",
-      "description": "The tool_scan assessment holding the reviewed below-range-packets document."
+      "description": "The impact assessment holding the reviewed below-range-packets document."
     },
     "cases": {
       "type": "array",

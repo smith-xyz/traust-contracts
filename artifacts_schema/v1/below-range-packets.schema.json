@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.com/traust-contracts/artifacts_schema/v1/below-range-packets.schema.json",
   "title": "Below-range evidence packets",
-  "description": "One commit's below-range candidates (installed versions an advisory's stated ranges leave out) as evidence packets for review, held by a tool_scan assessment of the commit. Facts only: nothing here decides whether a version is affected. Every candidate is a packet or a coverage gap. Installed source trees are working data and are not stored; each packet keeps the source's registry URL and sha256, so review refetches and checks it.",
+  "description": "One commit's below-range candidates (installed versions an advisory's stated ranges leave out) as evidence packets for review, held by an impact assessment of the commit (its status complete or degraded as the document is). Facts only: nothing here decides whether a version is affected. Every candidate is a packet or a coverage gap. Installed source trees are working data and are not stored; each packet keeps the source's registry URL and sha256, so review refetches and checks it.",
   "type": "object",
   "required": [
     "artifact",

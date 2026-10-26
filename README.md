@@ -109,11 +109,12 @@ needs a new authorization decision.
 `artifacts_schema/v1/below-range-packets.schema.json` is one commit's below-range evidence:
 installed versions an advisory's stated ranges leave out, each as a packet (the advisory, the
 chosen fix and why, the installed source's registry URL and sha256, per-hunk presence) or a
-coverage gap with its reason. A `tool_scan` assessment of the commit holds it. Source trees are
+coverage gap with its reason. An `impact` assessment of the commit holds it (not `tool_scan`,
+whose latest document readers take to be `code-facts`). Source trees are
 not stored: review refetches each by URL and checks the digest.
 
 `artifacts_schema/v1/below-range-verdicts.schema.json` is the review of one packets document,
-held by an `impact` assessment of the same commit: two blind reviews per packet, a judge on a
+held by a second `impact` assessment of the same commit: two blind reviews per packet, a judge on a
 split or an `undetermined` review, the final verdict, and the coverage gaps carried unchanged.
 Only `applicable` becomes a finding. Row consistency (every packet reviewed once, the judge
 exactly when needed, the verdict the agreed one or the judge's) is checked by the recording
