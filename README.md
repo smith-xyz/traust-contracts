@@ -149,6 +149,22 @@ values; `tests/test_enum_registry.py` enforces this. `ci/enum_registry.py
 --write` derives each file's `used_in_schemas`, and `--check` verifies the
 rest.
 
+Operational DDL vocabularies are registered in `run-order-state`, `run-order-reason`,
+`work-lane` and `rescan-event-source`. Their existing registry representation uses an
+empty `source_schema`, `schema_enforced: false` and `used_in_schemas: []`: the values
+classify live `traust_ops.run_order` columns, not a JSON Schema site. Core loads these
+files and checks new writes; historical rows are not rewritten. Asset names remain
+pack vocabulary rather than work lanes. Reason codes are stored on orders; diagnostic
+detail belongs in structured logs.
+
+`degraded-key` binds the run manifest's key node without closing historical JSON
+over an incomplete set of subjects. It declares common comparison/database causes
+and ledger counters; registered feed and view identifiers retain their own names
+and counts. Core enforces new completion keys against those owners before manifest
+publication. The schema keeps its existing lowercase key shape and positive-integer
+counts so imported manifests remain readable; no serialized namespace or version
+field is introduced.
+
 A registry file has `name`, `source_schema`, `description`, `values` and
 `used_in_schemas`, plus these optional fields:
 

@@ -60,11 +60,16 @@
     "degraded": {
       "description": "What the run could not see, by key (e.g. unreachable, quota-deferred, db-stale), with a count. A degraded order is never reported green.",
       "type": "object",
-      "propertyNames": {"pattern": "^[a-z][a-z0-9_-]*$"},
+      "propertyNames": {"$ref": "#/$defs/degraded_key"},
       "additionalProperties": {"type": "integer", "minimum": 1}
     }
   },
   "$defs": {
+    "degraded_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "Historical-compatible key shape. New Core completions enforce the degraded_key vocabulary or registered feed/view identifiers; dynamic subject identifiers retain their own coverage counts."
+    },
     "usd": {"type": "string", "pattern": "^-?[0-9]+(\\.[0-9]+)?$"}
   }
 }
