@@ -63,6 +63,10 @@ CREATE INDEX IF NOT EXISTS idx_ops_run_order_repository_state
 CREATE INDEX IF NOT EXISTS idx_ops_run_order_asset_state
     ON traust_ops.run_order (asset, state, finished_at, repository_id);
 
+-- The ops feed: orders changed after an (updated_at, id) cursor, oldest first.
+CREATE INDEX IF NOT EXISTS idx_ops_run_order_updated
+    ON traust_ops.run_order (updated_at, id);
+
 -- Cross-namespace link, closing the cycle: assessment.run_order_id ->
 -- traust_ops.run_order. SQLite carries this FK inline (parent existence is
 -- not checked at CREATE); Postgres cannot, because run_order references

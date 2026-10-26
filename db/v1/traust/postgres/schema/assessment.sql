@@ -35,6 +35,10 @@ CREATE INDEX IF NOT EXISTS idx_assessment_run_order
     ON traust.assessment (run_order_id)
     WHERE run_order_id IS NOT NULL;
 
+-- The ops feed: assessments recorded after a (created_at, id) cursor, oldest first.
+CREATE INDEX IF NOT EXISTS idx_assessment_created
+    ON traust.assessment (created_at, id);
+
 DROP TRIGGER IF EXISTS assessment_reject_mutation ON traust.assessment;
 CREATE TRIGGER assessment_reject_mutation
 BEFORE UPDATE OR DELETE ON traust.assessment
