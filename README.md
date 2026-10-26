@@ -120,6 +120,16 @@ Only `applicable` becomes a finding. Row consistency (every packet reviewed once
 exactly when needed, the verdict the agreed one or the judge's) is checked by the recording
 service, not the schema.
 
+## PQC vendor claims
+
+`artifacts_schema/v1/pqc-vendor-claims.schema.json` is a declared reference document
+(scope-ref, like `sla-policy` or `org-parameters`): curated, dated claims about the
+post-quantum roadmap of vendors and dependencies the fleet cannot fix locally. Each claim
+names its vendor class, the packages that carry it, a status, at least one source URL,
+`last_reviewed` and the reviewer. It is imported whole with no assessment; a review is a
+successor version with a higher `version`, and readers take the latest. Fleet counts are
+derived by the reader, never stored.
+
 ## Storage contract
 
 `artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
