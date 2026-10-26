@@ -74,7 +74,8 @@ def test_an_asset_with_no_trigger_is_materialized_by_hand(validator: Draft202012
     "fields",
     [
         {"trigger": {"every": "24h", "lanes": ["diff-scan"]}},
-        {"trigger": {"on_cron": "0 5 * * *"}},
+        {"trigger": {"every": "24h", "on_cron": "0 5 * * *"}},
+        {"trigger": {"on_cron": "0 5 * *"}},
         {"trigger": {"every": "1w"}},
         {"trigger": {"every": "0h"}},
         {"partitions": "dynamic:cve"},
@@ -86,7 +87,8 @@ def test_an_asset_with_no_trigger_is_materialized_by_hand(validator: Draft202012
     ],
     ids=[
         "every and lanes",
-        "cron not supported yet",
+        "every and cron",
+        "cron with four fields",
         "unknown unit",
         "zero duration",
         "unknown partitioning",
@@ -112,3 +114,8 @@ def test_an_invalid_asset_is_rejected(
 def test_an_invalid_pack_is_rejected(validator: Draft202012Validator, pack: dict) -> None:
     with pytest.raises(ValidationError):
         validator.validate(pack)
+
+
+def test_a_clock_time_job_is_a_cron_trigger(validator: Draft202012Validator) -> None:
+    validator.validate(_with("feeds_cache", trigger={"on_cron": "0 7 * * 1"}))
+    validator.validate(_with("feeds_cache", trigger={"on_cron": "*/15 0-6 1,15 * mon-fri"}))

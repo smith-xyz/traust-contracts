@@ -34,6 +34,7 @@
           "maxProperties": 1,
           "properties": {
             "every": {"$ref": "#/$defs/duration", "description": "Due again this long after the last attempt."},
+            "on_cron": {"type": "string", "pattern": "^\\S+( \\S+){4}$", "description": "Due at each time this five-field cron expression (minute hour day-of-month month day-of-week, UTC) names, unless attempted since; for jobs with a clock time."},
             "lanes": {"type": "array", "items": {"$ref": "#/$defs/name"}, "minItems": 1, "uniqueItems": true, "description": "Planned only when the pack router routes a repository to one of these lanes."}
           }
         },
