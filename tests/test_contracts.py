@@ -444,6 +444,42 @@ def test_repo_state_records_an_observation_with_or_without_a_comparison() -> Non
     validator.validate({**unchanged, "fork_of": "https://github.com/org/upstream"})
 
 
+def test_repo_state_comparison_carries_the_router_file_counts() -> None:
+    comparison = {
+        "ahead_by": 3,
+        "truncated": False,
+        "changed_lines": 40,
+        "sensitive_changed": False,
+        "sensitive_lines": 0,
+        "deps_only": False,
+        "first_party_files": 5,
+        "iac_files": 1,
+        "threat_model_files": 2,
+        "tree_first_party_files": 12,
+    }
+    _repo_state_validator().validate(
+        {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", "comparison": comparison}
+    )
+
+
+@pytest.mark.parametrize(
+    "field", ["first_party_files", "iac_files", "threat_model_files", "tree_first_party_files"]
+)
+def test_repo_state_rejects_a_negative_router_file_count(field: str) -> None:
+    comparison = {
+        "ahead_by": 1,
+        "truncated": False,
+        "changed_lines": 1,
+        "sensitive_changed": False,
+        "sensitive_lines": 0,
+        "deps_only": False,
+        field: -1,
+    }
+    document = {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", "comparison": comparison}
+    with pytest.raises(ValidationError):
+        _repo_state_validator().validate(document)
+
+
 @pytest.mark.parametrize(
     "change",
     [

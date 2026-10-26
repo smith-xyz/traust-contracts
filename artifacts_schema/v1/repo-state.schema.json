@@ -51,7 +51,7 @@
     },
     "comparison": {
       "type": "object",
-      "description": "The head compared with the audited commit; absent when the repository was not pushed since the audit.",
+      "description": "The head compared with the audited commit; absent when the repository was not pushed since the audit. The file counts (first_party_files, iac_files, threat_model_files, tree_first_party_files) are optional: observations recorded before they were measured lack them.",
       "required": [
         "ahead_by",
         "truncated",
@@ -82,6 +82,26 @@
         },
         "deps_only": {
           "type": "boolean"
+        },
+        "first_party_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Changed files that count as first-party (vendored, generated and docs excluded): the numerator of the diff-refusal ratio."
+        },
+        "iac_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Changed first-party IaC files (Terraform, CloudFormation, ARM/Bicep): code the cloud-config lane assesses and a code audit does not."
+        },
+        "threat_model_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Changed first-party interface-bearing files (entry-point directories, main files, OpenAPI/Swagger, protobuf): new entry points or trust boundaries a threat model may miss."
+        },
+        "tree_first_party_files": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "First-party files in the head's tree, counted only when enough first-party files changed for the diff-refusal ratio to matter; absent when not counted (no cheap listing on the forge, or the forge truncated the tree)."
         }
       },
       "additionalProperties": false
