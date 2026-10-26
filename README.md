@@ -120,6 +120,18 @@ Only `applicable` becomes a finding. Row consistency (every packet reviewed once
 exactly when needed, the verdict the agreed one or the judge's) is checked by the recording
 service, not the schema.
 
+## Fuzz report
+
+`artifacts_schema/v1/fuzz-report.schema.json` is the document a `fuzz` assessment holds
+(run-bound: the assessment owns repository, commit, producer and time). It records the
+target's harnesses (engine, duration, execs, outcome), every crasher that is a candidate
+finding (signature, reproducer sha256, sanitizer, CWEs, proposed severity, optionally the
+existing finding it confirms), measured coverage (null when not measured) and the surfaces
+left unfuzzed with a reason. Crashers enter the finding lane through intake; static or
+grep-sweep confirmations are not fuzz crashers and a clean run records none. Run counts
+derive from the harness outcomes. Harness-name references are checked by the recording
+service, not the schema.
+
 ## Storage contract
 
 `artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
