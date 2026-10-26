@@ -34,6 +34,10 @@ CREATE INDEX IF NOT EXISTS idx_assessment_run_order
     ON assessment (run_order_id)
     WHERE run_order_id IS NOT NULL;
 
+-- The ops feed: assessments recorded after a (created_at, id) cursor, oldest first.
+CREATE INDEX IF NOT EXISTS idx_assessment_created
+    ON assessment (created_at, id);
+
 CREATE TRIGGER IF NOT EXISTS assessment_reject_update
 BEFORE UPDATE ON assessment BEGIN
   SELECT RAISE(ABORT, 'assessment rows are append-only');
