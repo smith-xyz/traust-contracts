@@ -88,6 +88,22 @@ pack version), the budget verdict at admission, the approval, progress and degra
 Each change is a new artifact; the manifest doesn't name its order, so orders in the same
 state share one artifact.
 
+## Validation plan
+
+`artifacts_schema/v1/validation-plan.schema.json` is a strict structural contract for the
+`validate-findings` plan emitted by `plan.py`: target, scope-binding mode, ordered steps and
+chains. Its allowed keys come from `Step.to_dict()`, `Chain.to_dict()` and `write_plan()`;
+techniques, adapters, classifications and scope modes reuse the validation report's vocabularies.
+Unknown fields and invalid types fail, including agent-supplied approval or scope grants.
+
+This schema **does not authorize execution**. A caller must bind the approved artifact digest
+to a verified principal and current scope, classify each command against its actual operands,
+and re-check the target immediately before dispatch. Browser plans use a different envelope and
+object-valued payloads; they are not accepted by this initial contract. Duplicate step IDs,
+precondition references and chain links also need service checks: JSON Schema validates each
+item, not relationships among items. An edited or recon-extended plan is a new artifact and
+needs a new authorization decision.
+
 ## Storage contract
 
 `artifacts_schema/v1/code-facts.schema.json` defines recorded symbols and measured
