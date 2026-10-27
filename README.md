@@ -285,6 +285,12 @@ python validate.py --schema report myreport.json
 python validate.py --list
 ```
 
+Report `validation_status` remains optional and non-null. Newly authored unjudged
+findings omit it; Core's new-report admission checks any explicit value against
+the canonical members of the installed validity registry. The base schema keeps
+historical members readable and does not rewrite stored artifacts. Revision
+context is not a validity answer, and finding kind does not establish proof.
+
 ### Canonical-write review candidate
 
 Default schemas preserve historical effort values, free-text roadmap fields

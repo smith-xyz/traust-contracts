@@ -631,7 +631,7 @@
             "not_affected",
             "true_positive"
           ],
-          "$comment": "Semantics: 'not_verified' = default for audit-stage findings (static review, no execution); 'confirmed' = verified by execution evidence (a fuzz crash, PoC, failing test, or a validations-pipeline report per validation.schema.json), by a human reviewer, or (harness >= 0.27.0) by an adversarial N-vote triage confirmation recorded in the disposition layer; 'corrected' = finding revised after initial write-up; 'hardening' (harness >= 0.27.0) = accurately-described defense-in-depth/benchmark gap with no concrete exploit path (triage rule 13) \u2014 real and risk-bearing, never a false positive; 'false_positive' = requires an identity-provider-verified human determination recorded in the disposition layer, EXCEPT auto-accept-tier machine FPs (unanimous, lint-clean, confidence >= 8, low/informational-claimed \u2014 see layer.schema.json auto_accept_tier); other machine refutation evidence surfaces as refuted_awaiting_signoff without setting this value. Execution-verified evidence outranks human static determinations, which outrank machine static verdicts (evidence-class precedence, the cumulative builder). Required on every finding for harness >= 0.15.0 (validator-enforced)."
+          "$comment": "Historical validity spellings remain accepted by this base reader schema. Newly authored unjudged findings omit this optional field; null is not a validity value. New report admission uses the installed registry's canonical validity members and does not infer a judgment from static review, kind, actor, or source. Historical not_verified denotes no answer; corrected is a revision marker, not a validity answer; hardening is represented independently by finding kind. Core finding decisions and authenticated restatement operations own subsequent state changes. Existing source artifacts, stored bytes, and exact-run replay remain compatible."
         },
         "source_findings": {
           "type": "array",
@@ -649,7 +649,7 @@
             "validation-discovery",
             "impact-analysis"
           ],
-          "$comment": "Optional (harness >= 0.196.0): producer of a sanctioned-append finding routed into an existing baseline audit \u2014 verify-remediation Phase-5 regressions (the regression router), vuln-scan baseline supplements, create-fuzzing crash follow-ups, validate-findings novel findings / discovery sweeps, impact-analysis dependency filings (the impact router, harness >= 0.197.0). Absent on findings authored by the baseline audit itself. Appended findings enter at validation_status: not_verified (parity with the scanning skills) \u2014 triage/validation adjudicate downstream via the disposition ledger."
+          "$comment": "Historical/provider provenance retained for old sanctioned-append findings. Current Core source attribution comes from the assessment that first reports a finding, not a candidate origin override or a new baseline append. Unjudged new findings do not acquire a validity answer from their origin; omit optional validation_status where the source shape supports it. Source schemas that do not declare validation_status must not add it. Historical origin fields and source artifacts remain readable."
         },
         "pqc_classification": {
           "type": "string",
