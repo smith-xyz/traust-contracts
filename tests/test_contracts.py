@@ -480,6 +480,21 @@ def test_repo_state_rejects_a_negative_router_file_count(field: str) -> None:
         _repo_state_validator().validate(document)
 
 
+@pytest.mark.parametrize(("hits", "valid"), [(0, True), (3, True), (-1, False), (1.5, False)])
+def test_repo_state_comparison_carries_the_tripwire_secret_hits(hits: object, valid: bool) -> None:
+    comparison = {
+        "ahead_by": 1,
+        "truncated": False,
+        "changed_lines": 12,
+        "sensitive_changed": False,
+        "sensitive_lines": 0,
+        "deps_only": False,
+        "secret_hits": hits,
+    }
+    document = {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", "comparison": comparison}
+    assert _repo_state_validator().is_valid(document) is valid
+
+
 @pytest.mark.parametrize(
     "change",
     [

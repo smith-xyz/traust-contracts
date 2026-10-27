@@ -51,7 +51,7 @@
     },
     "comparison": {
       "type": "object",
-      "description": "The head compared with the audited commit; absent when the repository was not pushed since the audit. The file counts (first_party_files, iac_files, threat_model_files, tree_first_party_files) are optional: observations recorded before they were measured lack them.",
+      "description": "The head compared with the audited commit; absent when the repository was not pushed since the audit. The file counts (first_party_files, iac_files, threat_model_files, tree_first_party_files) and secret_hits are optional: observations recorded before they were measured lack them.",
       "required": [
         "ahead_by",
         "truncated",
@@ -102,6 +102,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "First-party files in the head's tree, counted only when enough first-party files changed for the diff-refusal ratio to matter; absent when not counted (no cheap listing on the forge, or the forge truncated the tree)."
+        },
+        "secret_hits": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Secret-scanner (gitleaks) hits in the change's patch text, scanned during the observation: the router's tripwire. Absent when not scanned (no lines changed, no patch, or the scanner unavailable or failed)."
         }
       },
       "additionalProperties": false
