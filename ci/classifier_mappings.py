@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 MAPPINGS_PATH = ROOT / "mappings" / "v1" / "classifiers.json"
 ENUMS_DIR = ROOT / "enums" / "v1"
-ALIAS_STATUSES = frozenset({"mapped", "mapped_unknown", "non_evidence_operation"})
+ALIAS_STATUSES = frozenset({"mapped", "mapped_unknown", "non_evidence_operation", "unmapped"})
 FIELD_STATUSES = frozenset({"unmapped", "observational", "open_label", "provenance"})
 STATUSES = tuple(sorted(ALIAS_STATUSES | FIELD_STATUSES | {"observed_absence"}))
 
@@ -208,9 +208,9 @@ def validate_mappings(mappings: dict, registry: dict[str, dict]) -> None:
             targets = alias["targets"]
             if not isinstance(targets, list):
                 raise MappingError(f"{field}: alias targets must be a list")
-            if status == "non_evidence_operation":
+            if status in {"non_evidence_operation", "unmapped"}:
                 if targets:
-                    raise MappingError(f"{field}: non-evidence operations cannot supply targets")
+                    raise MappingError(f"{field}: {status} aliases cannot supply targets")
                 continue
             if not targets:
                 raise MappingError(f"{field}: mapped aliases require targets")

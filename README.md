@@ -271,6 +271,10 @@ guessed. Legacy effort with no approved size projects to null; only explicit
 external-blocking evidence sets `blocked_external`, independently of size.
 `not_verified` supplies no validity answer; `corrected` remains an operation, not
 a verdict. A target is not a complete Decision or Assessment import payload.
+Target-free `unmapped` aliases can block unconditional registry fallthrough:
+historical review status `rejected` needs the individual `resolution_note` to
+distinguish an actual rejection from `bulk-closed` → `closed_unreviewed`.
+The scalar inventory and aggregate note cross-tab cannot supply that context.
 Inventory `nullable` permits observed null/absence, not schema or write acceptance;
 the string `"null"` remains distinct. Existing OWASP ratings are preserved.
 

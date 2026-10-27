@@ -266,6 +266,30 @@ def test_ambiguous_priorities_and_standard_grade_case_are_not_guessed():
         assert _by_raw(grade, raw)["status"] == "unmapped"
 
 
+def test_historical_rejection_needs_per_item_closure_context():
+    field = "findings-layer|needs_review.status"
+    inventory = _inventory("rejected", "confirmed", "pending", field=field)
+    inventory["fields"]["findings-layer|x.rejected*resolution_note"] = {
+        "raw_values": [{"raw": "bulk-closed: administrative cleanup", "count": 1}]
+    }
+    report = classifier_mappings.coverage(
+        inventory,
+        json.loads(classifier_mappings.MAPPINGS_PATH.read_text()),
+        classifier_mappings.load_registry()[0],
+    )
+    records = _records(report, field)
+    assert _by_raw(records, "rejected")["status"] == "unmapped"
+    assert _by_raw(records, "rejected")["targets"] == []
+    assert _by_raw(records, "confirmed")["targets"] == [
+        {"enum": "review_item_status", "value": "accepted"}
+    ]
+    assert _by_raw(records, "pending")["targets"] == [
+        {"enum": "review_item_status", "value": "pending"}
+    ]
+    assert report["fields"][field]["unmapped_total"] == 1
+    assert report["fields"][field]["status_counts"]["mapped"] == 2
+
+
 @pytest.mark.parametrize("raw", ["red", False, 0, None, [False], {"a": 0, "b": False}])
 def test_duplicate_typed_aliases_are_rejected(registry, raw):
     mappings = _mappings(_alias(raw, "red"), _alias(copy.deepcopy(raw), "blue"))

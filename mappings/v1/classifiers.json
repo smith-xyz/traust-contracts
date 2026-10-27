@@ -168,7 +168,9 @@
     },
     "findings-layer|needs_review.status": {
       "enum": "review_item_status",
-      "aliases": []
+      "aliases": [
+        {"raw": "rejected", "targets": [], "status": "unmapped", "reason": "Historical rejection requires per-item resolution_note context: a bulk-closed prefix means closed_unreviewed; the scalar inventory and aggregate note cross-tab cannot distinguish administrative closure from an actual rejection."}
+      ]
     },
     "findings-layer|x.rejected*resolution_note": {
       "status": "observational",
