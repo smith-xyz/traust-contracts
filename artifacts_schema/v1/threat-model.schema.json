@@ -186,8 +186,30 @@
         "review_surfaces": {
           "$ref": "#/$defs/review_surfaces",
           "description": "Review surfaces reachable through this entry point."
+        },
+        "kind": {
+          "$ref": "#/$defs/entry_point_kind",
+          "description": "What kind of interface this is, so a coverage check can match the entry point to the deterministic pre-scan that enumerates it. Optional: an untagged entry point is reported as unexplained."
         }
       }
+    },
+    "entry_point_kind": {
+      "type": "string",
+      "description": "Entry-point kinds (traust-contracts enums/v1/entry-point-kind.json).",
+      "enum": [
+        "http-api",
+        "grpc-api",
+        "k8s-controller",
+        "llm-integration",
+        "event-consumer",
+        "network-peer",
+        "cli",
+        "file-input",
+        "deploy-config",
+        "ci-supply-chain",
+        "metrics-debug",
+        "other"
+      ]
     },
     "review_surfaces": {
       "type": "array",
