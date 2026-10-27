@@ -13,7 +13,8 @@
     "not_found",
     "snapshot_unavailable",
     "source_unavailable",
-    "ledger_unconfigured"
+    "ledger_unconfigured",
+    "upstream-stale"
   ],
   "definitions": {
     "budget-over": "Admission withheld work because its lane budget would bind.",
@@ -25,7 +26,8 @@
     "not_found": "The requested subject could not be found.",
     "snapshot_unavailable": "A required feed has no usable snapshot.",
     "source_unavailable": "A source refresh failed while retained data remains usable.",
-    "ledger_unconfigured": "A ledger audit was requested without a configured ledger."
+    "ledger_unconfigured": "A ledger audit was requested without a configured ledger.",
+    "upstream-stale": "The engine did not dispatch work because an upstream asset is stale."
   },
   "standard": {
     "none": "Project-defined operations vocabulary; existing value spellings are preserved."

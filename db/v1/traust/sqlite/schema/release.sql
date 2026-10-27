@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS release (
     UNIQUE (product_id, version)
 );
 
+-- The ops feed: releases recorded after a (created_at, id) cursor, oldest first.
+CREATE INDEX IF NOT EXISTS idx_release_created
+    ON release (created_at, id);
+
 -- The database owns updated_at; the guard keeps it stable under recursive
 -- triggers and respects a manually set value.
 CREATE TRIGGER IF NOT EXISTS release_touch

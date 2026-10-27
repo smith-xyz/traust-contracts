@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS traust.release (
     UNIQUE (product_id, version)
 );
 
+-- The ops feed: releases recorded after a (created_at, id) cursor, oldest first.
+CREATE INDEX IF NOT EXISTS idx_release_created
+    ON traust.release (created_at, id);
+
 DROP TRIGGER IF EXISTS release_touch ON traust.release;
 CREATE TRIGGER release_touch
 BEFORE UPDATE ON traust.release
