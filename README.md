@@ -240,6 +240,44 @@ release). An old value then goes through two stages:
 between fields, are not registry data; they belong in the code or schema
 change that needs them.
 
+### Historical classifier mappings
+
+`mappings/v1/classifiers.json` records field-specific historical projections for
+classifier plan 04. It ships as package data; `enums/v1` still owns the vocabulary.
+The table does not change schemas, activate writers, migrate a database or rewrite
+historical reports. Core's registry normalizer remains unchanged.
+
+The offline audit consumes typed observations rather than guessing JSON types from
+the old tally's string keys:
+
+```json
+{"fields":{"security-audit|finding.severity":{"total":2,"raw_values":[{"raw":"HIGH","count":1},{"raw":"urgent","count":1}]}}}
+```
+
+```bash
+python ci/classifier_mappings.py --inventory typed-inventory.json --out coverage.json
+python ci/classifier_mappings.py --inventory typed-inventory.json --out coverage.json --check
+```
+
+Exit 0 means the audit ran successfully; `--check` instead exits 1 when observations
+remain explicitly unmapped. Malformed input, incomplete declared totals or invalid
+mapping targets exit 2. Output includes every typed observation, its disposition,
+counts and source/mapping/registry hashes. Inventory examples and coverage can
+contain private portfolio data: keep them with their source, not in this repository.
+
+Aliases are exact and field-specific. Approved severity/size/priority spellings
+project to existing values; durations, deadlines and ordinal priorities are not
+guessed. Legacy effort with no approved size projects to null; only explicit
+external-blocking evidence sets `blocked_external`, independently of size.
+`not_verified` supplies no validity answer; `corrected` remains an operation, not
+a verdict. A target is not a complete Decision or Assessment import payload.
+Target-free `unmapped` aliases can block unconditional registry fallthrough:
+historical review status `rejected` needs the individual `resolution_note` to
+distinguish an actual rejection from `bulk-closed` → `closed_unreviewed`.
+The scalar inventory and aggregate note cross-tab cannot supply that context.
+Inventory `nullable` permits observed null/absence, not schema or write acceptance;
+the string `"null"` remains distinct. Existing OWASP ratings are preserved.
+
 ## Validate an artifact
 
 ```bash
