@@ -559,6 +559,15 @@
             "type": "string"
           }
         },
+        "owasp_llm_references": {
+          "description": "OWASP Top 10 for LLM Applications (2025) category IDs this finding falls under. Set on findings about LLM, agent or MCP application code; the category ID is cited, never OWASP text.",
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["LLM01", "LLM02", "LLM03", "LLM04", "LLM05", "LLM06", "LLM07", "LLM08", "LLM09", "LLM10"]
+          }
+        },
         "peach_references": {
           "description": "PEACH tenant-isolation hardening parameter(s) this finding violates. Only set when the audited component is multi-tenant.",
           "type": "array",

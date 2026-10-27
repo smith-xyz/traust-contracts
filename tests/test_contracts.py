@@ -546,3 +546,20 @@ def test_repo_state_rejects_what_it_does_not_own(change: dict) -> None:
     document = {"observed_at": "2026-10-22T09:00:00Z", "status": "ok", **change}
     with pytest.raises(ValidationError):
         _repo_state_validator().validate(document)
+
+
+class TestOwaspLlmReferences:
+    """A finding's OWASP Top 10 for LLM Applications categories: IDs only, the closed set."""
+
+    @staticmethod
+    def _validator():
+        schema = json.loads((SCHEMA_DIR / "report.schema.json").read_text(encoding="utf-8"))
+        field = schema["$defs"]["finding"]["properties"]["owasp_llm_references"]
+        return Draft202012Validator(field)
+
+    def test_category_ids_validate(self):
+        assert list(self._validator().iter_errors(["LLM01", "LLM10"])) == []
+
+    @pytest.mark.parametrize("value", [[], ["LLM11"], ["llm05"], ["LLM05", "LLM05"]])
+    def test_anything_else_is_rejected(self, value):
+        assert list(self._validator().iter_errors(value)) != []
