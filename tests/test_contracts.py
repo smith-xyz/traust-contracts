@@ -280,6 +280,8 @@ def test_canonical_write_roadmap_separates_historical_text_from_canonical_writes
             writer.validate(document)
     roadmap["priority"] = "p5"
     assert not writer.is_valid(document)
+    roadmap["priority"] = "Critical"
+    assert not writer.is_valid(document)
     roadmap["priority"] = "p2"
     roadmap["effort"] = "blocked-external"
     reader.validate(document)
@@ -287,6 +289,25 @@ def test_canonical_write_roadmap_separates_historical_text_from_canonical_writes
     roadmap["effort"] = "m"
     roadmap["blocked_external"] = "true"
     assert not writer.is_valid(document)
+
+
+def test_uppercase_roadmap_priorities_are_accepted_and_map_to_lowercase():
+    from storage_samples import sample
+
+    document = json.loads(sample("report")[0])
+    roadmap = document["remediation_roadmap"][0]
+    roadmap.update(effort="m", blocked_external=False)
+    writer = _canonical_write_validator("report", canonical=True)
+    registry = json.loads(
+        (REPO_ROOT / "enums/v1/roadmap-priority.json").read_text(encoding="utf-8")
+    )
+    for n in range(5):
+        roadmap["priority"] = f"P{n}"
+        writer.validate(document)
+        assert registry["deprecated"][f"P{n}"]["replaced_by"] == [
+            {"enum": "roadmap_priority", "value": f"p{n}"}
+        ]
+    assert set(registry["values"]) - set(registry["deprecated"]) == {f"p{n}" for n in range(5)}
 
 
 @pytest.mark.parametrize("family", ["pqc-blockers", "pqc-readiness"])
