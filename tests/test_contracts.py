@@ -548,6 +548,42 @@ def test_repo_state_rejects_what_it_does_not_own(change: dict) -> None:
         _repo_state_validator().validate(document)
 
 
+class TestThreatLlmReferences:
+    """A threat's OWASP LLM categories and MITRE ATLAS technique IDs: optional, closed or shaped."""
+
+    @staticmethod
+    def _validator(field: str):
+        schema = json.loads((SCHEMA_DIR / "threat-model.schema.json").read_text(encoding="utf-8"))
+        return Draft202012Validator(schema["$defs"]["threat"]["properties"][field])
+
+    def test_owasp_categories_match_the_report_finding_field(self):
+        threat = json.loads((SCHEMA_DIR / "threat-model.schema.json").read_text(encoding="utf-8"))
+        report = json.loads((SCHEMA_DIR / "report.schema.json").read_text(encoding="utf-8"))
+        assert (
+            threat["$defs"]["threat"]["properties"]["owasp_llm_references"]["items"]
+            == report["$defs"]["finding"]["properties"]["owasp_llm_references"]["items"]
+        )
+
+    @pytest.mark.parametrize("value", [["AML.T0051"], ["AML.T0051.000", "AML.T0024"]])
+    def test_atlas_ids_validate(self, value):
+        assert list(self._validator("atlas_refs").iter_errors(value)) == []
+
+    @pytest.mark.parametrize(
+        "value", [[], ["T1190"], ["AML.T51"], ["aml.t0051"], ["AML.T0051", "AML.T0051"]]
+    )
+    def test_anything_else_is_not_an_atlas_id(self, value):
+        assert list(self._validator("atlas_refs").iter_errors(value)) != []
+
+    def test_a_threat_without_them_is_still_valid(self):
+        from storage_samples import sample
+
+        document = json.loads(sample("threat-model")[0])
+        assert all(
+            "atlas_refs" not in t and "owasp_llm_references" not in t for t in document["threats"]
+        )
+        _canonical_write_validator("threat-model").validate(document)
+
+
 class TestOwaspLlmReferences:
     """A finding's OWASP Top 10 for LLM Applications categories: IDs only, the closed set."""
 
