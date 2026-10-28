@@ -237,7 +237,8 @@
           "security-flags",
           "outbound-fetch",
           "stored-content-integrity",
-          "scope-enforcement"
+          "scope-enforcement",
+          "llm-integration"
         ]
       },
       "uniqueItems": true
