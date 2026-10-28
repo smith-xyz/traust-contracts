@@ -65,17 +65,12 @@ TABLE_ORDER: tuple[str, ...] = (
 )
 
 #: Views other views select FROM, in creation order (filenames), because
-#: Postgres resolves a view's references at CREATE: current_resolution reads
-#: decision_at. The disposition pair is the classifier contract: each field
-#: is its latest non-null answer, null means no answer.
+#: Postgres resolves a view's references at CREATE. retired.sql first drops the
+#: views an older contract created.
 VIEW_ORDER: tuple[str, ...] = (
-    "decision_at.sql",
-    "current_decision.sql",
-    "current_resolution.sql",
+    "retired.sql",
     "unowned.sql",
     "ownership_current.sql",
-    "finding_status.sql",
-    "finding_clock.sql",
     "finding_primary_cwe.sql",
 )
 
