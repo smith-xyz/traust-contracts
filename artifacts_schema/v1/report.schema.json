@@ -70,7 +70,7 @@
     },
     "review_surface_coverage": {
       "type": "object",
-      "description": "Coverage of the six review surfaces (traust-contracts enums/v1/review-surface.json): one entry per surface, recording whether the audit answered it with a finding, a negative result, not-applicable, or not assessed. A deterministic record, so coverage is checked by schema, not inferred from prose.",
+      "description": "Coverage of the review surfaces (traust-contracts enums/v1/review-surface.json): one entry per surface, recording whether the audit answered it with a finding, a negative result, not-applicable, or not assessed. A deterministic record, so coverage is checked by schema, not inferred from prose. llm-integration is allowed but not in required: the report checks require it for audits dated from 2026-11-02, so earlier reports stay valid.",
       "propertyNames": {
         "enum": [
           "credential-acceptance",
@@ -78,7 +78,8 @@
           "security-flags",
           "outbound-fetch",
           "stored-content-integrity",
-          "scope-enforcement"
+          "scope-enforcement",
+          "llm-integration"
         ]
       },
       "required": [
@@ -1282,7 +1283,8 @@
           "security-flags",
           "outbound-fetch",
           "stored-content-integrity",
-          "scope-enforcement"
+          "scope-enforcement",
+          "llm-integration"
         ]
       },
       "required": [

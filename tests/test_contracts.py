@@ -599,3 +599,53 @@ class TestOwaspLlmReferences:
     @pytest.mark.parametrize("value", [[], ["LLM11"], ["llm05"], ["LLM05", "LLM05"]])
     def test_anything_else_is_rejected(self, value):
         assert list(self._validator().iter_errors(value)) != []
+
+
+class TestLlmIntegrationSurface:
+    """llm-integration is the seventh review surface: allowed everywhere surfaces are, required
+    nowhere in the schema, so reports written before it stay valid (the date gate is in core)."""
+
+    SIX: ClassVar[list[str]] = [
+        "credential-acceptance",
+        "ownership-resolution",
+        "security-flags",
+        "outbound-fetch",
+        "stored-content-integrity",
+        "scope-enforcement",
+    ]
+    COVERAGES = ("review_surface_coverage", "scan_review_surface_coverage")
+
+    @staticmethod
+    def _validator(coverage: str) -> Draft202012Validator:
+        schema = json.loads((SCHEMA_DIR / "report.schema.json").read_text(encoding="utf-8"))
+        node = schema["properties"].get(coverage) or schema["$defs"][coverage]
+        return Draft202012Validator({"$defs": schema["$defs"], **node})
+
+    @staticmethod
+    def _answered(surfaces: list[str]) -> dict[str, dict[str, str]]:
+        return {s: {"status": "not_assessed", "note": "not reviewed"} for s in surfaces}
+
+    @pytest.mark.parametrize("coverage", COVERAGES)
+    def test_six_or_seven_surfaces_validate(self, coverage):
+        validator = self._validator(coverage)
+        assert list(validator.iter_errors(self._answered(self.SIX))) == []
+        assert list(validator.iter_errors(self._answered([*self.SIX, "llm-integration"]))) == []
+
+    @pytest.mark.parametrize("coverage", COVERAGES)
+    def test_an_unknown_surface_is_rejected(self, coverage):
+        coverage_doc = self._answered([*self.SIX, "llm-integrations"])
+        assert list(self._validator(coverage).iter_errors(coverage_doc)) != []
+
+    def test_every_surface_list_matches_the_enum(self):
+        values = json.loads((ENUMS_DIR / "review-surface.json").read_text(encoding="utf-8"))
+        report = json.loads((SCHEMA_DIR / "report.schema.json").read_text(encoding="utf-8"))
+        threat = json.loads((SCHEMA_DIR / "threat-model.schema.json").read_text(encoding="utf-8"))
+        assert values["values"] == [*self.SIX, "llm-integration"]
+        for listed in (
+            report["properties"]["review_surface_coverage"]["propertyNames"]["enum"],
+            report["$defs"]["scan_review_surface_coverage"]["propertyNames"]["enum"],
+            threat["$defs"]["review_surfaces"]["items"]["enum"],
+        ):
+            assert listed == values["values"]
+        assert report["properties"]["review_surface_coverage"]["required"] == self.SIX
+        assert report["$defs"]["scan_review_surface_coverage"]["required"] == self.SIX
