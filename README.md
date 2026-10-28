@@ -291,6 +291,22 @@ the canonical members of the installed validity registry. The base schema keeps
 historical members readable and does not rewrite stored artifacts. Revision
 context is not a validity answer, and finding kind does not establish proof.
 
+Triage findings may carry the same optional, non-null `kind` as report findings:
+`vulnerability` or `weakness`. Omission keeps the kind unknown; it never defaults
+to vulnerability. A verified defense-in-depth gap is `verdict: true_positive`
+with `kind: weakness`, not `verdict: confirmed`. Kind alone does not establish
+confirmation. Historical `verdict: hardening` remains readable without rewriting
+stored reports; the triage `#/$defs/canonical_write` profile rejects it for new writes.
+That profile also retains the existing claimed-severity vocabulary/null constraint.
+
+Summary keys and verifier vote counters are unchanged. `summary.hardening` counts
+historical hardening verdicts or true positives with kind weakness;
+`summary.true_positives` counts the remaining true positives. The buckets are
+disjoint, and `summary.by_severity` includes only actionable non-weakness true
+positives. Confirmed weaknesses have null severity and exclusion rule 13.
+Legacy `hardening` verifier vote labels/counters remain valid; they are not a new
+final triage verdict.
+
 ### Canonical-write review candidate
 
 Default schemas preserve historical effort values, free-text roadmap fields
@@ -307,7 +323,8 @@ python validate.py --schema 'report#/$defs/canonical_write' myreport.json
 ```
 
 The same `#/$defs/canonical_write` selector exists for `adapter-result`,
-`validation`, `pqc-blockers`, `pqc-readiness` and `threat-model`.
+`validation`, `pqc-blockers`, `pqc-readiness`, `threat-model`, `triage` and
+`refuted-register`.
 The decision tree follows its existing definitions convention:
 `pqc-decision-tree#/definitions/canonical_write`.
 These fragments preserve existing requiredness and permit only actual boolean

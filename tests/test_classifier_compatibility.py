@@ -16,7 +16,7 @@ from traust_contracts.v1.models.finding import Finding
 from traust_contracts.v1.models.layer import Layer
 from traust_contracts.v1.models.refuted_register import RefutedRegister
 from traust_contracts.v1.models.report import Report, RoadmapItem
-from traust_contracts.v1.models.triage import TriageFinding
+from traust_contracts.v1.models.triage import TriageFinding, TriageReport
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS = ROOT / "artifacts_schema/v1"
@@ -81,6 +81,98 @@ def test_finding_kind_and_validity_are_independent(kind: str, validity: str) -> 
     restored = Finding.from_dict(finding).to_dict()
     assert restored["kind"] == kind
     assert restored["disposition"]["validity"] == validity
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+@pytest.mark.parametrize("kind", ["vulnerability", "weakness"])
+def test_triage_true_positive_kind_survives_nested_round_trip(kind: str, canonical: bool) -> None:
+    document = json.loads(sample("triage")[0])
+    finding = document["findings"][0]
+    finding["kind"] = kind
+    if kind == "weakness":
+        finding.update(severity=None, exclusion_rule=13)
+        document["summary"].update(
+            true_positives=0,
+            hardening=1,
+            by_severity={"critical": 0, "high": 0, "medium": 0, "low": 0},
+        )
+    validator = _canonical_write_validator("triage", canonical=canonical)
+    validator.validate(document)
+    restored = TriageReport.from_dict(document).to_dict()
+    assert restored["findings"][0]["kind"] == kind
+    assert restored["findings"][0]["verdict"] == "true_positive"
+    validator.validate(restored)
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+@pytest.mark.parametrize("kind", ["unknown", "", None, 1, {}])
+def test_triage_kind_rejects_unknown_and_null_values(kind: object, canonical: bool) -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"][0]["kind"] = kind
+    assert not _canonical_write_validator("triage", canonical=canonical).is_valid(document)
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+def test_triage_omitted_kind_remains_unknown(canonical: bool) -> None:
+    document = json.loads(sample("triage")[0])
+    before = json.dumps(document, sort_keys=True)
+    validator = _canonical_write_validator("triage", canonical=canonical)
+    validator.validate(document)
+    assert json.dumps(document, sort_keys=True) == before
+    model = TriageReport.from_dict(document)
+    assert model.findings[0].kind is None
+    restored = model.to_dict()
+    assert "kind" not in restored["findings"][0]
+    validator.validate(restored)
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+def test_explicit_null_triage_kind_reaches_final_schema_validation(canonical: bool) -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"][0]["kind"] = None
+    restored = TriageReport.from_dict(document).to_dict()
+    assert restored["findings"][0]["kind"] is None
+    assert not _canonical_write_validator("triage", canonical=canonical).is_valid(restored)
+
+
+def test_historical_triage_hardening_is_readable_but_not_a_canonical_write() -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"][0].update(verdict="hardening", severity=None, exclusion_rule=13)
+    document["summary"].update(
+        true_positives=0,
+        hardening=1,
+        by_severity={"critical": 0, "high": 0, "medium": 0, "low": 0},
+    )
+    before = json.dumps(document, sort_keys=True)
+    reader = _canonical_write_validator("triage")
+    writer = _canonical_write_validator("triage", canonical=True)
+    reader.validate(document)
+    assert json.dumps(document, sort_keys=True) == before
+    restored = TriageReport.from_dict(document).to_dict()
+    assert restored["findings"][0]["verdict"] == "hardening"
+    assert "kind" not in restored["findings"][0]
+    reader.validate(restored)
+    assert not writer.is_valid(document)
+    assert not writer.is_valid(restored)
+    document["findings"][0]["kind"] = "weakness"
+    reader.validate(document)
+    assert not writer.is_valid(document)
+
+
+@pytest.mark.parametrize("verdict", ["undetermined", "false_positive", "duplicate"])
+def test_triage_kind_does_not_replace_an_unconfirmed_verdict(verdict: str) -> None:
+    finding = {"id": "f001", "title": "A reported weakness", "verdict": verdict, "kind": "weakness"}
+    _definition_validator("triage", "/$defs/finding").validate(finding)
+    restored = TriageFinding.from_dict(finding).to_dict()
+    assert restored["verdict"] == verdict
+    assert restored["kind"] == "weakness"
+
+
+@pytest.mark.parametrize("canonical", [False, True])
+def test_triage_verdict_does_not_borrow_confirmed_from_validity(canonical: bool) -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"][0].update(verdict="confirmed", kind="weakness")
+    assert not _canonical_write_validator("triage", canonical=canonical).is_valid(document)
 
 
 @pytest.mark.parametrize("assurance", ["claimed", "human_reviewed", "machine_verified"])
