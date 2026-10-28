@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS decision (
         AND validity = 'false_positive'))
 );
 
--- Latest answer per finding (current_decision,
--- current_resolution; every findings dashboard, SLA, x-vs-y).
+-- A finding's decisions in judgement order (the findings service's fold:
+-- every findings dashboard, SLA, x-vs-y).
 CREATE INDEX IF NOT EXISTS idx_decision_finding_occurred
     ON decision (finding_id, occurred_at);
 
