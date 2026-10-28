@@ -837,3 +837,96 @@ def test_component_paging_survives_bootstrap_reapplication(db: Db) -> None:
         plan = db.run("EXPLAIN QUERY PLAN " + query, rows[0])
         assert any("SEARCH" in row[-1] for row in plan), plan
         assert not any("TEMP B-TREE" in row[-1] for row in plan), plan
+
+
+def hash_location(db: Db) -> str:
+    rid = repo(db)
+    oid = db.insert(
+        "occurrence",
+        finding_id=finding(db, rid),
+        assessment_id=assessment(db, ref(db, rid)),
+        severity="high",
+    )
+    return db.insert("location", occurrence_id=oid, path="handler.go", symbol="api.Handle")
+
+
+def test_location_hash_is_one_claim_per_location_and_scheme(db: Db) -> None:
+    location = hash_location(db)
+    claim = {"location_id": location, "algorithm": "file-bytes-sha256/v1", "digest": "a" * 64}
+    saved = db.insert("location_hash", **claim)
+    uuid.UUID(saved)
+    assert (
+        db.run(f"SELECT created_at FROM {db.t('location_hash')} WHERE id = ?", (saved,))[0][0]
+        is not None
+    )
+    db.rejects("location_hash", **claim)
+    db.insert("location_hash", **{**claim, "algorithm": "function-bytes-sha256/v1"})
+    db.rejects("location_hash", **{**claim, "location_id": str(uuid.uuid4())})
+
+
+@pytest.mark.parametrize(
+    "digest", ["", "a" * 63, "a" * 65, "A" * 64, "g" * 64, "a" * 64 + "\x00suffix", b"g" * 64]
+)
+def test_file_sha256_claim_requires_a_canonical_digest(db: Db, digest: str | bytes) -> None:
+    db.rejects(
+        "location_hash",
+        location_id=hash_location(db),
+        algorithm="file-bytes-sha256/v1",
+        digest=digest,
+    )
+
+
+def test_location_hash_history_survives_reapplication_and_rejects_mutation(db: Db) -> None:
+    location = hash_location(db)
+    claim = db.insert(
+        "location_hash", location_id=location, algorithm="file-bytes-sha256/v1", digest="a" * 64
+    )
+    before = db.run(f"SELECT * FROM {db.t('location_hash')}")
+    for _ in range(2):
+        for path in storage_sql.bootstrap_files(db.engine):
+            if path.stem in {"location", "location_hash"}:
+                for statement in bootstrap_statements(db.engine, path):
+                    db.run(statement)
+    assert db.run(f"SELECT * FROM {db.t('location_hash')}") == before
+    for sql in (
+        f"UPDATE {db.t('location_hash')} SET digest = digest WHERE id = ?",
+        f"DELETE FROM {db.t('location_hash')} WHERE id = ?",
+    ):
+        with pytest.raises(db.Error):
+            db.run(sql, (claim,))
+    if db.engine == "postgres":
+        with pytest.raises(db.Error):
+            db.run(f"TRUNCATE {db.t('location_hash')}")
+
+
+def test_existing_locations_gain_no_claims_when_hash_storage_is_installed(db: Db) -> None:
+    location = hash_location(db)
+    db.run(f"DROP TABLE {db.t('location_hash')}")
+    for path in storage_sql.bootstrap_files(db.engine):
+        if path.stem in {"location", "location_hash"}:
+            for statement in bootstrap_statements(db.engine, path):
+                db.run(statement)
+    assert db.run(f"SELECT id FROM {db.t('location')} WHERE id = ?", (location,))
+    assert db.run(f"SELECT * FROM {db.t('location_hash')}") == []
+
+
+@pytest.mark.parametrize("collision", ["primary", "natural"])
+def test_location_hash_cannot_be_replaced(db: Db, collision: str) -> None:
+    location = hash_location(db)
+    claim = db.insert(
+        "location_hash", location_id=location, algorithm="file-bytes-sha256/v1", digest="a" * 64
+    )
+    before = db.run(f"SELECT * FROM {db.t('location_hash')}")
+    algorithm = "function-bytes-sha256/v1" if collision == "primary" else "file-bytes-sha256/v1"
+    identity = claim if collision == "primary" else str(uuid.uuid4())
+    insert = "INSERT OR REPLACE" if db.engine == "sqlite" else "INSERT"
+    sql = (
+        f"{insert} INTO {db.t('location_hash')} "
+        "(id, location_id, algorithm, digest) VALUES (?, ?, ?, ?)"
+    )
+    if db.engine == "postgres":
+        key = "id" if collision == "primary" else "location_id, algorithm"
+        sql += f" ON CONFLICT ({key}) DO UPDATE SET digest = EXCLUDED.digest"
+    with pytest.raises(db.Error):
+        db.run(sql, (identity, location, algorithm, "b" * 64))
+    assert db.run(f"SELECT * FROM {db.t('location_hash')}") == before

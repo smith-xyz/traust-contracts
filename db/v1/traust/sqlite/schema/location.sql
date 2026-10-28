@@ -31,8 +31,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_location_file
 
 -- Precedents: the same enclosing function in any repository (the reader then
 -- compares vendor-normalized paths). Most locations have no symbol.
-CREATE INDEX IF NOT EXISTS idx_location_symbol
-    ON location (symbol)
+DROP INDEX IF EXISTS idx_location_symbol;
+CREATE INDEX IF NOT EXISTS idx_location_symbol_page
+    ON location (symbol, id)
     WHERE symbol IS NOT NULL;
 
 CREATE TRIGGER IF NOT EXISTS location_reject_update
