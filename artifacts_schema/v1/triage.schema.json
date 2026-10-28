@@ -438,7 +438,7 @@
       "additionalProperties": false
     },
     "canonical_write": {
-      "description": "Opt-in canonical triage verdicts and claimed severity from the existing vocabulary. Deprecated hardening verdicts and historical claimed-severity text remain readable by default.",
+      "description": "Opt-in canonical triage verdicts and claimed severity from the existing vocabulary. True-positive weaknesses require rule 13 and cannot carry non-null severity; true positives with rule 13 require explicit kind weakness. Deprecated hardening verdicts and historical claimed-severity text remain readable by default.",
       "allOf": [
         { "$ref": "#" },
         {
@@ -455,7 +455,40 @@
                       { "type": "null" }
                     ]
                   }
-                }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "required": ["verdict", "kind"],
+                      "properties": {
+                        "verdict": { "const": "true_positive" },
+                        "kind": { "const": "weakness" }
+                      }
+                    },
+                    "then": {
+                      "required": ["exclusion_rule"],
+                      "properties": {
+                        "severity": { "type": "null" },
+                        "exclusion_rule": { "enum": [13, "13"] }
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": ["verdict", "exclusion_rule"],
+                      "properties": {
+                        "verdict": { "const": "true_positive" },
+                        "exclusion_rule": { "enum": [13, "13"] }
+                      }
+                    },
+                    "then": {
+                      "required": ["kind"],
+                      "properties": {
+                        "kind": { "const": "weakness" }
+                      }
+                    }
+                  }
+                ]
               }
             }
           }

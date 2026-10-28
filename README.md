@@ -298,6 +298,10 @@ with `kind: weakness`, not `verdict: confirmed`. Kind alone does not establish
 confirmation. Historical `verdict: hardening` remains readable without rewriting
 stored reports; the triage `#/$defs/canonical_write` profile rejects it for new writes.
 That profile also retains the existing claimed-severity vocabulary/null constraint.
+For true-positive weaknesses it requires exclusion rule `13` (integer or string)
+and rejects non-null severity; omitted severity remains valid. Conversely, a true
+positive carrying rule `13` must explicitly declare `kind: weakness`. These
+cross-field constraints apply only to canonical writes, not historical reads.
 
 Summary keys and verifier vote counters are unchanged. `summary.hardening` counts
 historical hardening verdicts or true positives with kind weakness;

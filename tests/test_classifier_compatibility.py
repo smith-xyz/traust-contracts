@@ -159,10 +159,65 @@ def test_historical_triage_hardening_is_readable_but_not_a_canonical_write() -> 
     assert not writer.is_valid(document)
 
 
+@pytest.mark.parametrize("rule", [13, "13"])
+@pytest.mark.parametrize("severity", [{}, {"severity": None}])
+def test_canonical_triage_weakness_accepts_null_or_absent_severity_and_rule_13(
+    rule: int | str, severity: dict
+) -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"] = [
+        {
+            "id": "f001",
+            "title": "A verified defense-in-depth gap",
+            "verdict": "true_positive",
+            "kind": "weakness",
+            "exclusion_rule": rule,
+            **severity,
+        }
+    ]
+    writer = _canonical_write_validator("triage", canonical=True)
+    writer.validate(document)
+    restored = TriageReport.from_dict(document).to_dict()
+    assert restored["findings"][0]["exclusion_rule"] == rule
+    assert restored["findings"][0]["kind"] == "weakness"
+    writer.validate(restored)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"kind": "weakness", "severity": "high", "exclusion_rule": 13},
+        {"kind": "weakness", "severity": "informational", "exclusion_rule": "13"},
+        {"kind": "weakness", "severity": None},
+        {"kind": "weakness", "severity": None, "exclusion_rule": None},
+        {"kind": "weakness", "severity": None, "exclusion_rule": 12},
+        {"kind": "weakness", "severity": None, "exclusion_rule": "12"},
+        {"severity": None, "exclusion_rule": 13},
+        {"severity": None, "exclusion_rule": "13"},
+        {"kind": "vulnerability", "severity": None, "exclusion_rule": 13},
+        {"kind": "vulnerability", "severity": None, "exclusion_rule": "13"},
+    ],
+)
+def test_canonical_triage_rejects_inconsistent_weakness_fields_but_preserves_history(
+    fields: dict,
+) -> None:
+    document = json.loads(sample("triage")[0])
+    document["findings"] = [
+        {"id": "f001", "title": "A reported security claim", "verdict": "true_positive", **fields}
+    ]
+    before = json.dumps(document, sort_keys=True)
+    _canonical_write_validator("triage").validate(document)
+    assert json.dumps(document, sort_keys=True) == before
+    assert not _canonical_write_validator("triage", canonical=True).is_valid(document)
+
+
 @pytest.mark.parametrize("verdict", ["undetermined", "false_positive", "duplicate"])
 def test_triage_kind_does_not_replace_an_unconfirmed_verdict(verdict: str) -> None:
     finding = {"id": "f001", "title": "A reported weakness", "verdict": verdict, "kind": "weakness"}
     _definition_validator("triage", "/$defs/finding").validate(finding)
+    document = json.loads(sample("triage")[0])
+    document["findings"] = [finding]
+    _canonical_write_validator("triage", canonical=True).validate(document)
     restored = TriageFinding.from_dict(finding).to_dict()
     assert restored["verdict"] == verdict
     assert restored["kind"] == "weakness"
