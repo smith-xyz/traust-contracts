@@ -1,0 +1,15 @@
+{
+  "name": "forge_kind",
+  "source_schema": "traust.schema.json#/properties/forge_hosts/additionalProperties",
+  "description": "Values of `forge_hosts` in traust.schema.json: which forge API a host speaks.",
+  "values": [
+    "github",
+    "gitlab"
+  ],
+  "standard": {
+    "none": "Project-defined configuration vocabulary."
+  },
+  "used_in_schemas": [
+    "traust.schema.json"
+  ]
+}

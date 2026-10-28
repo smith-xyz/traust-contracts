@@ -1,0 +1,19 @@
+{
+  "name": "log_level",
+  "source_schema": "traust.schema.json#/properties/logging/properties/level",
+  "description": "Values of `logging.level` in traust.schema.json.",
+  "values": [
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR"
+  ],
+  "standard": {
+    "name": "Python logging levels",
+    "relationship": "exact",
+    "url": "https://docs.python.org/3/library/logging.html#logging-levels"
+  },
+  "used_in_schemas": [
+    "traust.schema.json"
+  ]
+}

@@ -1,12 +1,11 @@
 {
   "name": "signing_method",
-  "source_schema": "ledger.schema.json#/properties/signing/properties/method",
-  "description": "How the Ledger signs layer Merkle roots: keypair (a cosign private key) or identity (keyless Sigstore/OIDC).",
+  "source_schema": "",
+  "schema_enforced": false,
+  "description": "How a ledger layer's Merkle root is signed (traust_ledger.layers.merkle_signing_method): keypair (a cosign private key) or identity (keyless Sigstore/OIDC).",
   "values": [
     "keypair",
     "identity"
   ],
-  "used_in_schemas": [
-    "ledger.schema.json"
-  ]
+  "used_in_schemas": []
 }

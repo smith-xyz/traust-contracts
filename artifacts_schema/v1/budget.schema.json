@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/budget.schema.json",
+  "title": "Lane budgets and spend policy",
+  "description": "Monthly spend per work lane, judged when an order is admitted (a lane not listed is never bound), and the estate spend policy whose monthly ceiling the rescan worklist reads. The shipped default binds no lane and carries no policy. A Tier 2 setting: a scope-ref document imported whole with no assessment and versioned by traust-core's settings service (`traust settings`), so a change is a successor version with its `revision`, never an edit; readers take the latest.",
+  "type": "object",
+  "required": [
+    "lanes"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "description": "Who set this version and why. Written by traust-core's settings service from the verified caller (or the recording run) and its clock; a caller never supplies it.",
+      "required": [
+        "set_by",
+        "reason",
+        "set_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "set_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The principal (<kind>:<identity>) or run that set this version."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why it changed, in the setter's words."
+        },
+        "set_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "lanes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "lane",
+          "monthly_usd",
+          "enforcement"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "lane": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9+_.-]*$"
+          },
+          "monthly_usd": {
+            "type": "number",
+            "minimum": 0
+          },
+          "enforcement": {
+            "type": "string",
+            "enum": [
+              "none",
+              "observe",
+              "advisory",
+              "enforced"
+            ]
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "description": "The estate spend policy (formerly budget-policy.yaml's `budget_policy` block). `enforcement` decides whether `monthly_budget.usd_central` binds; bands, per-run ceilings and notes are descriptive. Permissive by design.",
+      "required": [
+        "enforcement"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "enforcement": {
+          "type": "string",
+          "enum": [
+            "none",
+            "observe",
+            "advisory",
+            "enforced"
+          ]
+        },
+        "monthly_budget": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "usd_central": {
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

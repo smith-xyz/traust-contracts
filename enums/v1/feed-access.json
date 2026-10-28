@@ -1,0 +1,21 @@
+{
+  "name": "feed_access",
+  "source_schema": "feed-access.schema.json#/properties/sources/additionalProperties/properties/access",
+  "description": "Values of `access` in feed-access.schema.json: how the deployment reaches a feed source.",
+  "values": [
+    "api",
+    "air-gapped",
+    "disabled"
+  ],
+  "definitions": {
+    "api": "Fetched over the network from the shipped endpoint.",
+    "air-gapped": "No network reads; the adopter supplies the data (osv: an offline osv-scanner database).",
+    "disabled": "Never fetched."
+  },
+  "standard": {
+    "none": "Project-defined deployment vocabulary."
+  },
+  "used_in_schemas": [
+    "feed-access.schema.json"
+  ]
+}

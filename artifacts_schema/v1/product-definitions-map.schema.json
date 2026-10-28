@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/product-definitions-map.schema.json",
+  "title": "Product definitions map",
+  "description": "Reviewed findings-package and repository URL to product mappings, each a human assertion; name matches are advisory until confirmed here. No shipped default. A Tier 2 setting: a scope-ref document imported whole with no assessment and versioned by traust-core's settings service (`traust settings`), so a change is a successor version with its `revision`, never an edit; readers take the latest.",
+  "type": "object",
+  "required": [
+    "mappings"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "description": "Who set this version and why. Written by traust-core's settings service from the verified caller (or the recording run) and its clock; a caller never supplies it.",
+      "required": [
+        "set_by",
+        "reason",
+        "set_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "set_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The principal (<kind>:<identity>) or run that set this version."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why it changed, in the setter's words."
+        },
+        "set_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "mappings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "packages": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "repos": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

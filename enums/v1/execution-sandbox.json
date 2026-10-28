@@ -1,0 +1,19 @@
+{
+  "name": "execution_sandbox",
+  "source_schema": "execution-boundaries.schema.json#/properties/sandbox",
+  "description": "Values of `sandbox` in execution-boundaries.schema.json: how lanes run a target's own build and test code.",
+  "values": [
+    "none",
+    "podman"
+  ],
+  "definitions": {
+    "none": "Directly, on a disposable copy with a scrubbed environment.",
+    "podman": "Inside a rootless, cap-dropped, network-less nested container."
+  },
+  "standard": {
+    "none": "Project-defined deployment vocabulary."
+  },
+  "used_in_schemas": [
+    "execution-boundaries.schema.json"
+  ]
+}

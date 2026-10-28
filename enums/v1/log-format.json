@@ -1,0 +1,15 @@
+{
+  "name": "log_format",
+  "source_schema": "traust.schema.json#/properties/logging/properties/format",
+  "description": "Values of `logging.format` in traust.schema.json: JSON lines for servers, text for a terminal.",
+  "values": [
+    "json",
+    "text"
+  ],
+  "standard": {
+    "none": "Project-defined configuration vocabulary."
+  },
+  "used_in_schemas": [
+    "traust.schema.json"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "name": "settings_kind",
+  "source_schema": "",
+  "schema_enforced": false,
+  "description": "Tier 2 settings: the scope-ref document kinds traust-core's settings service versions (each an artifact schema of the same name, imported with no assessment, latest wins). compliance-scope is scope-ref too but is declared per boundary by the compliance service, so it is not a setting.",
+  "values": [
+    "budget",
+    "sla-policy",
+    "rule-pack-allowlist",
+    "feed-access",
+    "execution-boundaries",
+    "remediation-target",
+    "product-definitions-map",
+    "org-parameters",
+    "adr-registry",
+    "compliance-mapping",
+    "benchmark-target"
+  ],
+  "definitions": {
+    "budget": "Lane budgets and the estate spend policy.",
+    "sla-policy": "SLA deadlines per severity, per profile.",
+    "rule-pack-allowlist": "Supplemental opengrep packs enabled per rule.",
+    "feed-access": "Per feed source access: api, air-gapped or disabled.",
+    "execution-boundaries": "How lanes run a target repository's own code (sandbox mode).",
+    "remediation-target": "The private mirror organisation, self-hosted forge hosts and fix naming.",
+    "product-definitions-map": "Reviewed package and repository to product mappings.",
+    "org-parameters": "Organization-defined compliance parameter values.",
+    "adr-registry": "The pinned ADR registers compliance reads.",
+    "compliance-mapping": "Compliance controls and the checks that evaluate them.",
+    "benchmark-target": "The recall benchmark's answer key."
+  },
+  "standard": {
+    "none": "Project-defined configuration vocabulary."
+  },
+  "used_in_schemas": []
+}

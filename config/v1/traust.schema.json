@@ -1,0 +1,355 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/traust-contracts/config/v1/traust.schema.json",
+  "title": "traust.yaml",
+  "description": "Tier 1 bootstrap configuration: the one file in the config home ($TRAUST_CONFIG_HOME, else ~/.traust/config), holding only what is needed before the database exists - the record and object stores, identity, ledger keys, process, http and logging limits, and runtime locations. Secrets are named by environment variable (*_env), never written here. Tunable policy (budgets, SLA, feed access, remediation target, ...) is not config: it is versioned in the database through `traust settings`. Every key is optional; an empty file is a working laptop install (SQLite and artifacts under home).",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "home": {
+      "type": "string",
+      "description": "Where the local record store, artifacts, logs and the local issuer key live; ~/.traust when absent."
+    },
+    "database": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "minLength": 1,
+          "description": "SQLAlchemy URL of the record store (postgresql+psycopg://...); SQLite under home when absent. No password here."
+        },
+        "password_env": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "The name of an environment variable holding the secret; never the secret."
+        }
+      },
+      "description": "The record store (formerly storage.yaml)."
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Artifact bytes directory; relative paths are under home."
+        }
+      }
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowed_binaries": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "keep_env": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "http": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "backoff_base_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_wait_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "jitter_seconds": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "description": "Retry policy for outbound provider HTTP."
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "level": {
+          "enum": [
+            "DEBUG",
+            "INFO",
+            "WARNING",
+            "ERROR"
+          ]
+        },
+        "levels": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^traust_core\\."
+          },
+          "additionalProperties": {
+            "enum": [
+              "DEBUG",
+              "INFO",
+              "WARNING",
+              "ERROR"
+            ]
+          }
+        },
+        "format": {
+          "enum": [
+            "json",
+            "text"
+          ]
+        },
+        "file": {
+          "type": "string"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "backups": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "valve_salt_env": {
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "description": "The name of an environment variable holding the secret; never the secret."
+        }
+      }
+    },
+    "ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "key_path": {
+          "type": "string",
+          "description": "The cosign private key that signs layers; layers stay unsigned without one."
+        },
+        "public_key_path": {
+          "type": "string",
+          "description": "The cosign public key that verifies layers (formerly ledger-signing-key.pub)."
+        },
+        "previous_public_key_path": {
+          "type": "string",
+          "description": "During a key rotation: the old key, so old signatures still verify."
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Refuse to write an unsigned layer."
+        }
+      },
+      "description": "Ledger signing keys (formerly ledger.yaml and ledger-signing-key.pub); absent: no proof chain, decisions are still recorded."
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "issuers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "minLength": 1
+              },
+              "jwks_url": {
+                "type": "string",
+                "pattern": "^https://"
+              },
+              "audience": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "issuer",
+              "jwks_url"
+            ]
+          }
+        },
+        "identity_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "machine_claim": {
+          "type": "string",
+          "minLength": 1
+        },
+        "trust_local": {
+          "type": "boolean",
+          "description": "Accept this machine's own `traust auth local` tokens (a solo install)."
+        },
+        "directory_command": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "directory_timeout_seconds": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "admins": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "People or service accounts holding the admin role (settings writes, ledger checkpoints)."
+        },
+        "restatement_approvers": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "login": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "issuer": {
+              "type": "string",
+              "minLength": 1
+            },
+            "client_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "scope": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "issuer",
+            "client_id"
+          ]
+        }
+      },
+      "description": "Whose tokens are accepted; absent: no caller can be verified."
+    },
+    "recording": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "triage": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "validation": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "allowed_repo_hosts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "forge_hosts": {
+      "type": "object",
+      "additionalProperties": {
+        "enum": [
+          "github",
+          "gitlab"
+        ]
+      },
+      "description": "Forge kind per host; github.com and gitlab.com when absent."
+    },
+    "locations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "workspace": {
+          "type": "string",
+          "description": "Workspace root the harness reads source repos from."
+        },
+        "analysis_results": {
+          "type": "string",
+          "description": "Where findings-side artifacts live: a local path or a file:// URI."
+        },
+        "portfolio_graph": {
+          "type": "string",
+          "description": "The portfolio graph DB; <analysis_results>/graph/portfolio-graph.db when unset."
+        },
+        "progress_tracker": {
+          "type": "string",
+          "description": "Metrics/progress output tree."
+        },
+        "rule_drafts": {
+          "type": "string",
+          "description": "Rule-draft staging directory; <progress_tracker>/metrics/rule-mining/rule-drafts when unset."
+        },
+        "feeds_cache": {
+          "type": "string",
+          "description": "Cache directory for fetched feed data."
+        },
+        "gitleaks_config": {
+          "type": "string",
+          "description": "The gitleaks rules TOML for the secret pre-scan; the pack's when unset."
+        },
+        "opengrep_rules": {
+          "type": "string",
+          "description": "Directory of the opengrep rule pack; the pack's when unset."
+        },
+        "product_definitions": {
+          "type": "string",
+          "description": "Endpoint of the product/ownership registry; unset means it is not fetched."
+        },
+        "sarif_tool_uri": {
+          "type": "string",
+          "description": "informationUri stamped into exported SARIF; omitted when unset."
+        },
+        "inputs": {
+          "type": "string",
+          "description": "The repository-inventory tree; <workspace>/inputs when unset."
+        }
+      },
+      "description": "Where the harness reads and writes runtime data (formerly locations.yaml). Local paths may be relative to the config home; URIs stay as written."
+    }
+  }
+}

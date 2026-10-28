@@ -7,34 +7,24 @@ relational contract for the one-owner data model).
 
 ## Configuration contract
 
-Contracts owns the configuration *mechanism* for the whole stack — mechanism
-only, never estate data:
+Configuration comes in three tiers, and contracts owns the shape of each:
 
-- **MANIFEST** — the authoritative list of config files (name, required/optional,
-  schema, typed model). The single source of truth for “what config exists.”
-- **Schemas** — `config/v1/*.schema.json`, applied at load time (versioned
-  separately from the `artifacts_schema/v1` schemas).
-- **Typed sections + `HarnessContext`** — each file parses into a typed model;
-  `HarnessContext` is the frozen bundle of them all.
-- **The loader** — `load_context()` (resolve the whole context at an entry point)
-  and `load_section()` (one file, for narrow feature-gated readers). Resolution is
-  `$TRAUST_CONFIG_HOME`, else the documented default `~/.traust/config` — no env
-  overrides, no cwd scanning, no second root.
+| Tier | What | Shape here |
+|---|---|---|
+| 0 · baked policy | tool pins, base safe-exec profiles, the feeds registry | `config/v1/external-tools`, `safe-exec-profiles`, `feeds` schemas; the documents ship in traust-core |
+| 1 · bootstrap | the record and object stores, identity, ledger keys, process, http and logging limits, `locations` | one `traust.yaml`: `config/v1/traust.schema.json` (it absorbed `storage.yaml`, `ledger.yaml` and `locations.yaml`) |
+| 2 · settings | lane budgets, SLA policy, rule-pack allowlist, feed access, execution boundaries, remediation target, product-definitions map, org parameters, ADR registry, compliance mapping, benchmark targets | `enums/v1/settings-kind.json` names them; each is an artifact schema of the same name |
 
-Consumers declare the subset they need and receive an injected `HarnessContext`
-(`traust_engine` never loads config itself); the app (`traust`) is the config
-*source* (templates + `install_traust`) and resolves the context once per entry
-point. One loader → no two callers disagree about “what the config is.”
-Optional `storage.yaml` (e.g. `dsn: postgresql://localhost/traust`) loads as
-`context.storage`; `load_section("storage")` provides narrow access. Callers open
-connections; the write protocol (Store) is rebuilt against the new data model.
-Optional `ledger.yaml` loads as `context.ledger`: `dsn` (SQLAlchemy URL, usually the
-storage database under the ledger's own role) makes the Ledger database the
-authority for disposition layers, with layer files as read-only snapshots; without
-`dsn`, layer files are the ledger. `signing` (method, key path, keyless options,
-`required`) and `identity` (token issuer/audience/JWKS, directory command) apply in
-both modes. Secrets (keypair password, tokens) never go in the file.
-End-to-end architecture: `traust/docs/architecture.md` → *Configuration & context*.
+A Tier 2 setting is a scope-ref document: imported whole with no assessment, versioned by
+traust-core's settings service (`traust settings`), latest wins. Every settings schema
+carries the same optional `revision` block (`set_by`, `reason`, `set_at`), which the
+service writes from the verified caller and its clock, so each version says who changed it
+and why. `compliance-scope` is scope-ref too, but the compliance service declares it per
+boundary, so it is not a setting.
+
+The config home (`$TRAUST_CONFIG_HOME`, else `~/.traust/config`) still holds the model
+registry and the export tooling's inputs: `MANIFEST` lists them, `load_context()` /
+`load_section()` load them, and `config_completeness_audit()` reports what is missing.
 
 ## Install
 

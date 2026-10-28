@@ -54,6 +54,32 @@
           }
         }
       }
+    },
+    "revision": {
+      "type": "object",
+      "description": "Who set this version and why. Written by traust-core's settings service from the verified caller (or the recording run) and its clock; a caller never supplies it.",
+      "required": [
+        "set_by",
+        "reason",
+        "set_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "set_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The principal (<kind>:<identity>) or run that set this version."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why it changed, in the setter's words."
+        },
+        "set_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     }
   }
 }

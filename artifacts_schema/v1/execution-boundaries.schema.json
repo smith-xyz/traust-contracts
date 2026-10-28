@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/traust-contracts/artifacts_schema/v1/execution-boundaries.schema.json",
+  "title": "Execution boundaries",
+  "description": "How the lanes that run a target repository's own build and test code execute it. none: directly, on a disposable copy with a scrubbed environment (the default); podman: inside a rootless, cap-dropped, network-less nested container, and a lane whose runtime cannot run reports not_attempted instead of weakening the boundary. A Tier 2 setting: a scope-ref document imported whole with no assessment and versioned by traust-core's settings service (`traust settings`), so a change is a successor version with its `revision`, never an edit; readers take the latest.",
+  "type": "object",
+  "required": [
+    "version",
+    "sandbox"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "revision": {
+      "type": "object",
+      "description": "Who set this version and why. Written by traust-core's settings service from the verified caller (or the recording run) and its clock; a caller never supplies it.",
+      "required": [
+        "set_by",
+        "reason",
+        "set_at"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "set_by": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The principal (<kind>:<identity>) or run that set this version."
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Why it changed, in the setter's words."
+        },
+        "set_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "sandbox": {
+      "type": "string",
+      "enum": [
+        "none",
+        "podman"
+      ]
+    }
+  }
+}
