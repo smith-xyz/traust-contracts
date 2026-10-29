@@ -32,7 +32,7 @@ def config_schema_dir(version: str = "v1") -> Path:
 
 
 def config_schema_path(name: str, version: str = "v1") -> Path:
-    """Resolve a config schema by basename (e.g. corpus-config or feeds)."""
+    """Resolve a config schema by basename (e.g. traust or feeds)."""
     if not name.endswith(".schema.json"):
         name = f"{name}.schema.json"
     p = config_schema_dir(version) / name

@@ -21,19 +21,16 @@ only, never estate data:
   `$TRAUST_CONFIG_HOME`, else the documented default `~/.traust/config` — no env
   overrides, no cwd scanning, no second root.
 
-Consumers declare the subset they need and receive an injected `HarnessContext`
-(`traust_engine` never loads config itself); the app (`traust`) is the config
-*source* (templates + `install_traust`) and resolves the context once per entry
-point. One loader → no two callers disagree about “what the config is.”
-Optional `storage.yaml` (e.g. `dsn: postgresql://localhost/traust`) loads as
-`context.storage`; `load_section("storage")` provides narrow access. Callers open
-connections; the write protocol (Store) is rebuilt against the new data model.
-Optional `ledger.yaml` loads as `context.ledger`: `dsn` (SQLAlchemy URL, usually the
-storage database under the ledger's own role) makes the Ledger database the
-authority for disposition layers, with layer files as read-only snapshots; without
-`dsn`, layer files are the ledger. `signing` (method, key path, keyless options,
-`required`) and `identity` (token issuer/audience/JWKS, directory command) apply in
-both modes. Secrets (keypair password, tokens) never go in the file.
+The config home holds two files: `traust.yaml` (`config/v1/traust.schema.json`:
+everything an adopter sets: database, artifacts, identity, ledger key paths,
+budgets, forge hosts and tokens, `locations`, `feeds.osv_access`,
+`execution.sandbox`, `remediation`, `campaign`, `overrides`; secrets only by the
+name of an environment variable) and `model-registry.yaml`. An absent
+`traust.yaml` keeps traust-core's zero-config defaults. traust-core's `Config`
+is the typed reader of `traust.yaml`; product data (tool pins, safe-exec
+profiles, feeds, rule packs) ships with traust and is checked against its
+`config/v1` schema where it is read. `config_completeness_audit()` checks the
+two files.
 End-to-end architecture: `traust/docs/architecture.md` → *Configuration & context*.
 
 ## Install
