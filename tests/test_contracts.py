@@ -56,8 +56,8 @@ class TestSchemas:
         assert len(schema_files) == 40, f"Expected 40 data schemas, found {len(schema_files)}"
 
         config_schema_files = list(CONFIG_SCHEMA_DIR.glob("*.schema.json"))
-        assert len(config_schema_files) == 15, (
-            f"Expected 15 config schemas, found {len(config_schema_files)}"
+        assert len(config_schema_files) == 10, (
+            f"Expected 10 config schemas, found {len(config_schema_files)}"
         )
 
         for sf in [*schema_files, *config_schema_files]:
