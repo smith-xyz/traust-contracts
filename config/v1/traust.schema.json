@@ -502,24 +502,12 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "external_tools": {
-          "type": "string",
-          "description": "Your copy of the shipped tool pins (contracts external-tools)."
-        },
-        "safe_exec_profiles": {
-          "type": "string",
-          "description": "Your copy of the shipped safe-exec profiles (contracts safe-exec-profiles)."
-        },
-        "feeds": {
-          "type": "string",
-          "description": "Your copy of the shipped feeds registry (contracts feeds)."
-        },
         "rule_pack_allowlist": {
           "type": "string",
           "description": "Enables supplemental rule packs (contracts rule-pack-allowlist); shipped empty."
         }
       },
-      "description": "Optional: point at your own copy of a shipped file. Paths are relative to the directory holding traust.yaml."
+      "description": "Optional: enable supplemental rule packs with your own allowlist (path relative to the directory holding traust.yaml). Tool pins, safe-exec profiles and the feeds registry ship with traust and are not adopter-configurable."
     }
   }
 }
