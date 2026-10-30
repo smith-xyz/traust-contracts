@@ -88,6 +88,14 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
+        "outputs": {
+          "type": "array",
+          "items": {
+            "enum": ["stderr", "file"]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
         "level": {
           "type": "string"
         },
