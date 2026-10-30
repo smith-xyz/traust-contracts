@@ -54,6 +54,7 @@ EXAMPLE = {
         "workspace": "~/work/traust",
         "analysis_results": "/srv/ar",
         "progress_tracker": "/srv/pt",
+        "mirror_cache": "/srv/mirrors",
     },
     "feeds": {"osv_access": "air-gapped"},
     "execution": {"sandbox": "podman"},
