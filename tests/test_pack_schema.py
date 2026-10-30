@@ -119,3 +119,76 @@ def test_an_invalid_pack_is_rejected(validator: Draft202012Validator, pack: dict
 def test_a_clock_time_job_is_a_cron_trigger(validator: Draft202012Validator) -> None:
     validator.validate(_with("feeds_cache", trigger={"on_cron": "0 7 * * 1"}))
     validator.validate(_with("feeds_cache", trigger={"on_cron": "*/15 0-6 1,15 * mon-fri"}))
+
+
+def test_an_asset_declares_what_preflight_requires(validator: Draft202012Validator) -> None:
+    validator.validate(
+        _with(
+            "diff_scan",
+            requires={
+                "tools": ["gitleaks", "opengrep"],
+                "config": ["locations", "forge_tokens", "model-registry"],
+                "facts": ["sla-policy", "product-definitions-map"],
+                "feeds": ["osv", "deps_dev"],
+                "secrets": ["GITHUB_TOKEN", "NVD_API_KEY"],
+            },
+        )
+    )
+
+
+def test_a_disabled_asset_needs_no_requirements(validator: Draft202012Validator) -> None:
+    validator.validate(_with("diff_scan", enabled=False))
+    validator.validate(_with("diff_scan", enabled=False, requires={"tools": ["gitleaks"]}))
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"enabled": True},
+        {"requires": {}},
+        {"requires": {"tools": []}},
+        {"requires": {"skills": ["triage"]}},
+        {"requires": {"config": ["storage"]}},
+        {"requires": {"facts": ["org-chart"]}},
+        {"requires": {"secrets": ["1BAD"]}},
+        {"requires": {"tools": ["gitleaks", "gitleaks"]}},
+    ],
+    ids=[
+        "enabled true",
+        "empty requires",
+        "empty requirement list",
+        "unknown requirement kind",
+        "retired config key",
+        "unknown fact",
+        "secret not an env name",
+        "duplicate tool",
+    ],
+)
+def test_an_invalid_requirement_is_rejected(
+    validator: Draft202012Validator, fields: dict[str, Any]
+) -> None:
+    with pytest.raises(ValidationError):
+        validator.validate(_with("diff_scan", **fields))
+
+
+def test_config_requirements_name_traust_yaml_keys() -> None:
+    pack = json.loads(SCHEMA.read_text())
+    traust = json.loads((SCHEMA.parent / "traust.schema.json").read_text())
+    allowed = pack["$defs"]["asset"]["properties"]["requires"]["properties"]["config"]["items"][
+        "enum"
+    ]
+    assert set(allowed) == set(traust["properties"]) | {"model-registry"}
+
+
+def test_fact_requirements_name_core_recorded_facts() -> None:
+    pack = json.loads(SCHEMA.read_text())
+    allowed = pack["$defs"]["asset"]["properties"]["requires"]["properties"]["facts"]["items"][
+        "enum"
+    ]
+    assert allowed == [
+        "adr-registry",
+        "benchmark-target",
+        "org-parameters",
+        "product-definitions-map",
+        "sla-policy",
+    ]
