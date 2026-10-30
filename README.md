@@ -85,6 +85,21 @@ pack version), the budget verdict at admission, the approval, progress and degra
 Each change is a new artifact; the manifest doesn't name its order, so orders in the same
 state share one artifact.
 
+## Artifact-only sessions
+
+`artifacts_schema/v1/session-task.schema.json` declares a runner's staged input files,
+resolved models and one schema-named output. All paths are relative to the task directory;
+`run_id` is the order UUID, or null for a manual session. The executor's identity, measured
+usage and optional error use `artifacts_schema/v1/session-result.schema.json`.
+
+The run manifest's optional `sessions` list records runner-computed task and input digests,
+input sizes, and the declared output's digest and recorded artifact UUID. Missing output has
+a null digest; unrecorded output has a null artifact UUID. A recorded output always has a
+digest. Orders without sessions retain their existing manifest shape. The operational
+`session-output-invalid` reason identifies missing output or failed schema/recording lint.
+The recording boundary checks unique input paths in linear time; object-level array
+uniqueness is deliberately not a schema check for potentially large staged source trees.
+
 ## Validation plan
 
 `artifacts_schema/v1/validation-plan.schema.json` is a strict structural contract for the

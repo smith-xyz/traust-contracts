@@ -57,6 +57,12 @@
         "updated_at": {"type": "string", "format": "date-time"}
       }
     },
+    "sessions": {
+      "description": "Runner-computed evidence of staged inputs and the declared output, including failed sessions. Entries are append-only; an identical retry is not appended twice.",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/session"}
+    },
     "degraded": {
       "description": "What the run could not see, by key (e.g. unreachable, quota-deferred, db-stale), with a count. A degraded order is never reported green.",
       "type": "object",
@@ -65,6 +71,44 @@
     }
   },
   "$defs": {
+    "session": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill", "mode", "executor_session", "models", "task_sha256", "inputs", "output"],
+      "properties": {
+        "skill": {"$ref": "session-task.schema.json#/$defs/name"},
+        "mode": {"$ref": "session-task.schema.json#/$defs/name"},
+        "executor_session": {"type": ["string", "null"], "minLength": 1},
+        "models": {"$ref": "session-task.schema.json#/$defs/models"},
+        "task_sha256": {"$ref": "#/$defs/sha256"},
+        "inputs": {
+          "description": "One entry per task-relative file path, sorted by path. The recording boundary enforces unique paths in linear time.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "bytes", "sha256"],
+            "properties": {
+              "path": {"$ref": "session-task.schema.json#/$defs/path"},
+              "bytes": {"type": "integer", "minimum": 0},
+              "sha256": {"$ref": "#/$defs/sha256"}
+            }
+          }
+        },
+        "output": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "artifact_id"],
+          "properties": {
+            "path": {"allOf": [{"$ref": "session-task.schema.json#/$defs/path"}, {"pattern": "^output/"}]},
+            "sha256": {"oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+            "artifact_id": {"type": ["string", "null"], "format": "uuid"}
+          },
+          "allOf": [{"if": {"properties": {"artifact_id": {"type": "string"}}}, "then": {"properties": {"sha256": {"$ref": "#/$defs/sha256"}}}}]
+        }
+      }
+    },
+    "sha256": {"type": "string", "minLength": 64, "maxLength": 64, "pattern": "^[0-9a-f]{64}$"},
     "degraded_key": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]*$",
