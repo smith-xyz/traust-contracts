@@ -67,10 +67,16 @@ def test_config_path_and_optional(tmp_path, monkeypatch):
     home = tmp_path / "cfg"
     _write_minimal_config(home)
     monkeypatch.setenv(TRAUST_CONFIG_HOME_ENV, str(home))
+    # Probe absence with a name no fixture home provides: this test's fixture
+    # helper copies a sibling checkout's config fixtures, whose contents can
+    # drift, so "feeds.yaml" may exist there and never raise.
+    with pytest.raises(DeploymentConfigMissing, match=r"absent-required\.yaml"):
+        config_path("absent-required.yaml")
+    (home / "feeds.yaml").write_text("sources: {}\n", encoding="utf-8")
     assert config_path("feeds.yaml") == home / "feeds.yaml"
-    assert optional_config_path("locations.yaml") is None
-    (home / "locations.yaml").write_text("workspace: /x\n", encoding="utf-8")
-    assert optional_config_path("locations.yaml") == home / "locations.yaml"
+    assert optional_config_path("unused.yaml") is None
+    (home / "unused.yaml").write_text("x: 1\n", encoding="utf-8")
+    assert optional_config_path("unused.yaml") == home / "unused.yaml"
 
 
 def test_load_section_locations_normalizes(tmp_path):
