@@ -171,10 +171,20 @@ def test_an_empty_traust_yaml_loads_as_no_settings(tmp_path: Path) -> None:
 
 
 def test_relative_locations_resolve_against_the_home(tmp_path: Path) -> None:
-    home = _home(tmp_path, {"locations": {"workspace": "ws", "analysis_results": "s3://b/ar"}})
+    home = _home(
+        tmp_path,
+        {
+            "locations": {
+                "workspace": "ws",
+                "analysis_results": "s3://b/ar",
+                "mirror_cache": "mirrors",
+            }
+        },
+    )
     locations = load_context(config_home=home).traust.locations
     assert locations.workspace == str((home / "ws").resolve())
     assert locations.analysis_results == "s3://b/ar"
+    assert locations.mirror_cache == str((home / "mirrors").resolve())
 
 
 def test_the_audit_of_a_filled_traust_yaml_is_clean(tmp_path: Path) -> None:
