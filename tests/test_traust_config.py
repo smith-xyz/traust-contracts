@@ -103,6 +103,17 @@ def test_the_schema_accepts(document: dict) -> None:
     _validate(document)
 
 
+@pytest.mark.parametrize("outputs", [["stderr"], ["file"], ["stderr", "file"]])
+def test_logging_outputs_are_selectable(outputs: list[str]) -> None:
+    _validate({"logging": {"outputs": outputs}})
+
+
+@pytest.mark.parametrize("outputs", [[], ["stdout"], ["stderr", "stderr"]])
+def test_logging_outputs_are_nonempty_known_and_unique(outputs: list[str]) -> None:
+    with pytest.raises(jsonschema.ValidationError):
+        _validate({"logging": {"outputs": outputs}})
+
+
 @pytest.mark.parametrize(
     "document",
     [
