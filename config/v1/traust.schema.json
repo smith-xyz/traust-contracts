@@ -476,6 +476,10 @@
           "type": "string",
           "description": "Cache directory for fetched feed data."
         },
+        "mirror_cache": {
+          "type": "string",
+          "description": "Git mirror cache root for repository checkouts; relative paths resolve against the config home."
+        },
         "gitleaks_config": {
           "type": "string",
           "description": "The gitleaks rules TOML. Overrides the bundled default."
