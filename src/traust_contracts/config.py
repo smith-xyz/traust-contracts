@@ -177,6 +177,7 @@ class Locations(_Section):
     opengrep_rules: str | None = None
     product_definitions: str | None = None
     sarif_tool_uri: str | None = None
+    mirror_cache: str | None = None
 
 
 class TraustConfig(_Section):
@@ -245,6 +246,7 @@ _LOCATION_PATH_FIELDS = (
     "feeds_cache",
     "gitleaks_config",
     "opengrep_rules",
+    "mirror_cache",
 )
 
 
